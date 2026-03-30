@@ -174,13 +174,13 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 const Navbar = () => {
-  const { profile, logout } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-6 z-50">
-      <div className="flex items-center gap-8">
-        <Link to="/" className="text-2xl font-black tracking-tighter text-orange-500 italic">BINGO LIVE</Link>
+    <nav className="fixed top-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 md:px-6 z-50">
+      <div className="flex items-center gap-4 md:gap-8">
+        <Link to="/" className="text-xl md:text-2xl font-black tracking-tighter text-orange-500 italic shrink-0">BINGO LIVE</Link>
         <div className="hidden md:flex items-center gap-6 text-sm font-medium text-white/60">
           <Link to="/" className="hover:text-white transition-colors">Explore</Link>
           <Link to="/leaderboard" className="hover:text-white transition-colors">Leaderboard</Link>
@@ -188,16 +188,16 @@ const Navbar = () => {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         {profile && (
-          <div className="flex items-center gap-3 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-            <div className="flex items-center gap-1 text-blue-400 font-bold text-xs">
-              <Diamond size={14} />
+          <div className="flex items-center gap-2 md:gap-3 bg-white/5 px-2 md:px-3 py-1.5 rounded-full border border-white/10">
+            <div className="flex items-center gap-1 text-blue-400 font-bold text-[10px] md:text-xs">
+              <Diamond size={12} className="md:w-[14px] md:h-[14px]" />
               {profile.diamonds}
             </div>
             <div className="w-px h-3 bg-white/10" />
-            <div className="flex items-center gap-1 text-orange-400 font-bold text-xs">
-              <Coins size={14} />
+            <div className="flex items-center gap-1 text-orange-400 font-bold text-[10px] md:text-xs">
+              <Coins size={12} className="md:w-[14px] md:h-[14px]" />
               {profile.beans}
             </div>
           </div>
@@ -205,7 +205,7 @@ const Navbar = () => {
         
         <button 
           onClick={() => navigate('/profile')}
-          className="w-10 h-10 rounded-full bg-white/10 border border-white/20 overflow-hidden hover:scale-105 transition-transform"
+          className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/10 border border-white/20 overflow-hidden hover:scale-105 transition-transform shrink-0"
         >
           {profile?.photoURL ? (
             <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -794,7 +794,7 @@ const PermissionGuide = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: string; hostUid: string }) => {
+const VideoStream = React.memo(({ isHost, roomId, hostUid }: { isHost: boolean; roomId: string; hostUid: string }) => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -810,26 +810,34 @@ const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: str
         }
 
         try {
+          // Absolute minimum latency: let the browser pick the most efficient path
+          // and use a lower resolution to ensure zero processing delay
           const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720 },
+            video: { 
+              width: { ideal: 640 },
+              height: { ideal: 360 },
+              frameRate: { ideal: 30 }
+            },
             audio: true
           });
           setStream(mediaStream);
-          setError(null); // Clear any previous errors
+          setError(null);
           if (videoRef.current) {
             videoRef.current.srcObject = mediaStream;
           }
         } catch (err: any) {
           console.error('Error accessing media devices:', err);
+          const errMsg = err.toString().toLowerCase();
           const isPermissionError = 
             err.name === 'NotAllowedError' || 
             err.name === 'PermissionDeniedError' || 
-            (err.message && err.message.toLowerCase().includes('permission denied'));
+            errMsg.includes('permission denied') ||
+            errMsg.includes('notallowederror');
 
           if (isPermissionError) {
             setError('Permission denied. Your browser or system is blocking access to the camera and microphone.');
-            setShowGuide(true); // Auto-show the guide for permission denials
-          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            setShowGuide(true);
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' || errMsg.includes('notfounderror')) {
             setError('No camera or microphone found. Please connect your devices and try again.');
           } else {
             setError(`Error: ${err.message || 'Could not access camera/microphone.'}`);
@@ -848,23 +856,31 @@ const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: str
 
   if (error) {
     return (
-      <div className="text-center p-8 flex flex-col items-center justify-center h-full">
+      <div className="text-center p-8 flex flex-col items-center justify-center h-full bg-slate-900">
         <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
           <Shield size={40} className="text-red-500" />
         </div>
         <p className="text-white font-bold text-lg mb-2">Access Required</p>
         <p className="text-white/40 text-sm mb-8 max-w-xs mx-auto">{error}</p>
-        <button 
-          onClick={() => setShowGuide(true)}
-          className="px-8 py-3 bg-white text-black font-black rounded-xl hover:scale-105 transition-transform"
-        >
-          HOW TO ENABLE
-        </button>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button 
+            onClick={() => setShowGuide(true)}
+            className="w-full py-4 bg-orange-500 text-white font-black rounded-2xl hover:scale-[1.02] transition-transform"
+          >
+            HOW TO ENABLE
+          </button>
+          <button 
+            onClick={() => setRetryTrigger(prev => prev + 1)}
+            className="w-full py-4 bg-white/10 text-white font-black rounded-2xl hover:bg-white/20 transition-colors"
+          >
+            RETRY NOW
+          </button>
+        </div>
         {showGuide && (
           <PermissionGuide 
             onClose={() => {
               setShowGuide(false);
-              setRetryTrigger(prev => prev + 1); // Auto-retry when guide is closed
+              setRetryTrigger(prev => prev + 1);
             }} 
           />
         )}
@@ -874,15 +890,17 @@ const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: str
 
   if (isHost) {
     return (
-      <div className="relative w-full h-full">
+      <div className="relative w-full h-full bg-black overflow-hidden z-0">
         <video
           ref={videoRef}
           autoPlay
           muted
           playsInline
-          className="w-full h-full object-cover"
+          disablePictureInPicture
+          style={{ transform: 'translateZ(0)' }} // Force hardware acceleration
+          className="relative w-full h-full object-cover z-0"
         />
-        <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded uppercase animate-pulse">
+        <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded uppercase animate-pulse z-30">
           Live
         </div>
       </div>
@@ -894,7 +912,7 @@ const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: str
       <div className="absolute inset-0 overflow-hidden">
         <img 
           src={`https://picsum.photos/seed/${roomId}/1280/720`} 
-          className="w-full h-full object-cover opacity-20 blur-xl"
+          className="w-full h-full object-cover opacity-10" // Removed blur entirely for max performance
           referrerPolicy="no-referrer"
         />
       </div>
@@ -915,7 +933,7 @@ const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: str
       </div>
     </div>
   );
-};
+});
 
 const RoomPage = () => {
   const { roomId } = useParams();
@@ -989,24 +1007,24 @@ const RoomPage = () => {
   if (!room) return <div className="p-24 text-center">Loading stream...</div>;
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] lg:h-[calc(100vh-64px)] overflow-hidden">
       {/* Video Area */}
-      <div className="flex-1 bg-black relative flex items-center justify-center">
-        <div className="absolute inset-0 overflow-hidden">
+      <div className="h-[40vh] lg:h-full lg:flex-1 bg-black relative flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <img 
             src={`https://picsum.photos/seed/${room.id}/1920/1080`} 
-            className="w-full h-full object-cover opacity-20 blur-xl" // Reduced opacity and blur for performance
+            className="w-full h-full object-cover opacity-10" // Removed blur entirely for max performance
             referrerPolicy="no-referrer"
           />
         </div>
         
-        <div className="relative z-10 aspect-video w-full max-w-5xl bg-white/5 rounded-3xl border border-white/10 overflow-hidden shadow-2xl flex items-center justify-center">
+        <div className="relative z-10 aspect-video w-full max-w-5xl bg-white/5 lg:rounded-3xl border-y lg:border border-white/10 overflow-hidden shadow-2xl flex items-center justify-center">
           {room.status === 'ended' ? (
-            <div className="text-center">
-              <Video size={80} className="mx-auto mb-4 text-white/20" />
-              <p className="text-white font-black italic uppercase text-2xl mb-2">Stream Ended</p>
-              <p className="text-white/40 text-sm">Total Beans Earned: {room.currentBeans}</p>
-              <button onClick={() => window.history.back()} className="mt-8 px-8 py-3 bg-white text-black font-bold rounded-xl">Go Back</button>
+            <div className="text-center p-6">
+              <Video size={48} className="mx-auto mb-4 text-white/20 md:w-20 md:h-20" />
+              <p className="text-white font-black italic uppercase text-lg md:text-2xl mb-2">Stream Ended</p>
+              <p className="text-white/40 text-xs md:text-sm">Total Beans Earned: {room.currentBeans}</p>
+              <button onClick={() => window.history.back()} className="mt-6 px-6 py-2 md:px-8 md:py-3 bg-white text-black font-bold rounded-xl text-sm">Go Back</button>
             </div>
           ) : (
             <VideoStream isHost={profile?.uid === room.hostUid} roomId={room.id} hostUid={room.hostUid} />
@@ -1015,27 +1033,27 @@ const RoomPage = () => {
           {/* Stream Overlay (Only if live) */}
           {room.status === 'live' && (
             <>
-              <div className="absolute top-6 left-6 flex items-center gap-3 z-20">
-                <div className="w-12 h-12 rounded-full bg-white/20 border-2 border-orange-500 p-0.5">
+              <div className="absolute top-4 left-4 md:top-6 md:left-6 flex items-center gap-2 md:gap-3 z-30">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/20 border-2 border-orange-500 p-0.5">
                   <img src={`https://picsum.photos/seed/${room.hostUid}/100/100`} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
                 </div>
                 <div>
-                  <p className="text-white font-bold text-sm">Host Name</p>
+                  <p className="text-white font-bold text-xs md:text-sm">Host Name</p>
                   <div className="flex items-center gap-2">
-                    <span className="text-white/40 text-[10px] font-bold uppercase tracking-tighter">ID: {room.hostUid.substring(0, 8)}</span>
+                    <span className="text-white/40 text-[8px] md:text-[10px] font-bold uppercase tracking-tighter">ID: {room.hostUid.substring(0, 8)}</span>
                     <div className="bg-orange-500/20 text-orange-500 text-[8px] font-black px-1.5 py-0.5 rounded uppercase">LV. 42</div>
                   </div>
                 </div>
               </div>
 
-              <div className="absolute top-6 right-6 flex gap-2 z-20">
-                <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
-                  <Users size={14} className="text-white/60" />
-                  <span className="text-white font-bold text-xs">{room.viewerCount}</span>
+              <div className="absolute top-4 right-4 md:top-6 md:right-6 flex gap-2 z-30">
+                <div className="bg-black/40 backdrop-blur-md px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 md:gap-2 border border-white/10">
+                  <Users size={12} className="text-white/60 md:w-[14px] md:h-[14px]" />
+                  <span className="text-white font-bold text-[10px] md:text-xs">{room.viewerCount}</span>
                 </div>
-                <div className="bg-orange-500/20 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-orange-500/20">
-                  <Coins size={14} className="text-orange-500" />
-                  <span className="text-orange-500 font-bold text-xs">{room.currentBeans}</span>
+                <div className="bg-orange-500/20 backdrop-blur-md px-2 py-1 md:px-3 md:py-1.5 rounded-full flex items-center gap-1 md:gap-2 border border-orange-500/20">
+                  <Coins size={12} className="text-orange-500 md:w-[14px] md:h-[14px]" />
+                  <span className="text-orange-500 font-bold text-[10px] md:text-xs">{room.currentBeans}</span>
                 </div>
               </div>
             </>
@@ -1044,50 +1062,50 @@ const RoomPage = () => {
 
         {/* Action Bar */}
         {room.status === 'live' && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/40 backdrop-blur-xl px-8 py-4 rounded-full border border-white/10">
-            <button className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
-              <Mic size={24} />
+          <div className="absolute bottom-4 lg:bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 md:gap-4 bg-black/40 backdrop-blur-xl px-4 py-2 md:px-8 md:py-4 rounded-full border border-white/10 z-40">
+            <button className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
+              <Mic size={20} className="md:w-6 md:h-6" />
             </button>
-            <button className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
-              <Video size={24} />
+            <button className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
+              <Video size={20} className="md:w-6 md:h-6" />
             </button>
-            <div className="w-px h-8 bg-white/10 mx-2" />
+            <div className="w-px h-6 md:h-8 bg-white/10 mx-1 md:mx-2" />
             {profile?.uid === room.hostUid ? (
-              <button onClick={endStream} className="px-6 py-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-black transition-colors">END STREAM</button>
+              <button onClick={endStream} className="px-4 py-2 md:px-6 md:py-3 rounded-full bg-red-500 hover:bg-red-600 text-white font-black text-xs md:text-sm transition-colors">END</button>
             ) : (
               <button 
                 onClick={() => setShowGifts(true)}
-                className="px-6 py-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-black flex items-center gap-2 transition-colors"
+                className="px-4 py-2 md:px-6 md:py-3 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-black flex items-center gap-2 text-xs md:text-sm transition-colors"
               >
-                <GiftIcon size={20} />
-                SEND GIFT
+                <GiftIcon size={16} className="md:w-5 md:h-5" />
+                GIFT
               </button>
             )}
-            <button className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
-              <Share2 size={24} />
+            <button className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">
+              <Share2 size={20} className="md:w-6 md:h-6" />
             </button>
           </div>
         )}
       </div>
 
       {/* Chat Area */}
-      <div className="w-full lg:w-96 bg-[#0a0a0a] border-l border-white/10 flex flex-col">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <h3 className="font-black italic uppercase text-sm tracking-widest text-white/60">Live Chat</h3>
-          <div className="flex items-center gap-1 text-orange-500 font-bold text-xs">
-            <Zap size={12} fill="currentColor" />
+      <div className="flex-1 lg:flex-none lg:w-96 bg-[#0a0a0a] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col overflow-hidden">
+        <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between shrink-0">
+          <h3 className="font-black italic uppercase text-[10px] md:text-sm tracking-widest text-white/60">Live Chat</h3>
+          <div className="flex items-center gap-1 text-orange-500 font-bold text-[10px] md:text-xs">
+            <Zap size={10} className="md:w-3 md:h-3" fill="currentColor" />
             9.4k
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 scrollbar-hide">
           {messages.map(msg => (
-            <div key={msg.id} className="flex gap-3 items-start">
-              <img src={msg.photoURL} className="w-8 h-8 rounded-full bg-white/10" referrerPolicy="no-referrer" />
+            <div key={msg.id} className="flex gap-2 md:gap-3 items-start">
+              <img src={msg.photoURL} className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/10" referrerPolicy="no-referrer" />
               <div>
-                <p className="text-xs font-bold text-white/40 mb-0.5">{msg.displayName}</p>
+                <p className="text-[10px] font-bold text-white/40 mb-0.5">{msg.displayName}</p>
                 <div className={cn(
-                  "px-3 py-2 rounded-2xl rounded-tl-none text-sm",
+                  "px-2 py-1.5 md:px-3 md:py-2 rounded-xl md:rounded-2xl rounded-tl-none text-xs md:text-sm",
                   msg.isGift ? "bg-orange-500/20 text-orange-500 border border-orange-500/20 font-bold italic" : "bg-white/5 text-white/80"
                 )}>
                   {msg.text}
@@ -1098,16 +1116,16 @@ const RoomPage = () => {
         </div>
 
         {room.status === 'live' && (
-          <form onSubmit={sendMessage} className="p-4 border-t border-white/10">
+          <form onSubmit={sendMessage} className="p-3 md:p-4 border-t border-white/10 shrink-0 mb-16 lg:mb-0">
             <div className="relative">
               <input 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Say something..."
-                className="w-full bg-white/5 border border-white/10 rounded-full px-6 py-3 text-sm text-white focus:outline-none focus:border-orange-500 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-full px-4 py-2 md:px-6 md:py-3 text-xs md:text-sm text-white focus:outline-none focus:border-orange-500 transition-colors"
               />
               <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-orange-500 hover:text-orange-400">
-                <Zap size={20} fill="currentColor" />
+                <Zap size={16} className="md:w-5 md:h-5" fill="currentColor" />
               </button>
             </div>
           </form>
@@ -1280,6 +1298,54 @@ const ProfilePage = () => {
   );
 };
 
+const BottomNav = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showGoLive, setShowGoLive] = useState(false);
+
+  return (
+    <>
+      <div className="fixed bottom-0 left-0 right-0 h-16 bg-black/80 backdrop-blur-md border-t border-white/10 flex sm:hidden items-center justify-around px-2 z-50">
+        <button 
+          onClick={() => navigate('/')}
+          className={cn("flex flex-col items-center gap-1", location.pathname === '/' ? "text-orange-500" : "text-white/40")}
+        >
+          <HomeIcon size={20} />
+          <span className="text-[10px] font-bold">Live</span>
+        </button>
+        <button 
+          onClick={() => navigate('/leaderboard')}
+          className={cn("flex flex-col items-center gap-1", location.pathname === '/leaderboard' ? "text-orange-500" : "text-white/40")}
+        >
+          <Trophy size={20} />
+          <span className="text-[10px] font-bold">Top</span>
+        </button>
+        <button 
+          onClick={() => setShowGoLive(true)}
+          className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white -mt-8 border-4 border-[#050505] shadow-lg active:scale-95 transition-transform"
+        >
+          <Plus size={24} />
+        </button>
+        <button 
+          onClick={() => navigate('/following')}
+          className={cn("flex flex-col items-center gap-1", location.pathname === '/following' ? "text-orange-500" : "text-white/40")}
+        >
+          <Users size={20} />
+          <span className="text-[10px] font-bold">Follow</span>
+        </button>
+        <button 
+          onClick={() => navigate('/profile')}
+          className={cn("flex flex-col items-center gap-1", location.pathname === '/profile' ? "text-orange-500" : "text-white/40")}
+        >
+          <UserIcon size={20} />
+          <span className="text-[10px] font-bold">Me</span>
+        </button>
+      </div>
+      {showGoLive && <GoLiveModal onClose={() => setShowGoLive(false)} />}
+    </>
+  );
+};
+
 const AppContent = () => {
   const { user, profile, loading } = useAuth();
 
@@ -1296,7 +1362,7 @@ const AppContent = () => {
       <Navbar />
       <div className="pt-16 flex">
         <Sidebar />
-        <main className="flex-1 sm:ml-20 md:ml-64 min-h-[calc(100vh-64px)]">
+        <main className="flex-1 sm:ml-20 md:ml-64 min-h-[calc(100vh-64px)] pb-16 sm:pb-0">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
@@ -1306,6 +1372,7 @@ const AppContent = () => {
           </Routes>
         </main>
       </div>
+      <BottomNav />
     </div>
   );
 };
