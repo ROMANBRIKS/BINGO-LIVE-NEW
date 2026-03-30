@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user in the Bingo Live platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User's display name" },
+        "photoURL": { "type": "string", "description": "User's profile picture URL" },
+        "diamonds": { "type": "number", "description": "Current diamond balance" },
+        "beans": { "type": "number", "description": "Current bean balance (convertible to cash)" },
+        "role": { "type": "string", "enum": ["user", "host", "agency", "admin"], "description": "User's role" },
+        "nobleTitle": { "type": "string", "enum": ["none", "Baron", "Earl", "Duke"], "description": "VIP noble title" },
+        "agencyId": { "type": "string", "description": "ID of the agency the user belongs to (if host)" },
+        "familyId": { "type": "string", "description": "ID of the host family" },
+        "totalDiamondsSpent": { "type": "number", "description": "Total diamonds spent for leaderboard" },
+        "totalBeansEarned": { "type": "number", "description": "Total beans earned for host salary" },
+        "referralCode": { "type": "string", "description": "User's unique referral code" },
+        "invitedBy": { "type": "string", "description": "UID of the user who invited this user" }
+      },
+      "required": ["uid", "displayName", "diamonds", "beans", "role"]
+    },
+    "Agency": {
+      "title": "Agency",
+      "description": "Represents an agency managing hosts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Agency unique ID" },
+        "name": { "type": "string", "description": "Agency name" },
+        "ownerUid": { "type": "string", "description": "UID of the agency owner" },
+        "tier": { "type": "number", "description": "Agency tier (1-5)" },
+        "commissionRate": { "type": "number", "description": "Agency commission percentage" },
+        "rebateRate": { "type": "number", "description": "Agency rebate percentage" },
+        "totalHosts": { "type": "number", "description": "Number of hosts in the agency" }
+      },
+      "required": ["id", "name", "ownerUid", "tier"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Represents a live streaming room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Room unique ID (usually host UID)" },
+        "hostUid": { "type": "string", "description": "UID of the host" },
+        "title": { "type": "string", "description": "Room title" },
+        "status": { "type": "string", "enum": ["live", "ended"], "description": "Current stream status" },
+        "type": { "type": "string", "enum": ["video", "audio"], "description": "Stream type" },
+        "currentBeans": { "type": "number", "description": "Beans earned in the current session" },
+        "viewerCount": { "type": "number", "description": "Current number of viewers" },
+        "guests": { "type": "array", "items": { "type": "string" }, "description": "List of guest UIDs" },
+        "isPrivate": { "type": "boolean", "description": "Whether the session is encrypted/private" }
+      },
+      "required": ["id", "hostUid", "status", "type"]
+    },
+    "Gift": {
+      "title": "Gift",
+      "description": "Represents a gift item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Gift ID" },
+        "name": { "type": "string", "description": "Gift name" },
+        "cost": { "type": "number", "description": "Cost in diamonds" },
+        "animationType": { "type": "string", "description": "Type of animation to play" }
+      },
+      "required": ["id", "name", "cost"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Represents a diamond/bean transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction ID" },
+        "fromUid": { "type": "string", "description": "Sender UID" },
+        "toUid": { "type": "string", "description": "Receiver UID" },
+        "amount": { "type": "number", "description": "Amount of diamonds/beans" },
+        "type": { "type": "string", "enum": ["purchase", "gift", "salary", "rebate"], "description": "Transaction type" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Transaction time" }
+      },
+      "required": ["id", "fromUid", "toUid", "amount", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles and balances."
+    },
+    "/agencies/{agencyId}": {
+      "schema": "Agency",
+      "description": "Agency details and tiers."
+    },
+    "/rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Live stream room states."
+    },
+    "/gifts/{giftId}": {
+      "schema": "Gift",
+      "description": "Available gift items."
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "History of all financial movements."
+    }
+  }
+}

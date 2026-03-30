@@ -1,0 +1,8 @@
+{
+  "name": "Bingo Live",
+  "description": "A zero-budget, production-ready live streaming platform with diamond-based gifting, agency tiers, host family systems, and multi-guest rooms.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
