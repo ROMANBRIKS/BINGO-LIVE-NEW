@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc, onSnapshot, collection, query, where, limit, order
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { UserProfile, Room, Gift, Transaction } from './types';
 import { cn } from './lib/utils';
+import { getDeviceType, isIOS, isAndroid, getBrowserName } from './lib/device';
 import { 
   Video, 
   Mic, 
@@ -24,7 +25,21 @@ import {
   Zap,
   Crown,
   Diamond,
-  Coins
+  Coins,
+  Wallet,
+  Briefcase,
+  Calendar,
+  ShoppingBag,
+  FileText,
+  Star,
+  CheckCircle,
+  Users2,
+  ChevronRight,
+  Bell,
+  BarChart2,
+  HelpCircle,
+  TrendingUp,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -75,6 +90,10 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               beans: 0,
               role: u.email === 'rogershep101@gmail.com' ? 'admin' : 'user',
               nobleTitle: 'none',
+              level: 1,
+              friends: 0,
+              following: 0,
+              fans: 0,
               totalDiamondsSpent: 0,
               totalBeansEarned: 0,
               referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
@@ -656,6 +675,248 @@ const RoomCard = ({ room }: { room: Room }) => {
   );
 };
 
+const PermissionGuide = ({ onClose }: { onClose: () => void }) => {
+  const [requesting, setRequesting] = useState(false);
+  const deviceType = getDeviceType();
+  const isIos = isIOS();
+  const isAndr = isAndroid();
+  const browser = getBrowserName();
+
+  const grantAll = async () => {
+    setRequesting(true);
+    try {
+      // Trigger Camera & Mic prompt
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream.getTracks().forEach(t => t.stop());
+      } catch (e) {
+        console.log('Media prompt failed or denied', e);
+      }
+
+      // Trigger Location prompt
+      await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(resolve, resolve, { timeout: 3000 });
+      });
+
+      // Close the guide - the parent will retry automatically
+      onClose();
+    } catch (err) {
+      console.error('Permission request process failed', err);
+      onClose(); // Still close so user can try manual steps
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  const getInstructions = () => {
+    if (isIos) {
+      return [
+        { title: "Tap the 'AA' or Lock Icon", detail: "In Safari's address bar, tap the 'AA' or lock icon on the left." },
+        { title: "Website Settings", detail: "Select 'Website Settings' from the menu." },
+        { title: "Allow Camera & Mic", detail: "Set Camera, Microphone, and Location to 'Allow'." },
+        { title: "Reload Page", detail: "Refresh the page to start your live stream." }
+      ];
+    }
+    if (isAndr) {
+      return [
+        { title: "Tap the Lock Icon", detail: "Tap the lock icon next to the URL in Chrome." },
+        { title: "Permissions", detail: "Tap 'Permissions' or 'Site settings'." },
+        { title: "Toggle Switches", detail: "Ensure Camera, Microphone, and Location are turned ON." },
+        { title: "Refresh", detail: "Pull down to refresh or tap the reload button." }
+      ];
+    }
+    return [
+      { title: "Click the Lock Icon", detail: "Click the lock icon in your browser's address bar." },
+      { title: "Site Settings", detail: "Go to 'Site settings' or toggle the switches directly." },
+      { title: "System Settings", detail: "On macOS: System Settings > Privacy & Security. On Windows: Settings > Privacy > Camera/Microphone. Ensure your browser is allowed." },
+      { title: "Refresh Page", detail: "Reload the application to apply changes." }
+    ];
+  };
+
+  const instructions = getInstructions();
+
+  return (
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-[200] p-6">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-md bg-[#111] rounded-3xl p-8 border border-white/10 relative"
+      >
+        <button onClick={onClose} className="absolute top-6 right-6 text-white/40 hover:text-white">
+          <X size={24} />
+        </button>
+
+        <div className="w-16 h-16 rounded-2xl bg-orange-500/20 flex items-center justify-center mb-6">
+          <Shield size={32} className="text-orange-500" />
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-2xl font-black italic uppercase">Permission Guide</h2>
+            <span className="bg-white/10 text-[10px] font-bold px-2 py-0.5 rounded text-white/60 uppercase">
+              {isIos ? 'iOS' : isAndr ? 'Android' : 'Desktop'}
+            </span>
+          </div>
+          <p className="text-white/40 text-sm">
+            We detected you're on {isIos ? 'an iPhone/iPad' : isAndr ? 'an Android device' : 'a computer'}. 
+            Follow these steps to enable your camera and mic.
+          </p>
+        </div>
+
+        <button 
+          onClick={grantAll}
+          disabled={requesting}
+          className="w-full mb-10 py-4 bg-orange-500 text-white font-black rounded-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {requesting ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Zap size={20} fill="currentColor" />
+              GRANT ACCESS NOW
+            </>
+          )}
+        </button>
+
+        <div className="space-y-6">
+          {instructions.map((step, i) => (
+            <div key={i} className="flex gap-4">
+              <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold shrink-0 border border-white/10">{i + 1}</div>
+              <div>
+                <p className="font-bold text-sm mb-1">{step.title}</p>
+                <p className="text-white/40 text-xs leading-relaxed">{step.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const VideoStream = ({ isHost, roomId, hostUid }: { isHost: boolean; roomId: string; hostUid: string }) => {
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
+  const [retryTrigger, setRetryTrigger] = useState(0);
+
+  useEffect(() => {
+    if (isHost) {
+      const startStream = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setError('Your browser does not support camera/microphone access. Please use a modern browser like Chrome or Safari.');
+          return;
+        }
+
+        try {
+          const mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720 },
+            audio: true
+          });
+          setStream(mediaStream);
+          setError(null); // Clear any previous errors
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+          }
+        } catch (err: any) {
+          console.error('Error accessing media devices:', err);
+          const isPermissionError = 
+            err.name === 'NotAllowedError' || 
+            err.name === 'PermissionDeniedError' || 
+            (err.message && err.message.toLowerCase().includes('permission denied'));
+
+          if (isPermissionError) {
+            setError('Permission denied. Your browser or system is blocking access to the camera and microphone.');
+            setShowGuide(true); // Auto-show the guide for permission denials
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            setError('No camera or microphone found. Please connect your devices and try again.');
+          } else {
+            setError(`Error: ${err.message || 'Could not access camera/microphone.'}`);
+          }
+        }
+      };
+      startStream();
+    }
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isHost, retryTrigger]);
+
+  if (error) {
+    return (
+      <div className="text-center p-8 flex flex-col items-center justify-center h-full">
+        <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
+          <Shield size={40} className="text-red-500" />
+        </div>
+        <p className="text-white font-bold text-lg mb-2">Access Required</p>
+        <p className="text-white/40 text-sm mb-8 max-w-xs mx-auto">{error}</p>
+        <button 
+          onClick={() => setShowGuide(true)}
+          className="px-8 py-3 bg-white text-black font-black rounded-xl hover:scale-105 transition-transform"
+        >
+          HOW TO ENABLE
+        </button>
+        {showGuide && (
+          <PermissionGuide 
+            onClose={() => {
+              setShowGuide(false);
+              setRetryTrigger(prev => prev + 1); // Auto-retry when guide is closed
+            }} 
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (isHost) {
+    return (
+      <div className="relative w-full h-full">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded uppercase animate-pulse">
+          Live
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-center bg-slate-900">
+      <div className="absolute inset-0 overflow-hidden">
+        <img 
+          src={`https://picsum.photos/seed/${roomId}/1280/720`} 
+          className="w-full h-full object-cover opacity-20 blur-xl"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+      <div className="text-center z-10">
+        <div className="relative mb-6">
+          <div className="w-24 h-24 rounded-full bg-orange-500/20 border-2 border-orange-500 flex items-center justify-center animate-pulse">
+            <Video size={40} className="text-orange-500" />
+          </div>
+          <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-cyan-400 rounded-full border-4 border-slate-900 flex items-center justify-center">
+            <Zap size={14} className="text-white" fill="currentColor" />
+          </div>
+        </div>
+        <p className="text-white font-black italic uppercase text-xl tracking-widest mb-2">Live Stream</p>
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+          <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Receiving Data...</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const RoomPage = () => {
   const { roomId } = useParams();
   const { profile } = useAuth();
@@ -663,6 +924,23 @@ const RoomPage = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [showGifts, setShowGifts] = useState(false);
+
+  useEffect(() => {
+    if (!roomId || !profile?.uid) return;
+    
+    // Increment viewer count
+    const roomRef = doc(db, 'rooms', roomId);
+    updateDoc(roomRef, {
+      viewerCount: increment(1)
+    }).catch(err => console.error('Error incrementing viewer count', err));
+
+    return () => {
+      // Decrement viewer count on leave
+      updateDoc(roomRef, {
+        viewerCount: increment(-1)
+      }).catch(err => console.error('Error decrementing viewer count', err));
+    };
+  }, [roomId, profile?.uid]); // Only depend on UID, not the whole profile object
 
   useEffect(() => {
     if (!roomId) return;
@@ -717,7 +995,7 @@ const RoomPage = () => {
         <div className="absolute inset-0 overflow-hidden">
           <img 
             src={`https://picsum.photos/seed/${room.id}/1920/1080`} 
-            className="w-full h-full object-cover opacity-40 blur-3xl"
+            className="w-full h-full object-cover opacity-20 blur-xl" // Reduced opacity and blur for performance
             referrerPolicy="no-referrer"
           />
         </div>
@@ -731,14 +1009,13 @@ const RoomPage = () => {
               <button onClick={() => window.history.back()} className="mt-8 px-8 py-3 bg-white text-black font-bold rounded-xl">Go Back</button>
             </div>
           ) : (
+            <VideoStream isHost={profile?.uid === room.hostUid} roomId={room.id} hostUid={room.hostUid} />
+          )}
+          
+          {/* Stream Overlay (Only if live) */}
+          {room.status === 'live' && (
             <>
-              <div className="text-center">
-                <Video size={80} className="mx-auto mb-4 text-white/20" />
-                <p className="text-white/40 font-bold italic uppercase tracking-widest">P2P Stream Initializing...</p>
-              </div>
-              
-              {/* Stream Overlay */}
-              <div className="absolute top-6 left-6 flex items-center gap-3">
+              <div className="absolute top-6 left-6 flex items-center gap-3 z-20">
                 <div className="w-12 h-12 rounded-full bg-white/20 border-2 border-orange-500 p-0.5">
                   <img src={`https://picsum.photos/seed/${room.hostUid}/100/100`} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
                 </div>
@@ -751,7 +1028,7 @@ const RoomPage = () => {
                 </div>
               </div>
 
-              <div className="absolute top-6 right-6 flex gap-2">
+              <div className="absolute top-6 right-6 flex gap-2 z-20">
                 <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10">
                   <Users size={14} className="text-white/60" />
                   <span className="text-white font-bold text-xs">{room.viewerCount}</span>
@@ -844,71 +1121,159 @@ const RoomPage = () => {
 
 const ProfilePage = () => {
   const { profile, logout } = useAuth();
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   if (!profile) return null;
 
+  const menuItems = [
+    { icon: <Briefcase size={20} className="text-cyan-400" />, label: 'Creator Center', extra: 'gs$7.2 Estimat >' },
+    { icon: <Calendar size={20} className="text-cyan-400" />, label: 'Event Center', badge: true },
+    { icon: <Wallet size={20} className="text-pink-400" />, label: 'Wallet' },
+    { icon: <ShoppingBag size={20} className="text-orange-400" />, label: 'Item Bag', extra: 'PROPS STORE' },
+    { icon: <FileText size={20} className="text-cyan-400" />, label: 'Post' },
+    { icon: <Star size={20} className="text-orange-400" />, label: 'SVIP' },
+    { icon: <CheckCircle size={20} className="text-orange-400" />, label: 'Task Center', extra: 'Challenger' },
+    { icon: <Users2 size={20} className="text-pink-400" />, label: 'Fans Group' },
+    { icon: <TrendingUp size={20} className="text-cyan-400" />, label: 'Ranking', extra: 'STAR LIST' },
+    { icon: <Shield size={20} className="text-blue-400" />, label: 'Permission Settings', onClick: () => setShowPermissionGuide(true) },
+    { icon: <HelpCircle size={20} className="text-pink-400" />, label: 'Help & Feedback' },
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <div className="flex flex-col md:flex-row items-center gap-8 mb-12">
-        <div className="w-32 h-32 rounded-full border-4 border-orange-500 p-1">
-          <img src={profile.photoURL} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
+    <div className="max-w-md mx-auto bg-white min-h-screen text-slate-900 pb-20">
+      {showPermissionGuide && <PermissionGuide onClose={() => setShowPermissionGuide(false)} />}
+      {/* Header */}
+      <div className="p-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold">18:35</span>
+          <Mic size={16} />
         </div>
-        <div className="flex-1 text-center md:text-left">
-          <h2 className="text-4xl font-black italic uppercase mb-2">{profile.displayName}</h2>
-          <div className="flex flex-wrap justify-center md:justify-start gap-4">
-            <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Role</p>
-              <p className="text-sm font-black uppercase text-orange-500">{profile.role}</p>
-            </div>
-            <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Noble Title</p>
-              <p className="text-sm font-black uppercase text-blue-500">{profile.nobleTitle}</p>
-            </div>
-            <div className="bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-              <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-1">Referral Code</p>
-              <p className="text-sm font-black uppercase text-white/80">{profile.referralCode}</p>
-            </div>
+        <div className="flex items-center gap-4">
+          <Settings size={22} className="text-slate-600" />
+          <UserIcon size={22} className="text-slate-600" />
+        </div>
+      </div>
+
+      {/* Profile Info */}
+      <div className="flex flex-col items-center mt-4">
+        <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-white shadow-lg mb-4">
+          <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        </div>
+        <h2 className="text-xl font-bold tracking-wider mb-6">{profile.displayName}</h2>
+        
+        {/* Stats */}
+        <div className="flex justify-around w-full px-8 mb-8">
+          <div className="text-center">
+            <p className="text-lg font-bold">{profile.friends || 17}</p>
+            <p className="text-xs text-slate-400">Friends</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold">{profile.following || 81}</p>
+            <p className="text-xs text-slate-400">Following</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold">{profile.fans || 172} <span className="text-red-500 text-[10px]">+166</span></p>
+            <p className="text-xs text-slate-400">Fans</p>
           </div>
         </div>
+      </div>
+
+      {/* Cards Row */}
+      <div className="grid grid-cols-3 gap-3 px-4 mb-6">
+        <div className="bg-cyan-50 rounded-xl p-3 flex flex-col items-center justify-center border border-cyan-100">
+          <div className="w-10 h-10 bg-cyan-400 rounded-full flex items-center justify-center text-white mb-1">
+            <Shield size={20} />
+          </div>
+          <span className="text-cyan-500 text-xs font-bold">Lv.{profile.level || 1}</span>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-3 flex flex-col items-center justify-center border border-orange-100">
+          <div className="w-10 h-10 bg-orange-400 rounded-full flex items-center justify-center text-white mb-1">
+            <span className="text-lg font-black">V</span>
+          </div>
+          <span className="text-orange-500 text-[10px] font-bold">Purchase VIP</span>
+        </div>
+        <div className="bg-orange-50 rounded-xl p-3 flex flex-col items-center justify-center border border-orange-100">
+          <div className="flex -space-x-2 mb-1">
+            <div className="w-6 h-6 rounded-full bg-slate-200 border border-white" />
+            <div className="w-6 h-6 rounded-full bg-slate-300 border border-white" />
+            <div className="w-6 h-6 rounded-full bg-slate-400 border border-white" />
+          </div>
+          <span className="text-orange-500 text-xs font-bold">Family</span>
+        </div>
+      </div>
+
+      {/* Menu List */}
+      <div className="border-t border-slate-100">
+        {menuItems.map((item, idx) => (
+          <div 
+            key={idx} 
+            onClick={item.onClick}
+            className={cn(
+              "flex items-center justify-between p-4 hover:bg-slate-50 transition-colors cursor-pointer",
+              idx === 1 && "border-b-8 border-slate-50",
+              idx === 4 && "border-b-8 border-slate-50",
+              idx === 7 && "border-b-8 border-slate-50"
+            )}
+          >
+            <div className="flex items-center gap-4">
+              {item.icon}
+              <span className="font-medium text-slate-700">{item.label}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {item.extra && (
+                <span className={cn(
+                  "text-xs",
+                  item.extra.includes('PROPS') ? "bg-cyan-400 text-white px-2 py-0.5 rounded text-[8px] font-bold" : 
+                  item.extra.includes('STAR LIST') ? "bg-orange-400 text-white px-2 py-0.5 rounded text-[8px] font-bold italic" :
+                  "text-slate-400"
+                )}>
+                  {item.extra}
+                </span>
+              )}
+              {item.badge && (
+                <div className="w-16 h-8 bg-blue-500 rounded-lg overflow-hidden">
+                  <img src="https://picsum.photos/seed/event/64/32" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                </div>
+              )}
+              {item.label === 'Task Center' && (
+                <span className="bg-pink-500 text-white px-2 py-0.5 rounded-full text-[8px] font-bold">Challenger</span>
+              )}
+              <ChevronRight size={16} className="text-slate-300" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Logout Button (Custom Addition) */}
+      <div className="p-4">
         <button 
           onClick={logout}
-          className="px-6 py-3 rounded-xl bg-white/5 hover:bg-red-500/20 text-red-500 font-bold border border-red-500/20 transition-all flex items-center gap-2"
+          className="w-full py-3 rounded-xl bg-slate-100 text-slate-500 font-bold hover:bg-red-50 text-red-500 transition-all"
         >
-          <LogOut size={20} />
-          Logout
+          Log Out
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-        <div className="bg-gradient-to-br from-blue-600/20 to-blue-900/20 p-8 rounded-3xl border border-blue-500/20 relative overflow-hidden group">
-          <Diamond size={120} className="absolute -right-8 -bottom-8 text-blue-500/10 group-hover:scale-110 transition-transform" />
-          <p className="text-sm font-bold text-blue-400 uppercase tracking-widest mb-2">Diamond Balance</p>
-          <h3 className="text-5xl font-black text-white mb-6">{profile.diamonds}</h3>
-          <button className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-black rounded-2xl transition-colors">TOP UP NOW</button>
+      {/* Bottom Nav Simulation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 flex justify-around p-2">
+        <div className="flex flex-col items-center gap-1 text-slate-400">
+          <HomeIcon size={24} />
+          <span className="text-[10px]">Live</span>
         </div>
-
-        <div className="bg-gradient-to-br from-orange-600/20 to-orange-900/20 p-8 rounded-3xl border border-orange-500/20 relative overflow-hidden group">
-          <Coins size={120} className="absolute -right-8 -bottom-8 text-orange-500/10 group-hover:scale-110 transition-transform" />
-          <p className="text-sm font-bold text-orange-400 uppercase tracking-widest mb-2">Bean Balance</p>
-          <h3 className="text-5xl font-black text-white mb-6">{profile.beans}</h3>
-          <button className="w-full py-4 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl transition-colors">WITHDRAW CASH</button>
+        <div className="flex flex-col items-center gap-1 text-slate-400">
+          <Mic size={24} />
+          <span className="text-[10px]">Party</span>
         </div>
-      </div>
-
-      <div className="bg-white/5 rounded-3xl border border-white/10 p-8">
-        <h3 className="text-xl font-black italic uppercase mb-6">Recent Transactions</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
-                <Diamond size={20} />
-              </div>
-              <div>
-                <p className="font-bold text-white/80">Welcome Bonus</p>
-                <p className="text-xs text-white/40">March 30, 2026</p>
-              </div>
-            </div>
-            <p className="font-black text-green-500">+100</p>
-          </div>
+        <div className="w-12 h-12 bg-cyan-400 rounded-full flex items-center justify-center text-white -mt-6 border-4 border-white shadow-lg">
+          <Video size={24} />
+        </div>
+        <div className="flex flex-col items-center gap-1 text-slate-400 relative">
+          <MessageSquare size={24} />
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">32</span>
+          <span className="text-[10px]">Chats</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 text-cyan-400">
+          <UserIcon size={24} />
+          <span className="text-[10px]">Me</span>
         </div>
       </div>
     </div>

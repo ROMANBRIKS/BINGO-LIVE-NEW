@@ -12,6 +12,10 @@ export interface UserProfile {
   beans: number;
   role: UserRole;
   nobleTitle: NobleTitle;
+  level: number;
+  friends: number;
+  following: number;
+  fans: number;
   agencyId?: string;
   familyId?: string;
   totalDiamondsSpent: number;
@@ -40,6 +44,7 @@ export interface Room {
   viewerCount: number;
   guests: string[];
   isPrivate: boolean;
+  createdAt: any; // Firestore Timestamp
 }
 
 export interface Gift {
