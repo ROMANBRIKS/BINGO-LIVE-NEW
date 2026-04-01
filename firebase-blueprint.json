@@ -49,7 +49,13 @@
         "currentBeans": { "type": "number", "description": "Beans earned in the current session" },
         "viewerCount": { "type": "number", "description": "Current number of viewers" },
         "guests": { "type": "array", "items": { "type": "string" }, "description": "List of guest UIDs" },
-        "isPrivate": { "type": "boolean", "description": "Whether the session is encrypted/private" }
+        "isPrivate": { "type": "boolean", "description": "Whether the session is encrypted/private" },
+        "pkStatus": { "type": "string", "enum": ["idle", "searching", "battling"], "description": "Current PK battle status" },
+        "pkOpponentUid": { "type": "string", "description": "UID of the PK opponent" },
+        "pkOpponentRoomId": { "type": "string", "description": "Room ID of the PK opponent" },
+        "pkScore": { "type": "number", "description": "Host's current PK score" },
+        "pkOpponentScore": { "type": "number", "description": "Opponent's current PK score" },
+        "pkEndTime": { "type": "string", "format": "date-time", "description": "When the PK battle ends" }
       },
       "required": ["id", "hostUid", "status", "type"]
     },
@@ -78,6 +84,38 @@
         "timestamp": { "type": "string", "format": "date-time", "description": "Transaction time" }
       },
       "required": ["id", "fromUid", "toUid", "amount", "type", "timestamp"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Represents a chat message or event in a room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string", "description": "Message content (required for 'chat' type)" },
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "level": { "type": "number" },
+        "nobleTitle": { "type": "string", "description": "User's noble title (accolade)" },
+        "type": { "type": "string", "enum": ["chat", "join", "like", "system", "follow", "welcome"] },
+        "hostName": { "type": "string", "description": "The name of the host (for welcome messages)" },
+        "hostPhoto": { "type": "string", "description": "The photo URL of the host (for welcome messages)" },
+        "hostLevel": { "type": "number", "description": "The level of the host (for welcome messages)" },
+        "isGift": { "type": "boolean" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "photoURL", "timestamp"]
+    },
+    "Follow": {
+      "title": "Follow",
+      "description": "Represents a follow relationship between users.",
+      "type": "object",
+      "properties": {
+        "followerUid": { "type": "string" },
+        "followingUid": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["followerUid", "followingUid", "timestamp"]
     }
   },
   "firestore": {
@@ -100,6 +138,14 @@
     "/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "History of all financial movements."
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages within a room."
+    },
+    "/follows/{followId}": {
+      "schema": "Follow",
+      "description": "User follow relationships."
     }
   }
 }

@@ -42,15 +42,23 @@ export interface Room {
   type: StreamType;
   currentBeans: number;
   viewerCount: number;
+  likes: number;
   guests: string[];
   isPrivate: boolean;
   createdAt: any; // Firestore Timestamp
+  pkStatus?: 'idle' | 'searching' | 'battling';
+  pkOpponentUid?: string;
+  pkOpponentRoomId?: string;
+  pkScore?: number;
+  pkOpponentScore?: number;
+  pkEndTime?: string;
 }
 
 export interface Gift {
   id: string;
   name: string;
   cost: number;
+  image?: string;
   animationType: string;
 }
 
