@@ -192,15 +192,14 @@ export default function CreatorCenterPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-32">
-      {/* Header */}
-      <div className="bg-white sticky top-0 z-50 border-b border-slate-100">
-        <div className="flex items-center h-16 px-4">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
-            <ChevronLeft size={24} />
+    <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none">
+      {/* Fixed Top Navigation */}
+      <header className="flex-none bg-[#1a1a1a] w-full border-b border-white/10">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <h1 className="text-lg font-black text-white tracking-tighter uppercase">BINGO LIVE</h1>
+          <button onClick={() => navigate(-1)} className="p-1.5 bg-white/5 rounded-full text-white/40 hover:text-white transition-colors">
+            <ChevronLeft size={18} />
           </button>
-          <h1 className="flex-1 text-center font-black italic uppercase tracking-tight text-slate-900">Creator Center</h1>
-          <div className="w-10" /> {/* Spacer */}
         </div>
         
         <div className="flex px-4 gap-8">
@@ -209,20 +208,20 @@ export default function CreatorCenterPage() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                "py-3 text-sm font-black uppercase italic tracking-widest transition-all relative",
-                activeTab === tab ? "text-slate-900" : "text-slate-300"
+                "py-2 text-[10px] font-black uppercase italic tracking-widest transition-all relative",
+                activeTab === tab ? "text-white" : "text-white/20"
               )}
             >
               {tab}
               {activeTab === tab && (
-                <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-slate-900 rounded-full" />
+                <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />
               )}
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      <div className="p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-16 sm:pb-8">
         {activeTab === 'Live' ? (
           <>
             {/* Live Tools */}
@@ -256,7 +255,7 @@ export default function CreatorCenterPage() {
             <section className="space-y-4">
               <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Live Tutorial</h2>
               
-              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+              <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
                 {tutorialTabs.map(tab => (
                   <button 
                     key={tab}

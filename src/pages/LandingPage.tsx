@@ -31,7 +31,7 @@ export default function LandingPage() {
           className="text-center mb-16"
         >
           <h1 className="text-6xl sm:text-8xl font-black uppercase italic tracking-tighter leading-none mb-6">
-            Live <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">Vibe</span>
+            BINGO <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-pink-500">LIVE</span>
           </h1>
           <p className="text-white/40 text-lg font-medium max-w-md mx-auto leading-relaxed">
             Connect with creators, join the party, and experience live entertainment like never before.

@@ -23,9 +23,9 @@ interface MessageItem {
 const messages: MessageItem[] = [
   {
     id: '1',
-    name: 'BIGO Official',
-    avatar: 'https://picsum.photos/seed/bigo/200',
-    lastMessage: 'Messages from BIGO Live Official',
+    name: 'BINGO Official',
+    avatar: 'https://picsum.photos/seed/bingo/200',
+    lastMessage: 'Messages from BINGO Live Official',
     time: '',
     unreadCount: 5,
     badges: [{ type: 'verified', value: 'V' }]

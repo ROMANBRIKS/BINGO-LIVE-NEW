@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Timer, Crown } from 'lucide-react';
-import { cn } from '../lib/utils';
 
 export const PKBattle = React.memo(({ room }: { room: any }) => {
   const pkScore = room.pkScore || 0;
@@ -9,7 +7,6 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
   const hostPercent = pkScore + pkOpponentScore === 0 ? 50 : (pkScore / (pkScore + pkOpponentScore)) * 100;
   
   const [timeLeft, setTimeLeft] = useState("00:01");
-  const [isFinished, setIsFinished] = useState(false);
 
   useEffect(() => {
     if (!room.pkEndTime) return;
@@ -19,7 +16,6 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
       const diff = end - now;
       if (diff <= 0) {
         setTimeLeft("00:00");
-        setIsFinished(true);
         clearInterval(interval);
         return;
       }
@@ -32,151 +28,135 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
 
   return (
     <div className="absolute inset-0 z-40 pointer-events-none">
-      {/* Top Progress Bar */}
-      <div className="absolute top-14 left-0 right-0 h-6 flex items-center px-0.5">
-        <div className="flex-1 h-full flex relative overflow-hidden rounded-sm">
-          {/* Host Side (Blue) */}
+      {/* 1. TOP PROGRESS BAR - EXACT PIXEL MATCH */}
+      <div className="absolute top-[68px] left-0 right-0 h-8 flex items-center">
+        <div className="flex-1 h-full flex relative overflow-hidden">
+          {/* Blue Side Score */}
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-30 text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+            {pkScore}
+          </div>
+
+          {/* Host Progress (Blue) */}
           <motion.div 
             initial={{ width: '50%' }}
             animate={{ width: `${hostPercent}%` }}
-            transition={{ type: 'spring', stiffness: 50, damping: 20 }}
-            className="h-full bg-gradient-to-r from-[#0095ff] to-[#00e5ff] relative flex items-center"
-          >
-            <span className="ml-3 text-sm font-black text-white drop-shadow-md z-10">{pkScore}</span>
-            {/* Animated Shine */}
-            <motion.div 
-              animate={{ x: ['-100%', '200%'] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg]"
-            />
-          </motion.div>
+            transition={{ type: 'spring', stiffness: 40, damping: 20 }}
+            className="h-full bg-gradient-to-r from-[#0091ff] to-[#00d4ff] relative"
+          />
 
-          {/* Opponent Side (Yellow) */}
+          {/* Opponent Progress (Yellow) */}
           <motion.div 
             initial={{ width: '50%' }}
             animate={{ width: `${100 - hostPercent}%` }}
-            transition={{ type: 'spring', stiffness: 50, damping: 20 }}
-            className="h-full bg-gradient-to-l from-[#ffcc00] to-[#ffeb3b] relative flex items-center justify-end"
-          >
-            <span className="mr-3 text-sm font-black text-white drop-shadow-md z-10">{pkOpponentScore}</span>
-            {/* Animated Shine */}
-            <motion.div 
-              animate={{ x: ['100%', '-200%'] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 bg-gradient-to-l from-transparent via-white/20 to-transparent skew-x-[20deg]"
-            />
-          </motion.div>
+            transition={{ type: 'spring', stiffness: 40, damping: 20 }}
+            className="h-full bg-gradient-to-l from-[#ffc400] to-[#ffeb3b] relative"
+          />
 
-          {/* Glowing Divider / Sparkle */}
+          {/* Yellow Side Score */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-30 text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+            {pkOpponentScore}
+          </div>
+
+          {/* Central Divider Glow */}
           <motion.div 
             animate={{ left: `${hostPercent}%` }}
-            transition={{ type: 'spring', stiffness: 50, damping: 20 }}
-            className="absolute top-0 bottom-0 w-1 z-20 -translate-x-1/2"
+            transition={{ type: 'spring', stiffness: 40, damping: 20 }}
+            className="absolute top-0 bottom-0 w-[2px] z-20 -translate-x-1/2 bg-white/80"
           >
-            {/* Central Flare */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full blur-xl opacity-80" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-[0_0_20px_#fff]" />
-            
-            {/* Sparkles */}
-            {[...Array(6)].map((_, i) => (
-              <motion.div
-                key={i}
-                animate={{ 
-                  y: [0, (i % 2 === 0 ? -20 : 20)],
-                  x: [0, (i < 3 ? -15 : 15)],
-                  opacity: [0, 1, 0],
-                  scale: [0, 1, 0]
-                }}
-                transition={{ 
-                  duration: 1 + Math.random(), 
-                  repeat: Infinity, 
-                  delay: Math.random() 
-                }}
-                className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full"
-              />
-            ))}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 bg-white rounded-full blur-[30px] opacity-40" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 rounded-full shadow-[0_0_25px_#fff] blur-[2px]" />
           </motion.div>
         </div>
       </div>
 
-      {/* Round Info */}
-      <div className="absolute top-[84px] left-0 right-0 flex items-center justify-center gap-6">
-        {/* Left Side Win/Loss Balls */}
+      {/* 2. ROUND INFO - EXACT REPLICATION */}
+      <div className="absolute top-[108px] left-0 right-0 flex items-center justify-center gap-6">
+        {/* Left Side Status Balls */}
         <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 bg-red-500 rounded-full border border-white/20 shadow-[0_0_5px_rgba(239,68,68,0.5)] flex items-center justify-center">
-            <span className="text-[6px] text-white">😖</span>
+          <div className="w-6 h-6 bg-[#ff3b30] rounded-full border border-white/20 shadow-lg flex items-center justify-center">
+            <span className="text-sm">😖</span>
           </div>
-          <div className="w-4 h-4 bg-black/60 rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[8px] font-bold text-white/60">2</span>
+          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+            <span className="text-[11px] font-black text-white/80">2</span>
           </div>
-          <div className="w-4 h-4 bg-black/60 rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[8px] font-bold text-white/60">3</span>
+          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+            <span className="text-[11px] font-black text-white/80">3</span>
           </div>
         </div>
         
-        <div className="bg-black/60 backdrop-blur-md px-4 py-1 rounded-full border border-white/10 flex items-center gap-2 shadow-lg">
-          <span className="text-[11px] font-black italic text-white tracking-widest">ROUND 1</span>
-          <div className="w-px h-3 bg-white/20" />
-          <span className="text-[11px] font-black italic text-white tracking-widest">{timeLeft}</span>
+        {/* Center Timer Display */}
+        <div className="flex items-center gap-2">
+          <span className="text-[14px] font-black text-white tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">ROUND 1</span>
+          <span className="text-[14px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">·</span>
+          <span className="text-[14px] font-black text-white tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{timeLeft}</span>
         </div>
 
-        {/* Right Side Win/Loss Balls */}
+        {/* Right Side Status Balls */}
         <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 bg-black/60 rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[8px] font-bold text-white/60">3</span>
+          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+            <span className="text-[11px] font-black text-white/80">3</span>
           </div>
-          <div className="w-4 h-4 bg-black/60 rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[8px] font-bold text-white/60">2</span>
+          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
+            <span className="text-[11px] font-black text-white/80">2</span>
           </div>
-          <div className="w-4 h-4 bg-red-500 rounded-full border border-white/20 shadow-[0_0_5px_rgba(239,68,68,0.5)] flex items-center justify-center">
-            <span className="text-[6px] text-white">😖</span>
+          <div className="w-6 h-6 bg-[#ff3b30] rounded-full border border-white/20 shadow-lg flex items-center justify-center">
+            <span className="text-sm">😖</span>
           </div>
         </div>
       </div>
 
-      {/* Split Screen Content */}
-      <div className="absolute top-[80px] bottom-[200px] left-0 right-0 flex">
-        {/* Left Stream Overlay */}
-        <div className="flex-1 relative flex flex-col items-center justify-end pb-10">
-          <div className="relative w-16 h-16">
-            <img src="https://i.imgur.com/8Yv9p9z.png" alt="Status" className="w-full h-full object-contain" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[8px] font-black text-white mt-4 italic">
-                {pkScore > pkOpponentScore ? 'WIN' : pkScore < pkOpponentScore ? 'LOSE' : 'DRAW'}
-              </span>
+      {/* 3. DRAW BADGES - HEXAGONAL STYLE */}
+      <div className="absolute top-[100px] bottom-[220px] left-0 right-0 flex">
+        <div className="flex-1 relative flex items-end justify-center pb-16">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-24 h-24 relative"
+          >
+            {/* Hexagon Shield for DRAW */}
+            <div className="absolute inset-0 bg-[#00e5ff]/10 backdrop-blur-md border-[2.5px] border-[#00e5ff]/40 [clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)] flex flex-col items-center justify-center shadow-[0_0_15px_rgba(0,229,255,0.2)]">
+              <div className="text-white text-[12px] font-black italic tracking-tighter drop-shadow-md">DRAW</div>
+              <div className="w-8 h-[2px] bg-[#00e5ff]/60 mt-1 shadow-[0_0_5px_#00e5ff]" />
+              <div className="mt-1 w-5 h-5 border-b-[2px] border-x-[2px] border-[#00e5ff]/40 rounded-b-sm" />
             </div>
-          </div>
+          </motion.div>
         </div>
-        {/* Right Stream Overlay */}
-        <div className="flex-1 relative flex flex-col items-center justify-end pb-10">
-          <div className="relative w-16 h-16">
-            <img src="https://i.imgur.com/8Yv9p9z.png" alt="Status" className="w-full h-full object-contain" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[8px] font-black text-white mt-4 italic">
-                {pkOpponentScore > pkScore ? 'WIN' : pkOpponentScore < pkScore ? 'LOSE' : 'DRAW'}
-              </span>
+        <div className="flex-1 relative flex items-end justify-center pb-16">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-24 h-24 relative"
+          >
+            {/* Hexagon Shield for DRAW */}
+            <div className="absolute inset-0 bg-[#00e5ff]/10 backdrop-blur-md border-[2.5px] border-[#00e5ff]/40 [clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)] flex flex-col items-center justify-center shadow-[0_0_15px_rgba(0,229,255,0.2)]">
+              <div className="text-white text-[12px] font-black italic tracking-tighter drop-shadow-md">DRAW</div>
+              <div className="w-8 h-[2px] bg-[#00e5ff]/60 mt-1 shadow-[0_0_5px_#00e5ff]" />
+              <div className="mt-1 w-5 h-5 border-b-[2px] border-x-[2px] border-[#00e5ff]/40 rounded-b-sm" />
             </div>
-          </div>
-          {/* Plus Button */}
-          <div className="absolute bottom-12 right-2 w-6 h-6 bg-cyan-400 rounded-full flex items-center justify-center shadow-lg pointer-events-auto cursor-pointer">
-            <span className="text-black font-bold text-lg leading-none">+</span>
+          </motion.div>
+          {/* Plus Action Button */}
+          <div className="absolute bottom-20 right-4 w-9 h-9 bg-[#00e5ff] rounded-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.3)] border-2 border-white/30 pointer-events-auto cursor-pointer active:scale-90 transition-transform">
+            <span className="text-black font-black text-2xl leading-none">+</span>
           </div>
         </div>
       </div>
 
-      {/* Settlement Bar */}
-      <div className="absolute bottom-[180px] left-0 right-0 flex items-center justify-between px-4">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full flex items-center justify-center shadow-xl border border-white/20">
-          <div className="w-5 h-5 bg-white/20 rounded-md backdrop-blur-sm" />
+      {/* 4. SETTLEMENT BAR - BOTTOM SECTION */}
+      <div className="absolute bottom-[220px] left-0 right-0 flex items-center justify-between px-6">
+        {/* Left Side Icon (Blue Circle) */}
+        <div className="w-14 h-14 bg-gradient-to-br from-[#007aff] to-[#0051ff] rounded-full flex items-center justify-center border-2 border-white/20 shadow-[0_4px_15px_rgba(0,0,0,0.4)]">
+          <div className="w-7 h-7 border-[2.5px] border-white/40 rounded-lg" />
         </div>
         
-        <div className="bg-black/60 backdrop-blur-md px-6 py-1.5 rounded-full border border-white/10 flex items-center gap-2 shadow-2xl">
-          <span className="text-[11px] text-white/90 font-medium">settlement of the PK</span>
-          <span className="text-[11px] text-cyan-400 font-black italic tracking-tight">Details &gt;</span>
+        {/* Center Info Bar */}
+        <div className="bg-black/60 backdrop-blur-2xl px-10 py-2.5 rounded-full border border-white/10 flex items-center gap-4 shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+          <span className="text-[14px] text-white/90 font-bold tracking-tight">settlement of the PK</span>
+          <span className="text-[14px] text-[#00e5ff] font-black italic tracking-tight">Details &gt;</span>
         </div>
 
-        <div className="w-10 h-10 bg-gradient-to-br from-yellow-500 to-yellow-700 rounded-full flex items-center justify-center shadow-xl border border-white/20">
-          <div className="w-5 h-5 bg-white/20 rounded-md backdrop-blur-sm" />
+        {/* Right Side Icon (Orange Circle) */}
+        <div className="w-14 h-14 bg-gradient-to-br from-[#ff9500] to-[#ff6a00] rounded-full flex items-center justify-center border-2 border-white/20 shadow-[0_4px_15px_rgba(0,0,0,0.4)]">
+          <div className="w-7 h-7 border-[2.5px] border-white/40 rounded-lg" />
         </div>
       </div>
     </div>

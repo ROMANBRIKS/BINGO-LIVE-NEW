@@ -254,7 +254,7 @@ export default function RealmatchPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex-none px-4 pb-24 flex items-center justify-center gap-6">
+      <div className="flex-none px-4 pb-16 flex items-center justify-center gap-6">
         <button 
           onClick={() => handleSwipeAction('left')}
           className="w-40 h-16 bg-[#333333] rounded-full flex items-center justify-center active:scale-95 transition-transform"

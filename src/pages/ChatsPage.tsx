@@ -23,9 +23,9 @@ interface MessageItem {
 const messages: MessageItem[] = [
   {
     id: '1',
-    name: 'BIGO Official',
-    avatar: 'https://picsum.photos/seed/bigo/200',
-    lastMessage: 'Messages from BIGO Live Official',
+    name: 'BINGO Official',
+    avatar: 'https://picsum.photos/seed/bingo/200',
+    lastMessage: 'Messages from BINGO Live Official',
     time: '',
     unreadCount: 5,
     isOnline: true,
@@ -164,33 +164,30 @@ export default function ChatsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white select-none pb-20">
-      {/* Header */}
-      <header className="px-4 pt-6 pb-4 flex items-center justify-between sticky top-0 bg-[#121212] z-10">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => navigate('/chats')}
-            className="flex flex-col items-center"
-          >
-            <span className="text-lg font-bold text-gray-500">Realmatch</span>
+    <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none">
+      {/* Fixed Top Navigation */}
+      <header className="flex-none bg-[#1a1a1a] w-full border-b border-white/10">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <h1 className="text-lg font-black text-white tracking-tighter uppercase">BINGO LIVE</h1>
+          <button className="p-1 text-white/40 hover:text-white transition-colors">
+            <Menu size={20} />
           </button>
-          
-          <div className="flex flex-col items-center relative">
-            <div className="flex items-center gap-1">
-              <span className="text-xl font-bold text-white">Messages</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-pink-500 mt-1" />
-            </div>
-            <div className="w-6 h-0.5 bg-white rounded-full mt-0.5" />
+        </div>
+        
+        <div className="flex items-center gap-8 px-4 pb-1">
+          <div className="flex flex-col items-center cursor-pointer">
+            <span className="text-xs font-bold text-white/40">Realmatch</span>
+          </div>
+          <div className="flex flex-col items-center cursor-pointer relative">
+            <span className="text-xs font-bold text-white">Messages</span>
+            <div className="absolute -top-1 -right-2 w-1 h-1 bg-pink-500 rounded-full" />
+            <div className="w-full h-0.5 bg-white rounded-full mt-1" />
           </div>
         </div>
-
-        <button className="p-1">
-          <Menu size={24} />
-        </button>
       </header>
 
       {/* Message List */}
-      <div className="space-y-0">
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
         {messages.map((msg) => (
           <div 
             key={msg.id} 

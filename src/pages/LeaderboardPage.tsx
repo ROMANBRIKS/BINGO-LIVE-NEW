@@ -35,44 +35,51 @@ export default function LeaderboardPage() {
   const rest = data.slice(3);
 
   return (
-    <div className="min-h-screen bg-[#050505] p-4 sm:p-8 max-w-4xl mx-auto pb-24 sm:pb-8">
-      <div className="flex flex-col items-center mb-12">
-        <div className="flex items-center gap-2 mb-6 bg-white/5 p-1 rounded-2xl border border-white/10">
-          <button 
-            onClick={() => setActiveTab('hosts')}
-            className={cn(
-              "px-8 py-2 rounded-xl text-xs font-black uppercase italic tracking-widest transition-all",
-              activeTab === 'hosts' ? "bg-orange-500 text-white shadow-lg" : "text-white/40 hover:text-white"
-            )}
-          >
-            Hosts
-          </button>
-          <button 
-            onClick={() => setActiveTab('givers')}
-            className={cn(
-              "px-8 py-2 rounded-xl text-xs font-black uppercase italic tracking-widest transition-all",
-              activeTab === 'givers' ? "bg-orange-500 text-white shadow-lg" : "text-white/40 hover:text-white"
-            )}
-          >
-            Givers
-          </button>
-        </div>
-
-        <div className="flex items-center gap-8">
-          {['daily', 'weekly', 'monthly'].map(range => (
+    <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none">
+      {/* Fixed Top Navigation */}
+      <header className="flex-none bg-[#1a1a1a] w-full border-b border-white/10">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <h1 className="text-lg font-black text-white tracking-tighter uppercase">BINGO LIVE</h1>
+          <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-xl border border-white/10">
             <button 
-              key={range}
-              onClick={() => setTimeRange(range as any)}
+              onClick={() => setActiveTab('hosts')}
               className={cn(
-                "text-[10px] font-black uppercase tracking-[0.2em] transition-all",
-                timeRange === range ? "text-orange-500" : "text-white/20 hover:text-white/40"
+                "px-4 py-1 rounded-lg text-[9px] font-black uppercase italic tracking-widest transition-all",
+                activeTab === 'hosts' ? "bg-orange-500 text-white shadow-lg" : "text-white/40 hover:text-white"
               )}
             >
-              {range}
+              Hosts
             </button>
-          ))}
+            <button 
+              onClick={() => setActiveTab('givers')}
+              className={cn(
+                "px-4 py-1 rounded-lg text-[9px] font-black uppercase italic tracking-widest transition-all",
+                activeTab === 'givers' ? "bg-orange-500 text-white shadow-lg" : "text-white/40 hover:text-white"
+              )}
+            >
+              Givers
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 max-w-4xl mx-auto w-full pb-16 sm:pb-8">
+        <div className="flex flex-col items-center mb-12">
+          <div className="flex items-center gap-8">
+            {['daily', 'weekly', 'monthly'].map(range => (
+              <button 
+                key={range}
+                onClick={() => setTimeRange(range as any)}
+                className={cn(
+                  "text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+                  timeRange === range ? "text-orange-500" : "text-white/20 hover:text-white/40"
+                )}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        </div>
 
       <div className="flex items-end justify-center gap-4 sm:gap-12 mb-16 px-4">
         {/* Rank 2 */}
@@ -163,6 +170,7 @@ export default function LeaderboardPage() {
             <ChevronRight size={16} className="text-white/10 group-hover:text-white/40 transition-colors" />
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

@@ -13,12 +13,14 @@ export const Navbar = React.memo(() => {
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 bg-[#050505] flex items-center justify-between px-4 z-50">
       <div className="flex items-center">
-        <h1 
+        <div 
           onClick={() => navigate('/')}
-          className="text-2xl font-black uppercase tracking-tight cursor-pointer"
+          className="w-10 h-10 bg-cyan-400 rounded-lg flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
         >
-          BINGO LIVE
-        </h1>
+          <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+            <div className="w-2.5 h-2.5 bg-cyan-400 rounded-full" />
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

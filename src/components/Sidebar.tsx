@@ -21,7 +21,7 @@ export const Sidebar = React.memo(() => {
 
   return (
     <>
-      <aside className="hidden sm:flex fixed left-0 top-16 bottom-0 w-20 md:w-64 bg-black/40 backdrop-blur-xl border-r border-white/5 flex-col p-4 z-40">
+      <aside className="hidden sm:flex sticky top-0 h-screen w-20 md:w-64 bg-black/40 backdrop-blur-xl border-r border-white/5 flex-col p-4 z-40 shrink-0">
         <div className="space-y-2">
           {menuItems.map((item, i) => (
             <button 

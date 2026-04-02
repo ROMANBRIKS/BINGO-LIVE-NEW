@@ -4,9 +4,10 @@ import { cn } from '../lib/utils';
 import { WingedHeart } from './WingedHeart';
 
 interface ChatMessageProps {
-  displayName: string;
-  text: string;
-  level: number;
+  message?: any;
+  displayName?: string;
+  text?: string;
+  level?: number;
   nobleTitle?: string;
   hostName?: string;
   hostPhoto?: string;
@@ -16,8 +17,21 @@ interface ChatMessageProps {
   isFollowing?: boolean;
 }
 
-export const ChatMessage = React.memo(({ displayName, text, level, nobleTitle, hostName, hostLevel, type = 'chat', onFollow, isFollowing }: ChatMessageProps) => {
-  const isHighLevel = level >= 50;
+export const ChatMessage = React.memo((props: ChatMessageProps) => {
+  const msg = props.message || props;
+  const { 
+    displayName, 
+    text, 
+    level, 
+    nobleTitle, 
+    hostName, 
+    hostLevel, 
+    type = 'chat', 
+    onFollow, 
+    isFollowing 
+  } = msg;
+  
+  const isHighLevel = (level || 0) >= 50;
 
   if (type === 'follow-prompt') {
     return (

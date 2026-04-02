@@ -120,22 +120,25 @@ export default function HomePage() {
   );
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-[#121212] overflow-hidden select-none">
+    <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none">
       {/* Fixed Top Navigation */}
       <header className="flex-none bg-[#1a1a1a] w-full border-b border-white/10">
         {/* Floor 1: Logo and Icons Row */}
-        <div className="px-4 pt-6 pb-4 flex items-center justify-between">
-          <h1 className="text-base font-black text-white tracking-tighter uppercase">BIGO LIVE</h1>
-          <div className="flex items-center gap-5 text-white/70">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <h1 className="text-lg font-black text-white tracking-tighter uppercase">BINGO LIVE</h1>
+          <div className="flex items-center gap-4 text-white/70">
             <Search size={20} className="cursor-pointer" />
-            <Bell size={20} className="cursor-pointer" />
+            <div className="relative">
+              <Bell size={20} className="cursor-pointer" />
+              <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-pink-500 rounded-full border border-[#1a1a1a]" />
+            </div>
           </div>
         </div>
 
-        {/* Floor 2: Scrollable Tabs Row - Clearly separated with even more space */}
+        {/* Floor 2: Scrollable Tabs Row */}
         <div 
           ref={scrollRef}
-          className="w-full overflow-x-auto scrollbar-hide touch-pan-x pb-6 pt-2 cursor-grab active:cursor-grabbing"
+          className="w-full overflow-x-auto scrollbar-hide touch-pan-x pb-3 pt-1 cursor-grab active:cursor-grabbing"
         >
           <div className="flex items-center gap-2 px-4 w-max">
             {tabs.map(tab => (
@@ -143,7 +146,7 @@ export default function HomePage() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "px-4 py-1.5 rounded-full text-[11px] font-bold transition-all whitespace-nowrap",
+                  "px-3 py-1 rounded-full text-[10px] font-bold transition-all whitespace-nowrap",
                   activeTab === tab 
                     ? "bg-[#333333] text-white shadow-sm ring-1 ring-white/20" 
                     : "bg-[#222222] text-white/40 hover:text-white"
@@ -158,7 +161,7 @@ export default function HomePage() {
 
       {/* Main Content Area - Only scrolls vertically */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide p-0.5">
-        <div className="grid grid-cols-2 gap-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-0.5">
           {filteredRooms.map(room => (
             <RoomCard key={room.id} room={room} />
           ))}

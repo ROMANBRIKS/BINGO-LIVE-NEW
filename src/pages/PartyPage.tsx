@@ -13,16 +13,21 @@ export default function PartyPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#050505] p-4">
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate(-1)} className="p-2 bg-white/5 rounded-full">
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-xl font-black italic uppercase tracking-tight">Party Rooms</h1>
-      </div>
+    <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none">
+      {/* Fixed Top Navigation */}
+      <header className="flex-none bg-[#1a1a1a] w-full border-b border-white/10">
+        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+          <h1 className="text-lg font-black text-white tracking-tighter uppercase">BINGO LIVE</h1>
+          <button onClick={() => navigate(-1)} className="p-1.5 bg-white/5 rounded-full text-white/40 hover:text-white transition-colors">
+            <ArrowLeft size={18} />
+          </button>
+        </div>
+      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {partyRooms.map(room => (
+      <div className="flex-1 overflow-y-auto p-4 pb-16 sm:pb-8">
+        <h2 className="text-lg font-black italic uppercase tracking-tight mb-6">Party Rooms</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+          {partyRooms.map(room => (
           <div 
             key={room.id} 
             onClick={() => alert(`Joining ${room.title}... 🥳`)}
@@ -52,6 +57,7 @@ export default function PartyPage() {
             </button>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

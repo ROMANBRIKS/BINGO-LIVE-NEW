@@ -70,3 +70,17 @@ export interface Transaction {
   type: TransactionType;
   timestamp: any; // Firestore Timestamp
 }
+
+export interface PrivateCallRequest {
+  id: string;
+  roomId: string;
+  viewerUid: string;
+  viewerName: string;
+  viewerPhoto: string;
+  hostUid: string;
+  status: 'pending' | 'accepted' | 'declined' | 'ended';
+  fee: number;
+  createdAt: any;
+  startedAt?: any;
+  endedAt?: any;
+}

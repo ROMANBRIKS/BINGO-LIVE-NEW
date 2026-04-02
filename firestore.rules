@@ -58,6 +58,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         (request.auth.token.email == "rogershep101@gmail.com") ||
+        (request.auth.uid == "YDnNAkdp5sYRs8YNN8K22576UO33") ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
@@ -128,22 +129,38 @@ service cloud.firestore {
              (!('isGift' in data) || data.isGift is bool);
     }
 
+    function isValidPrivateCall(data) {
+      return hasRequiredFields(['roomId', 'hostUid', 'viewerUid', 'viewerName', 'viewerPhoto', 'status', 'fee', 'createdAt']) &&
+             data.roomId is string &&
+             data.hostUid is string &&
+             data.viewerUid is string &&
+             data.viewerName is string &&
+             data.viewerPhoto is string &&
+             data.status in ['pending', 'accepted', 'declined', 'ended'] &&
+             data.fee is number &&
+             isRecent(data.createdAt) &&
+             (!('startedAt' in data) || data.startedAt is timestamp || data.startedAt == null) &&
+             (!('endedAt' in data) || data.endedAt is timestamp || data.endedAt == null);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      (request.resource.data.role == 'user' || isAdmin());
+      allow create: if isAuthenticated() && (
+                      isAdmin() ||
+                      (isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin())) ||
+                      // Allow creation of minimal profile during gifting if it doesn't exist
+                      (request.resource.data.keys().hasAll(['beans', 'totalBeansEarned']))
+                    );
       allow update: if isAuthenticated() && (
                       isAdmin() ||
                       (isOwner(userId) && isValidUser(request.resource.data) && 
                        request.resource.data.role == resource.data.role) ||
                       // Allow anyone to update host's beans/totalBeansEarned (gifting)
-                      (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beans', 'totalBeansEarned']) &&
-                       (!('beans' in resource.data) || request.resource.data.beans >= resource.data.beans) &&
-                       (!('totalBeansEarned' in resource.data) || request.resource.data.totalBeansEarned >= resource.data.totalBeansEarned))
+                      (request.resource.data.diff(resource.data).affectedKeys().hasAny(['beans', 'totalBeansEarned']))
                     );
     }
 
@@ -187,6 +204,16 @@ service cloud.firestore {
                       request.resource.data.followingUid != request.auth.uid &&
                       isRecent(request.resource.data.timestamp);
       allow delete: if isAuthenticated() && resource.data.followerUid == request.auth.uid;
+    }
+
+    match /private_calls/{callId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.hostUid || request.auth.uid == resource.data.viewerUid || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.viewerUid && isValidPrivateCall(request.resource.data);
+      allow update: if isAuthenticated() && (
+                      (request.auth.uid == resource.data.hostUid && isValidPrivateCall(request.resource.data)) ||
+                      (request.auth.uid == resource.data.viewerUid && isValidPrivateCall(request.resource.data)) ||
+                      isAdmin()
+                    );
     }
     
     match /test/connection {
