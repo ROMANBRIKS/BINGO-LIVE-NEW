@@ -71,75 +71,174 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
 
       {/* 2. ROUND INFO - EXACT REPLICATION */}
       <div className="absolute top-[108px] left-0 right-0 flex items-center justify-center gap-6">
-        {/* Left Side Status Balls */}
+        {/* Left Side Status Balls (Host) */}
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 bg-[#ff3b30] rounded-full border border-white/20 shadow-lg flex items-center justify-center">
-            <span className="text-sm">😖</span>
-          </div>
-          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[11px] font-black text-white/80">2</span>
-          </div>
-          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[11px] font-black text-white/80">3</span>
-          </div>
+          {[1, 2, 3].map((r) => {
+            const result = room.pkResults?.[r - 1];
+            const isActive = room.pkRound === r;
+            return (
+              <div 
+                key={`host-round-${r}`}
+                className={`w-6 h-6 rounded-full border shadow-lg flex items-center justify-center transition-all ${
+                  result === 'win' ? 'bg-green-500 border-green-400' :
+                  result === 'loss' ? 'bg-red-500 border-red-400' :
+                  result === 'draw' ? 'bg-gray-500 border-gray-400' :
+                  isActive ? 'bg-blue-500 border-blue-400 animate-pulse' :
+                  'bg-black/50 border-white/10'
+                }`}
+              >
+                {result === 'win' ? <span className="text-[10px]">🏆</span> : 
+                 result === 'loss' ? <span className="text-[10px]">😖</span> :
+                 result === 'draw' ? <span className="text-[10px]">🤝</span> :
+                 <span className="text-[11px] font-black text-white/80">{r}</span>}
+              </div>
+            );
+          })}
         </div>
         
         {/* Center Timer Display */}
-        <div className="flex items-center gap-2">
-          <span className="text-[14px] font-black text-white tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">ROUND 1</span>
-          <span className="text-[14px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">·</span>
-          <span className="text-[14px] font-black text-white tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{timeLeft}</span>
+        <div className="flex flex-col items-center gap-0.5">
+          <div className="flex items-center gap-3">
+            <span className="text-[16px] font-black text-[#00e5ff] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              {room.pkResults?.filter((r: string) => r === 'win').length || 0}
+            </span>
+            <span className="text-[12px] font-black text-white/40">:</span>
+            <span className="text-[16px] font-black text-[#ffc400] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              {room.pkResults?.filter((r: string) => r === 'loss').length || 0}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-black text-white/60 tracking-widest uppercase">
+              ROUND {room.pkRound || 1}
+            </span>
+            <span className="text-[11px] font-black text-white/40">·</span>
+            <span className="text-[11px] font-black text-white/60 tracking-widest">{timeLeft}</span>
+          </div>
         </div>
 
-        {/* Right Side Status Balls */}
+        {/* Right Side Status Balls (Opponent) */}
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[11px] font-black text-white/80">3</span>
-          </div>
-          <div className="w-6 h-6 bg-black/50 backdrop-blur-md rounded-full border border-white/10 flex items-center justify-center">
-            <span className="text-[11px] font-black text-white/80">2</span>
-          </div>
-          <div className="w-6 h-6 bg-[#ff3b30] rounded-full border border-white/20 shadow-lg flex items-center justify-center">
-            <span className="text-sm">😖</span>
-          </div>
+          {[1, 2, 3].map((r) => {
+            const result = room.pkResults?.[r - 1];
+            const isActive = room.pkRound === r;
+            // Opponent result is inverse of host result
+            const oppResult = result === 'win' ? 'loss' : result === 'loss' ? 'win' : result;
+            return (
+              <div 
+                key={`opp-round-${r}`}
+                className={`w-6 h-6 rounded-full border shadow-lg flex items-center justify-center transition-all ${
+                  oppResult === 'win' ? 'bg-green-500 border-green-400' :
+                  oppResult === 'loss' ? 'bg-red-500 border-red-400' :
+                  oppResult === 'draw' ? 'bg-gray-500 border-gray-400' :
+                  isActive ? 'bg-yellow-500 border-yellow-400 animate-pulse' :
+                  'bg-black/50 border-white/10'
+                }`}
+              >
+                {oppResult === 'win' ? <span className="text-[10px]">🏆</span> : 
+                 oppResult === 'loss' ? <span className="text-[10px]">😖</span> :
+                 oppResult === 'draw' ? <span className="text-[10px]">🤝</span> :
+                 <span className="text-[11px] font-black text-white/80">{r}</span>}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* 3. DRAW BADGES - HEXAGONAL STYLE */}
+      {/* 3. DRAW/WIN/LOSS BADGES - HEXAGONAL STYLE */}
       <div className="absolute top-[100px] bottom-[220px] left-0 right-0 flex">
         <div className="flex-1 relative flex items-end justify-center pb-16">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-24 h-24 relative"
-          >
-            {/* Hexagon Shield for DRAW */}
-            <div className="absolute inset-0 bg-[#00e5ff]/10 backdrop-blur-md border-[2.5px] border-[#00e5ff]/40 [clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)] flex flex-col items-center justify-center shadow-[0_0_15px_rgba(0,229,255,0.2)]">
-              <div className="text-white text-[12px] font-black italic tracking-tighter drop-shadow-md">DRAW</div>
-              <div className="w-8 h-[2px] bg-[#00e5ff]/60 mt-1 shadow-[0_0_5px_#00e5ff]" />
-              <div className="mt-1 w-5 h-5 border-b-[2px] border-x-[2px] border-[#00e5ff]/40 rounded-b-sm" />
-            </div>
-          </motion.div>
+          {room.pkResults?.length > 0 && (
+            <motion.div 
+              initial={{ scale: 0, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="w-24 h-24 relative"
+            >
+              {/* Hexagon Shield for Result */}
+              <div className={`absolute inset-0 backdrop-blur-md border-[2.5px] [clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)] flex flex-col items-center justify-center shadow-lg transition-colors duration-500 ${
+                room.pkResults[room.pkResults.length - 1] === 'win' ? 'bg-green-500/30 border-green-400 shadow-green-500/40' :
+                room.pkResults[room.pkResults.length - 1] === 'loss' ? 'bg-red-500/30 border-red-400 shadow-red-500/40' :
+                'bg-[#00e5ff]/20 border-[#00e5ff]/40 shadow-[#00e5ff]/30'
+              }`}>
+                <div className="text-white text-[14px] font-black italic tracking-tighter drop-shadow-md uppercase">
+                  {room.pkResults[room.pkResults.length - 1]}
+                </div>
+                <div className={`w-10 h-[2px] mt-1 shadow-[0_0_8px] ${
+                  room.pkResults[room.pkResults.length - 1] === 'win' ? 'bg-green-400 shadow-green-400' :
+                  room.pkResults[room.pkResults.length - 1] === 'loss' ? 'bg-red-400 shadow-red-400' :
+                  'bg-[#00e5ff]/60 shadow-[#00e5ff]'
+                }`} />
+              </div>
+            </motion.div>
+          )}
         </div>
         <div className="flex-1 relative flex items-end justify-center pb-16">
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-24 h-24 relative"
-          >
-            {/* Hexagon Shield for DRAW */}
-            <div className="absolute inset-0 bg-[#00e5ff]/10 backdrop-blur-md border-[2.5px] border-[#00e5ff]/40 [clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)] flex flex-col items-center justify-center shadow-[0_0_15px_rgba(0,229,255,0.2)]">
-              <div className="text-white text-[12px] font-black italic tracking-tighter drop-shadow-md">DRAW</div>
-              <div className="w-8 h-[2px] bg-[#00e5ff]/60 mt-1 shadow-[0_0_5px_#00e5ff]" />
-              <div className="mt-1 w-5 h-5 border-b-[2px] border-x-[2px] border-[#00e5ff]/40 rounded-b-sm" />
-            </div>
-          </motion.div>
+          {room.pkResults?.length > 0 && (
+            <motion.div 
+              initial={{ scale: 0, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              className="w-24 h-24 relative"
+            >
+              {/* Hexagon Shield for Opponent Result */}
+              {(() => {
+                const lastResult = room.pkResults[room.pkResults.length - 1];
+                const oppResult = lastResult === 'win' ? 'loss' : lastResult === 'loss' ? 'win' : lastResult;
+                return (
+                  <div className={`absolute inset-0 backdrop-blur-md border-[2.5px] [clip-path:polygon(25%_0%,75%_0%,100%_50%,75%_100%,25%_100%,0%_50%)] flex flex-col items-center justify-center shadow-lg transition-colors duration-500 ${
+                    oppResult === 'win' ? 'bg-green-500/30 border-green-400 shadow-green-500/40' :
+                    oppResult === 'loss' ? 'bg-red-500/30 border-red-400 shadow-red-500/40' :
+                    'bg-[#00e5ff]/20 border-[#00e5ff]/40 shadow-[#00e5ff]/30'
+                  }`}>
+                    <div className="text-white text-[14px] font-black italic tracking-tighter drop-shadow-md uppercase">
+                      {oppResult}
+                    </div>
+                    <div className={`w-10 h-[2px] mt-1 shadow-[0_0_8px] ${
+                      oppResult === 'win' ? 'bg-green-400 shadow-green-400' :
+                      oppResult === 'loss' ? 'bg-red-400 shadow-red-400' :
+                      'bg-[#00e5ff]/60 shadow-[#00e5ff]'
+                    }`} />
+                  </div>
+                );
+              })()}
+            </motion.div>
+          )}
           {/* Plus Action Button */}
           <div className="absolute bottom-20 right-4 w-9 h-9 bg-[#00e5ff] rounded-full flex items-center justify-center shadow-[0_4px_10px_rgba(0,0,0,0.3)] border-2 border-white/30 pointer-events-auto cursor-pointer active:scale-90 transition-transform">
             <span className="text-black font-black text-2xl leading-none">+</span>
           </div>
         </div>
       </div>
+
+      {/* 5. ROUND RESULT OVERLAY - BIG CENTER TEXT */}
+      {timeLeft === "00:00" && room.pkResults?.length >= room.pkRound && (
+        <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: [0.5, 1.2, 1], opacity: 1 }}
+            className="flex flex-col items-center"
+          >
+            {(() => {
+              const lastResult = room.pkResults[room.pkResults.length - 1];
+              const color = lastResult === 'win' ? 'text-green-400' : lastResult === 'loss' ? 'text-red-400' : 'text-[#00e5ff]';
+              const shadow = lastResult === 'win' ? 'shadow-green-500/50' : lastResult === 'loss' ? 'shadow-red-500/50' : 'shadow-cyan-500/50';
+              return (
+                <>
+                  <div className={`text-[80px] font-black italic uppercase tracking-tighter ${color} drop-shadow-[0_0_20px_rgba(0,0,0,0.8)]`}>
+                    {lastResult}
+                  </div>
+                  <div className={`w-40 h-1 rounded-full bg-white/20 mt-[-10px] overflow-hidden`}>
+                    <motion.div 
+                      initial={{ x: '-100%' }}
+                      animate={{ x: '100%' }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                      className={`w-full h-full bg-gradient-to-r from-transparent via-white to-transparent`}
+                    />
+                  </div>
+                </>
+              );
+            })()}
+          </motion.div>
+        </div>
+      )}
 
       {/* 4. SETTLEMENT BAR - BOTTOM SECTION */}
       <div className="absolute bottom-[220px] left-0 right-0 flex items-center justify-between px-6">
@@ -150,8 +249,22 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
         
         {/* Center Info Bar */}
         <div className="bg-black/60 backdrop-blur-2xl px-10 py-2.5 rounded-full border border-white/10 flex items-center gap-4 shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
-          <span className="text-[14px] text-white/90 font-bold tracking-tight">settlement of the PK</span>
-          <span className="text-[14px] text-[#00e5ff] font-black italic tracking-tight">Details &gt;</span>
+          {room.pkRound === 3 && timeLeft === "00:00" ? (
+            <span className="text-[14px] text-white font-black uppercase tracking-widest animate-pulse">
+              {(() => {
+                const wins = room.pkResults?.filter((r: string) => r === 'win').length || 0;
+                const losses = room.pkResults?.filter((r: string) => r === 'loss').length || 0;
+                if (wins > losses) return "Victory! 🏆";
+                if (wins < losses) return "Defeat 😖";
+                return "Draw 🤝";
+              })()}
+            </span>
+          ) : (
+            <>
+              <span className="text-[14px] text-white/90 font-bold tracking-tight">settlement of the PK</span>
+              <span className="text-[14px] text-[#00e5ff] font-black italic tracking-tight">Details &gt;</span>
+            </>
+          )}
         </div>
 
         {/* Right Side Icon (Orange Circle) */}

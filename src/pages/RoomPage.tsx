@@ -33,6 +33,7 @@ export default function RoomPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [hostProfile, setHostProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  const [simulatedMessages, setSimulatedMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [showGifts, setShowGifts] = useState(false);
   const [showTools, setShowTools] = useState(false);
@@ -277,6 +278,24 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId || !profile?.uid) return;
     const roomRef = doc(db, 'rooms', roomId);
+    
+    // Add join message
+    const addJoinMessage = async () => {
+      try {
+        await addDoc(collection(db, `rooms/${roomId}/messages`), {
+          type: 'join',
+          uid: profile.uid,
+          displayName: profile.displayName,
+          photoURL: profile.photoURL || '',
+          level: profile.level || 1,
+          timestamp: serverTimestamp()
+        });
+      } catch (error) {
+        console.error('Error adding join message', error);
+      }
+    };
+    addJoinMessage();
+
     updateDoc(roomRef, { viewerCount: increment(1) }).catch(err => console.error('Error incrementing viewer count', err));
     return () => {
       updateDoc(roomRef, { viewerCount: increment(-1) }).catch(err => console.error('Error decrementing viewer count', err));
@@ -298,8 +317,107 @@ export default function RoomPage() {
     const unsubMsgs = onSnapshot(q, (snap) => {
       setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse());
     });
-    return () => { unsubRoom(); unsubMsgs(); };
+    
+    return () => { 
+      unsubRoom(); 
+      unsubMsgs(); 
+    };
   }, [roomId]);
+
+  // Chat Simulation for Viewer (to make the room feel alive)
+  useEffect(() => {
+    if (!room || !profile) return;
+
+    const interval = setInterval(() => {
+      const users = [
+        { name: 'Dark Matters2.o', level: undefined },
+        { name: 'hanafi', level: 4 },
+        { name: 'DD', level: undefined },
+        { name: 'Deji', level: 8 },
+        { name: 'Sherryluv', level: 12 },
+        { name: 'CoolCat', level: 5 },
+        { name: 'StreamFan', level: 2 }
+      ];
+      const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
+      
+      const rand = Math.random();
+      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' = 'chat';
+      const userObj = users[Math.floor(Math.random() * users.length)];
+      const user = userObj.name;
+      const level = userObj.level;
+      let text = texts[Math.floor(Math.random() * texts.length)];
+
+      if (rand > 0.95) {
+        type = 'follow-prompt';
+        text = 'to get LIVE notifications';
+      } else if (rand > 0.85) {
+        type = 'gift';
+        text = 'sent a Rose 🌹';
+      } else if (rand > 0.75) {
+        type = 'follow';
+        text = 'followed the anchor';
+      } else if (rand > 0.5) {
+        type = 'join';
+        text = 'joined';
+      }
+
+      const newMessage = {
+        id: 'sim-' + Math.random().toString(36).substr(2, 9),
+        displayName: type === 'follow-prompt' ? (hostProfile?.displayName || 'the host') : user,
+        text,
+        type,
+        level: type === 'follow-prompt' ? undefined : level,
+        timestamp: Date.now(),
+        hostPhoto: hostProfile?.photoURL,
+        hostName: hostProfile?.displayName
+      };
+
+      setSimulatedMessages(prev => {
+        const updated = [...prev, newMessage].slice(-30);
+        if (type === 'follow') {
+          const thankYou = {
+            id: 'sim-thank-' + Math.random().toString(36).substr(2, 9),
+            displayName: 'System',
+            text: `Anchor: Thanks for the follow, ${user}! ❤️`,
+            type: 'system' as const,
+            timestamp: Date.now()
+          };
+          return [...updated, thankYou].slice(-30);
+        }
+        return updated;
+      });
+    }, 2500); // Faster interval to match GoLivePage
+
+    return () => clearInterval(interval);
+  }, [room?.id, hostProfile]);
+
+  // Add immediate and periodic follow prompt for viewers
+  useEffect(() => {
+    if (!room || !profile || profile.uid === room.hostUid || isFollowing) return;
+
+    // Immediate prompt on join
+    const initialPrompt = {
+      id: 'follow-prompt-initial',
+      type: 'follow-prompt',
+      displayName: hostProfile?.displayName || 'the host',
+      hostPhoto: hostProfile?.photoURL,
+      timestamp: Date.now()
+    };
+    setSimulatedMessages(prev => [...prev, initialPrompt].slice(-30));
+
+    const promptInterval = setInterval(() => {
+      const promptMsg = {
+        id: 'follow-prompt-' + Date.now(),
+        type: 'follow-prompt',
+        displayName: hostProfile?.displayName || 'the host',
+        hostPhoto: hostProfile?.photoURL,
+        timestamp: Date.now()
+      };
+      setSimulatedMessages(prev => [...prev, promptMsg].slice(-30));
+    }, 60000); // Every 60 seconds
+
+    return () => clearInterval(promptInterval);
+  }, [room?.id, room?.hostUid, profile?.uid, isFollowing, hostProfile]);
 
   useEffect(() => {
     if (!profile || !room) return;
@@ -485,7 +603,23 @@ export default function RoomPage() {
               
               {/* Chat Messages */}
               <div ref={chatRef} onScroll={handleChatScroll} className="max-h-[30vh] overflow-y-auto no-scrollbar flex flex-col gap-2 pointer-events-auto">
-                {messages.map(msg => <ChatMessage key={msg.id} message={msg} />)}
+                {[...messages, ...simulatedMessages]
+                  .sort((a, b) => {
+                    const timeA = a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp;
+                    const timeB = b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp;
+                    return timeA - timeB;
+                  })
+                  .map(msg => (
+                    <ChatMessage 
+                      key={msg.id} 
+                      message={{
+                        ...msg,
+                        onFollow: toggleFollow,
+                        isFollowing: isFollowing
+                      }} 
+                    />
+                  ))
+                }
               </div>
 
               {/* Bottom Interaction Bar */}
