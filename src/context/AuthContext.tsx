@@ -47,13 +47,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               diamonds: 100,
               beans: 0,
               role: u.email === 'rogershep101@gmail.com' ? 'admin' : 'user',
-              nobleTitle: 'none',
+              nobleTitle: 'None',
               level: 1,
               friends: 0,
               following: 0,
               fans: 0,
               totalDiamondsSpent: 0,
               totalBeansEarned: 0,
+              lastNoblePurchaseDate: new Date(),
               referralCode: Math.random().toString(36).substring(7).toUpperCase(),
             };
             await setDoc(userDoc, newProfile);

@@ -11,7 +11,7 @@
         "diamonds": { "type": "number", "description": "Current diamond balance" },
         "beans": { "type": "number", "description": "Current bean balance (convertible to cash)" },
         "role": { "type": "string", "enum": ["user", "host", "agency", "admin"], "description": "User's role" },
-        "nobleTitle": { "type": "string", "enum": ["none", "Baron", "Earl", "Duke"], "description": "VIP noble title" },
+        "nobleTitle": { "type": "string", "enum": ["None", "Baron", "Duke", "Grand Duke", "Archduke", "King", "Emperor", "Global God"], "description": "VIP noble title" },
         "agencyId": { "type": "string", "description": "ID of the agency the user belongs to (if host)" },
         "familyId": { "type": "string", "description": "ID of the host family" },
         "totalDiamondsSpent": { "type": "number", "description": "Total diamonds spent for leaderboard" },

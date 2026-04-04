@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LevelBadge } from '../components/LevelBadge';
+import { NobleBadge } from '../components/NobleBadge';
+import { getUserNobleStatus } from '../nobleLogic';
+import { checkExpirationAlerts, formatExpirationCountdown } from '../NobleExpirationSystem';
 
 import { GoLiveModal } from '../components/GoLiveModal';
 
@@ -20,6 +23,10 @@ export default function ProfilePage() {
   const [showGoLive, setShowGoLive] = useState(false);
 
   if (!profile) return null;
+
+  const lastPurchaseDate = profile.lastNoblePurchaseDate?.toDate ? profile.lastNoblePurchaseDate.toDate() : (profile.lastNoblePurchaseDate ? new Date(profile.lastNoblePurchaseDate) : new Date());
+  const nobleStatus = getUserNobleStatus(profile.totalDiamondsSpent, lastPurchaseDate);
+  const expirationAlert = checkExpirationAlerts(nobleStatus);
 
   const handleRecharge = async () => {
     // Mock recharge logic
@@ -80,11 +87,42 @@ export default function ProfilePage() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-xl font-black italic uppercase tracking-tight">{profile.displayName}</h2>
-                <LevelBadge level={profile.level} />
+                <div className="flex items-center gap-1">
+                  <LevelBadge level={profile.level} />
+                  {nobleStatus.currentTier !== 'None' && <NobleBadge tier={nobleStatus.currentTier} size="sm" />}
+                </div>
               </div>
               <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">ID: {profile.uid.substring(0, 8)}</p>
             </div>
           </div>
+
+          {/* Noble Expiration Alert */}
+          {expirationAlert.shouldAlert && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                "mb-6 p-4 rounded-2xl border flex items-center gap-3",
+                expirationAlert.severity === 'high' ? "bg-red-500/10 border-red-500/20 text-red-500" :
+                expirationAlert.severity === 'medium' ? "bg-orange-500/10 border-orange-500/20 text-orange-500" :
+                "bg-blue-500/10 border-blue-500/20 text-blue-500"
+              )}
+            >
+              <Bell size={18} className="flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-xs font-bold leading-tight">{expirationAlert.message}</p>
+                <p className="text-[10px] opacity-60 font-black uppercase tracking-widest mt-1">
+                  {formatExpirationCountdown(expirationAlert.daysRemaining)}
+                </p>
+              </div>
+              <button 
+                onClick={() => alert("Renewal coming soon! 👑")}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
+              >
+                Renew
+              </button>
+            </motion.div>
+          )}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">

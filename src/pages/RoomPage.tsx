@@ -8,6 +8,9 @@ import {
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Room, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { createThankYouMessage, createInitialFollowPrompt } from '../followLogic';
+import { generateSimulatedMessage } from '../simulationLogic';
+import { PRIVATE_CALL_FEE } from '../privateCallLogic';
 import { cn } from '../lib/utils';
 import { getDeviceType } from '../lib/device';
 import { 
@@ -20,6 +23,7 @@ import { GiftCombo } from '../components/GiftCombo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PKBattle } from '../components/PKBattle';
 import { GiftAnimation } from '../components/GiftAnimation';
+import { NobleEntrance } from '../components/NobleEntrance';
 import { LikeParticles, LikeParticlesRef } from '../components/LikeParticles';
 import { ChatMessage } from '../components/ChatMessage';
 import { LevelBadge } from '../components/LevelBadge';
@@ -49,6 +53,7 @@ export default function RoomPage() {
   const [isPrivateCalling, setIsPrivateCalling] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+  const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any } | null>(null);
   const pendingLikesRef = React.useRef(0);
   const likeParticlesRef = React.useRef<LikeParticlesRef>(null);
 
@@ -313,6 +318,13 @@ export default function RoomPage() {
     return [systemMsg, ...messages, ...simulatedMessages]
       .filter(msg => {
         if (msg.id === 'system-welcome') return true;
+        
+        // Filter out follow-prompt if already following or if user is host
+        if (msg.type === 'follow-prompt') {
+          if (isFollowing) return false;
+          if (profile?.uid === room?.hostUid) return false;
+        }
+
         const ts = msg.timestamp?.toMillis ? msg.timestamp.toMillis() : (typeof msg.timestamp === 'number' ? msg.timestamp : Date.now());
         return ts > fiveMinutesAgo;
       })
@@ -321,7 +333,7 @@ export default function RoomPage() {
         const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : (typeof b.timestamp === 'number' ? b.timestamp : Date.now() + 1000);
         return timeA - timeB;
       });
-  }, [messages, simulatedMessages, currentTime]);
+  }, [messages, simulatedMessages, currentTime, isFollowing, profile?.uid, room?.hostUid]);
 
   const handleLocalGift = (gift: any, quantity: number) => {
     if (!profile) return;
@@ -446,18 +458,6 @@ export default function RoomPage() {
           level: profile.level || 1,
           timestamp: serverTimestamp()
         });
-
-        // If user hasn't followed, also add a follow prompt
-        if (!isFollowing) {
-          await addDoc(collection(db, `rooms/${roomId}/messages`), {
-            type: 'follow-prompt',
-            uid: profile.uid,
-            displayName: hostProfile?.displayName || 'the host',
-            photoURL: profile.photoURL || '',
-            hostPhoto: hostProfile?.photoURL || '',
-            timestamp: serverTimestamp()
-          });
-        }
       } catch (error) {
         console.error('Error adding join message', error);
       }
@@ -476,11 +476,21 @@ export default function RoomPage() {
       if (snap.exists()) {
         const roomData = { id: snap.id, ...snap.data() } as Room;
         setRoom(roomData);
-        getDoc(doc(db, 'users', roomData.hostUid)).then(userSnap => {
+      }
+    });
+
+    let unsubHost: (() => void) | undefined;
+    const fetchHostProfile = async () => {
+      const roomSnap = await getDoc(doc(db, 'rooms', roomId));
+      if (roomSnap.exists()) {
+        const hostUid = roomSnap.data().hostUid;
+        unsubHost = onSnapshot(doc(db, 'users', hostUid), (userSnap) => {
           if (userSnap.exists()) setHostProfile(userSnap.data() as UserProfile);
         });
       }
-    });
+    };
+    fetchHostProfile();
+    
     const q = query(collection(db, `rooms/${roomId}/messages`), orderBy('timestamp', 'desc'), limit(50));
     const unsubMsgs = onSnapshot(q, (snap) => {
       setMessages(snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })).reverse());
@@ -489,6 +499,7 @@ export default function RoomPage() {
     return () => { 
       unsubRoom(); 
       unsubMsgs(); 
+      if (unsubHost) unsubHost();
     };
   }, [roomId]);
 
@@ -509,7 +520,7 @@ export default function RoomPage() {
       const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
       
       const rand = Math.random();
-      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' = 'chat';
+      let type: 'chat' | 'gift' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' = 'chat';
       const userObj = users[Math.floor(Math.random() * users.length)];
       const user = userObj.name;
       const level = userObj.level;
@@ -521,9 +532,6 @@ export default function RoomPage() {
       } else if (rand > 0.95) {
         type = 'like-prompt';
         text = 'Tap like to give the host a little energy!';
-      } else if (rand > 0.92) {
-        type = 'follow-prompt';
-        text = 'to get LIVE notifications';
       } else if (rand > 0.85) {
         type = 'gift';
         text = 'sent a Rose 🌹';
@@ -535,46 +543,17 @@ export default function RoomPage() {
         text = 'joined';
       }
 
-      const newMessage = {
-        id: 'sim-' + Math.random().toString(36).substr(2, 9),
-        displayName: type === 'follow-prompt' ? (hostProfile?.displayName || 'the host') : user,
-        text,
-        type,
-        isGift: type === 'gift',
-        giftName: type === 'gift' ? 'Rose' : undefined,
-        giftImage: type === 'gift' ? '🌹' : undefined,
-        quantity: 1,
-        level: type === 'follow-prompt' ? undefined : level,
-        timestamp: Date.now(),
-        hostPhoto: hostProfile?.photoURL,
-        hostName: hostProfile?.displayName,
-        isNew: type === 'join' && Math.random() > 0.7
-      };
+      const newMessage = generateSimulatedMessage(hostProfile);
 
       setSimulatedMessages(prev => {
         const updated = [...prev, newMessage].slice(-30);
         
-        // If it was a join, also add a follow prompt simulation
-        if (type === 'join') {
-          const followPrompt = {
-            id: 'sim-follow-prompt-' + Math.random().toString(36).substr(2, 9),
-            displayName: hostProfile?.displayName || 'the host',
-            text: 'to get LIVE notifications',
-            type: 'follow-prompt' as const,
-            timestamp: Date.now() + 100,
-            hostPhoto: hostProfile?.photoURL
-          };
-          return [...updated, followPrompt].slice(-30);
+        if (newMessage.type === 'join' && newMessage.nobleTier && newMessage.nobleTier !== 'None') {
+          setNobleEntranceUser({ displayName: newMessage.displayName, tier: newMessage.nobleTier });
         }
 
-        if (type === 'follow') {
-          const thankYou = {
-            id: 'sim-thank-' + Math.random().toString(36).substr(2, 9),
-            displayName: 'System',
-            text: `Anchor: Thanks for the follow, ${user}! ❤️`,
-            type: 'system' as const,
-            timestamp: Date.now()
-          };
+        if (newMessage.type === 'follow') {
+          const thankYou = createThankYouMessage(newMessage.displayName, hostProfile);
           return [...updated, thankYou].slice(-30);
         }
         return updated;
@@ -584,32 +563,25 @@ export default function RoomPage() {
     return () => clearInterval(interval);
   }, [room?.id, hostProfile]);
 
-  // Add immediate and periodic follow prompt for viewers
+  // Add immediate follow prompt for viewers
   useEffect(() => {
-    if (!room || !profile || profile.uid === room.hostUid || isFollowing) return;
+    if (!room || !profile || profile.uid === room.hostUid || isFollowing || !hostProfile) return;
 
     // Immediate prompt on join
-    const initialPrompt = {
-      id: 'follow-prompt-initial',
-      type: 'follow-prompt',
-      displayName: hostProfile?.displayName || 'the host',
-      hostPhoto: hostProfile?.photoURL,
-      timestamp: Date.now()
-    };
-    setSimulatedMessages(prev => [...prev, initialPrompt].slice(-30));
+    const initialPrompt = createInitialFollowPrompt(room.id, hostProfile);
+    
+    setSimulatedMessages(prev => {
+      const existingIndex = prev.findIndex(m => m.id === initialPrompt.id);
+      if (existingIndex !== -1) {
+        // Update existing prompt with latest host info if needed
+        const updated = [...prev];
+        updated[existingIndex] = { ...updated[existingIndex], ...initialPrompt };
+        return updated;
+      }
+      return [...prev, initialPrompt].slice(-30);
+    });
 
-    const promptInterval = setInterval(() => {
-      const promptMsg = {
-        id: 'follow-prompt-' + Date.now(),
-        type: 'follow-prompt',
-        displayName: hostProfile?.displayName || 'the host',
-        hostPhoto: hostProfile?.photoURL,
-        timestamp: Date.now()
-      };
-      setSimulatedMessages(prev => [...prev, promptMsg].slice(-30));
-    }, 60000); // Every 60 seconds
-
-    return () => clearInterval(promptInterval);
+    return () => {};
   }, [room?.id, room?.hostUid, profile?.uid, isFollowing, hostProfile]);
 
   useEffect(() => {
@@ -628,7 +600,37 @@ export default function RoomPage() {
       if (isFollowing) await deleteDoc(followRef);
       else {
         await setDoc(followRef, { followerUid: profile.uid, followingUid: room.hostUid, timestamp: serverTimestamp() });
-        await addDoc(collection(db, `rooms/${roomId}/messages`), { type: 'follow', uid: profile.uid, displayName: profile.displayName, photoURL: profile.photoURL || '', level: profile.level || 1, timestamp: serverTimestamp() });
+        
+        // Add follow message
+        await addDoc(collection(db, `rooms/${roomId}/messages`), { 
+          type: 'follow', 
+          uid: profile.uid, 
+          displayName: profile.displayName, 
+          photoURL: profile.photoURL || '', 
+          level: profile.level || 1, 
+          timestamp: serverTimestamp() 
+        });
+
+        // Add automated thank you message from the host/system
+        const thankYouMessages = [
+          `Thanks for the follow, ${profile.displayName}! ❤️`,
+          `Welcome to the family, ${profile.displayName}! 🙏`,
+          `Glad to have you here, ${profile.displayName}! 🌟`,
+          `Thanks for the support, ${profile.displayName}! ✨`,
+          `Welcome! Thanks for the follow, ${profile.displayName}! 💖`
+        ];
+        const randomThankYou = thankYouMessages[Math.floor(Math.random() * thankYouMessages.length)];
+
+        await addDoc(collection(db, `rooms/${roomId}/messages`), {
+          type: 'welcome',
+          uid: profile.uid,
+          displayName: profile.displayName,
+          photoURL: profile.photoURL || '',
+          hostName: hostProfile?.displayName || 'Anchor',
+          hostLevel: hostProfile?.level || 1,
+          text: randomThankYou,
+          timestamp: serverTimestamp()
+        });
       }
     } catch (error) { console.error('Follow error', error); }
   };
@@ -881,7 +883,13 @@ export default function RoomPage() {
                           onFollow: toggleFollow,
                           isFollowing: isFollowing,
                           onLike: sendLike,
-                          onJoinGuest: () => setNotification({ message: "Guest Live request sent! 🎥", type: 'info' })
+                          onJoinGuest: () => setNotification({ message: "Guest Live request sent! 🎥", type: 'info' }),
+                          onClick: () => {
+                            if (profile?.uid === room?.hostUid && msg.displayName && msg.type !== 'system') {
+                              setInput(`@${msg.displayName} `);
+                              setShowChatInput(true);
+                            }
+                          }
                         }} 
                       />
                     ))}
@@ -992,6 +1000,11 @@ export default function RoomPage() {
 
       <LikeParticles ref={likeParticlesRef} />
       
+      <NobleEntrance 
+        user={nobleEntranceUser} 
+        onComplete={() => setNobleEntranceUser(null)} 
+      />
+
       {activeAnimation && (
         <GiftAnimation 
           giftName={activeAnimation.giftName} 

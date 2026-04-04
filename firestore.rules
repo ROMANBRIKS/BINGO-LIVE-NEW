@@ -15,7 +15,7 @@ service cloud.firestore {
     //   - diamonds: number (required, >= 0)
     //   - beans: number (required, >= 0)
     //   - role: string (required, enum: user, host, agency, admin)
-    //   - nobleTitle: string (required, enum: none, Baron, Earl, Duke)
+    //   - nobleTitle: string (required, enum: None, Baron, Duke, Grand Duke, Archduke, King, Emperor, Global God)
     //   - totalDiamondsSpent: number (required, >= 0)
     //   - totalBeansEarned: number (required, >= 0)
     //   - referralCode: string (required)
@@ -95,7 +95,7 @@ service cloud.firestore {
              (!('diamonds' in data) || (data.diamonds is number && data.diamonds >= 0)) &&
              (!('beans' in data) || (data.beans is number && data.beans >= 0)) &&
              (!('role' in data) || data.role in ['user', 'host', 'agency', 'admin']) &&
-             (!('nobleTitle' in data) || data.nobleTitle in ['none', 'Baron', 'Earl', 'Duke']) &&
+             (!('nobleTitle' in data) || data.nobleTitle in ['None', 'Baron', 'Duke', 'Grand Duke', 'Archduke', 'King', 'Emperor', 'Global God']) &&
              (!('totalDiamondsSpent' in data) || (data.totalDiamondsSpent is number && data.totalDiamondsSpent >= 0)) &&
              (!('totalBeansEarned' in data) || (data.totalBeansEarned is number && data.totalBeansEarned >= 0));
     }

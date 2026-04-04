@@ -9,6 +9,10 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { PKBattle } from '../components/PKBattle';
 import { ChatMessage } from '../components/ChatMessage';
+import { NobleEntrance } from '../components/NobleEntrance';
+import { createThankYouMessage } from '../followLogic';
+import { generateSimulatedMessage } from '../simulationLogic';
+import { calculatePkResult, generatePkIncrements } from '../pkLogic';
 
 const MODES = ['Multi-guest LIVE', 'LIVE', 'Audio Live', 'Game LIVE'];
 
@@ -26,9 +30,11 @@ export default function GoLivePage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [messages, setMessages] = useState<{ 
     id: string; 
-    displayName: string; 
+    displayName?: string; 
+    hostName?: string;
+    hostLevel?: number;
     text: string; 
-    type: 'chat' | 'join' | 'like' | 'system' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' | 'gift'; 
+    type: 'chat' | 'join' | 'like' | 'system' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' | 'gift' | 'welcome'; 
     level?: number; 
     hostPhoto?: string;
     timestamp?: number;
@@ -57,6 +63,10 @@ export default function GoLivePage() {
     return [systemMsg, ...messages]
       .filter(msg => {
         if (msg.id === 'system-welcome') return true;
+        
+        // Host should never see follow-prompt
+        if (msg.type === 'follow-prompt') return false;
+
         const ts = msg.timestamp || Date.now();
         return ts > fiveMinutesAgo;
       })
@@ -72,6 +82,7 @@ export default function GoLivePage() {
   const pkOpponentScoreRef = useRef(0);
   const [pkEndTime, setPkEndTime] = useState<string | null>(null);
   const [pkResults, setPkResults] = useState<('win' | 'loss' | 'draw')[]>([]);
+  const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any } | null>(null);
   const pkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const roundTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -83,79 +94,17 @@ export default function GoLivePage() {
     }
 
     const interval = setInterval(() => {
-      const users = [
-        { name: 'Dark Matters2.o', level: undefined },
-        { name: 'hanafi', level: 4 },
-        { name: 'DD', level: undefined },
-        { name: 'Deji', level: 8 },
-        { name: 'Sherryluv', level: 12 },
-        { name: 'CoolCat', level: 5 },
-        { name: 'StreamFan', level: 2 }
-      ];
-      const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
-      
-      const rand = Math.random();
-      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' = 'chat';
-      const userObj = users[Math.floor(Math.random() * users.length)];
-      const user = userObj.name;
-      const level = userObj.level;
-      let text = texts[Math.floor(Math.random() * texts.length)];
-
-      if (rand > 0.98) {
-        type = 'guest-live-prompt';
-        text = 'Wanna meet with the broadcaster? Click to join the Guest Live!';
-      } else if (rand > 0.95) {
-        type = 'like-prompt';
-        text = 'Tap like to give the host a little energy!';
-      } else if (rand > 0.92) {
-        type = 'follow-prompt';
-        text = 'to get LIVE notifications';
-      } else if (rand > 0.85) {
-        type = 'gift';
-        text = 'sent a Rose 🌹';
-      } else if (rand > 0.75) {
-        type = 'follow';
-        text = 'followed the anchor';
-      } else if (rand > 0.5) {
-        type = 'join';
-        text = 'joined';
-      }
-
-      const newMessage = {
-        id: Math.random().toString(36).substr(2, 9),
-        displayName: type === 'follow-prompt' ? (profile?.displayName || 'the host') : user,
-        text,
-        type,
-        level: type === 'follow-prompt' ? undefined : level,
-        hostPhoto: profile?.photoURL,
-        timestamp: Date.now(),
-        isNew: type === 'join' && Math.random() > 0.7
-      };
+      const newMessage = generateSimulatedMessage(profile);
 
       setMessages(prev => {
         const updated = [...prev, newMessage].slice(-50);
         
-        // If it was a join, also add a follow prompt simulation
-        if (type === 'join') {
-          const followPrompt = {
-            id: Math.random().toString(36).substr(2, 9),
-            displayName: profile?.displayName || 'the host',
-            text: 'to get LIVE notifications',
-            type: 'follow-prompt' as const,
-            timestamp: Date.now() + 100,
-            hostPhoto: profile?.photoURL
-          };
-          return [...updated, followPrompt].slice(-50);
+        if (newMessage.type === 'join' && newMessage.nobleTier && newMessage.nobleTier !== 'None') {
+          setNobleEntranceUser({ displayName: newMessage.displayName, tier: newMessage.nobleTier });
         }
 
-        if (type === 'follow') {
-          const thankYou = {
-            id: Math.random().toString(36).substr(2, 9),
-            displayName: 'System',
-            text: `Anchor: Thanks for the follow, ${user}! ❤️`,
-            type: 'system' as const,
-            timestamp: Date.now()
-          };
+        if (newMessage.type === 'follow') {
+          const thankYou = createThankYouMessage(newMessage.displayName, profile);
           return [...updated, thankYou].slice(-50);
         }
         
@@ -243,9 +192,7 @@ export default function GoLivePage() {
     const currentScore = pkScoreRef.current;
     const currentOpponentScore = pkOpponentScoreRef.current;
     
-    let result: 'win' | 'loss' | 'draw' = 'draw';
-    if (currentScore > currentOpponentScore) result = 'win';
-    else if (currentScore < currentOpponentScore) result = 'loss';
+    let result = calculatePkResult(currentScore, currentOpponentScore);
 
     const newResults = [...pkResults, result];
     setPkResults(newResults);
@@ -272,16 +219,8 @@ export default function GoLivePage() {
   const startScoreSimulation = () => {
     if (pkIntervalRef.current) clearInterval(pkIntervalRef.current);
     
-    // Dramatic bias to ensure clear wins/losses/draws
-    // Round 1: Host likely wins, Round 2: Opponent likely wins, Round 3: Random
-    let bias = 1.0;
-    if (pkRound === 1) bias = 2.5;
-    else if (pkRound === 2) bias = 0.4;
-    else bias = Math.random() > 0.5 ? 2.0 : 0.5;
-    
     pkIntervalRef.current = setInterval(() => {
-      const hostInc = Math.floor(Math.random() * 100 * bias);
-      const oppInc = Math.floor(Math.random() * 100 * (1/bias));
+      const { hostInc, oppInc } = generatePkIncrements(pkRound);
       
       setPkScore(prev => {
         const next = prev + hostInc;
@@ -673,7 +612,13 @@ export default function GoLivePage() {
                       ...msg,
                       onFollow: () => {},
                       onLike: () => {},
-                      onJoinGuest: () => {}
+                      onJoinGuest: () => {},
+                      onClick: () => {
+                        if (msg.displayName && msg.type !== 'system') {
+                          setInput(`@${msg.displayName} `);
+                          setShowChatInput(true);
+                        }
+                      }
                     }} 
                   />
                 ))}
@@ -803,6 +748,11 @@ export default function GoLivePage() {
           </div>
         )}
       </AnimatePresence>
+
+      <NobleEntrance 
+        user={nobleEntranceUser} 
+        onComplete={() => setNobleEntranceUser(null)} 
+      />
 
       {/* Gift Combo Overlay */}
       <div className="fixed top-1/3 left-4 z-[200] flex flex-col gap-4 pointer-events-none">

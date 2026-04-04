@@ -1,5 +1,6 @@
+import { NobleTier } from './NobleTypes';
+
 export type UserRole = 'user' | 'host' | 'agency' | 'admin';
-export type NobleTitle = 'none' | 'Baron' | 'Earl' | 'Duke';
 export type StreamStatus = 'live' | 'ended';
 export type StreamType = 'video' | 'audio';
 export type TransactionType = 'purchase' | 'gift' | 'salary' | 'rebate';
@@ -11,7 +12,7 @@ export interface UserProfile {
   diamonds: number;
   beans: number;
   role: UserRole;
-  nobleTitle: NobleTitle;
+  nobleTitle: NobleTier;
   level: number;
   friends: number;
   following: number;
@@ -20,6 +21,7 @@ export interface UserProfile {
   familyId?: string;
   totalDiamondsSpent: number;
   totalBeansEarned: number;
+  lastNoblePurchaseDate?: any;
   referralCode: string;
   invitedBy?: string;
 }

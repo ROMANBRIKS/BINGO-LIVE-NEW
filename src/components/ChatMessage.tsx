@@ -18,6 +18,7 @@ interface ChatMessageProps {
   isFollowing?: boolean;
   onLike?: () => void;
   onJoinGuest?: () => void;
+  onClick?: () => void;
 }
 
 export const ChatMessage = React.memo((props: ChatMessageProps) => {
@@ -37,11 +38,18 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   const isFollowing = props.isFollowing || msg.isFollowing;
   const onLike = props.onLike || msg.onLike;
   const onJoinGuest = props.onJoinGuest || msg.onJoinGuest;
+  const onClick = props.onClick || msg.onClick;
   
   const isHighLevel = (level || 0) >= 50;
 
+  const wrapWithClick = (content: React.ReactNode) => (
+    <div onClick={onClick} className={cn(onClick && "cursor-pointer active:opacity-70 transition-opacity")}>
+      {content}
+    </div>
+  );
+
   if (type === 'follow-prompt') {
-    return (
+    return wrapWithClick(
       <div className="flex flex-col gap-2 mb-2 animate-in fade-in slide-in-from-left-2 duration-300">
         <p className="text-[14px] text-white drop-shadow-md font-medium px-1">
           Follow <span className="text-[#00e5ff] font-bold">{displayName}</span> to get LIVE notifications
@@ -49,7 +57,10 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
         {!isFollowing && (
           <div 
             className="inline-flex items-center gap-2 bg-[#00bfa5] pl-1 pr-1 py-1 rounded-full shadow-lg w-fit group cursor-pointer active:scale-95 transition-transform" 
-            onClick={onFollow}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFollow?.();
+            }}
           >
             <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
               <img src={hostPhoto || 'https://i.pravatar.cc/100'} alt="" className="w-full h-full object-cover" />
@@ -65,13 +76,16 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   }
 
   if (type === 'like-prompt') {
-    return (
+    return wrapWithClick(
       <div className="inline-flex items-center gap-3 mb-2 px-3 py-2 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
         <p className="text-[11px] text-white/90 leading-relaxed">
           Tap like to give the host a little energy!
         </p>
         <button 
-          onClick={onLike}
+          onClick={(e) => {
+            e.stopPropagation();
+            onLike?.();
+          }}
           className="flex items-center gap-1 px-3 py-1 bg-black/40 border border-white/10 rounded-full text-[10px] font-bold text-white active:scale-95 transition-transform"
         >
           <span className="text-pink-500 text-xs">💗</span>
@@ -82,7 +96,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   }
 
   if (type === 'guest-live-prompt') {
-    return (
+    return wrapWithClick(
       <div className="inline-flex items-center gap-3 mb-2 px-3 py-2 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
         <div className="flex flex-col">
           <p className="text-[11px] text-white/90 leading-relaxed">
@@ -93,7 +107,10 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
           </p>
         </div>
         <button 
-          onClick={onJoinGuest}
+          onClick={(e) => {
+            e.stopPropagation();
+            onJoinGuest?.();
+          }}
           className="px-4 py-1.5 bg-[#00e5ff] text-white rounded-full text-[10px] font-bold active:scale-95 transition-transform"
         >
           Join
@@ -103,7 +120,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   }
 
   if (type === 'join') {
-    return (
+    return wrapWithClick(
       <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300">
         {level && <LevelBadge level={level} />}
         <span className="text-[11px] font-bold text-[#00e5ff]">
@@ -115,7 +132,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   }
 
   if (type === 'welcome') {
-    return (
+    return wrapWithClick(
       <div className="flex items-center gap-2 mb-2 animate-in fade-in slide-in-from-left-2 duration-300">
         <LevelBadge level={hostLevel || 1} />
         <p className="text-xs drop-shadow-md text-white">
@@ -126,26 +143,18 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   }
 
   if (type === 'follow') {
-    return (
+    return wrapWithClick(
       <div className="inline-flex items-center gap-2 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300">
         {level && <LevelBadge level={level} />}
         <p className="text-[11px] text-white/90">
           <span className="font-bold text-[#00e5ff]">{displayName}</span> : followed the anchor.
         </p>
-        {!isFollowing && (
-          <button 
-            onClick={onFollow}
-            className="px-3 py-1 bg-[#00e5ff] text-white rounded-full text-[9px] font-bold active:scale-95 transition-transform"
-          >
-            Follow
-          </button>
-        )}
       </div>
     );
   }
 
   if (type === 'like') {
-    return (
+    return wrapWithClick(
       <div className="inline-flex flex-col gap-1 mb-1 animate-in fade-in slide-in-from-left-2 duration-300">
         <div className="px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 w-fit">
           <p className="text-[11px] text-white/90">
@@ -161,7 +170,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
     const isNew = text?.startsWith('New');
     const isContribution = text?.includes('contributed');
     
-    return (
+    return wrapWithClick(
       <div className={cn(
         "inline-flex items-center gap-2 mb-1 px-3 py-1 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full",
         isNew ? "bg-black/30" : "bg-black/30"
@@ -180,7 +189,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   }
 
   if (type === 'gift') {
-    return (
+    return wrapWithClick(
       <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-pink-500/20 backdrop-blur-md rounded-full border border-pink-500/30 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
         {level && <LevelBadge level={level} />}
         <p className="text-[11px] leading-relaxed text-pink-200">
@@ -192,7 +201,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
     );
   }
 
-  return (
+  return wrapWithClick(
     <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
       {level && <LevelBadge level={level} />}
       <p className="text-[11px] leading-relaxed">
