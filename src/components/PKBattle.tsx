@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { isSnipeWindow } from '../pkEnhancedLogic';
+import { PK_SHIELDS, getShieldRemainingPercent } from '../pkShieldLogic';
+import { Zap, AlertTriangle, Shield } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export const PKBattle = React.memo(({ room }: { room: any }) => {
   const pkScore = room.pkScore || 0;
@@ -7,6 +11,15 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
   const hostPercent = pkScore + pkOpponentScore === 0 ? 50 : (pkScore / (pkScore + pkOpponentScore)) * 100;
   
   const [timeLeft, setTimeLeft] = useState("00:01");
+  const [isSnipe, setIsSnipe] = useState(false);
+
+  const hostShield = room.pkShieldTier ? PK_SHIELDS[room.pkShieldTier] : null;
+  const hostShieldActive = hostShield && room.pkShieldEndTime && new Date(room.pkShieldEndTime).getTime() > Date.now();
+  const hostShieldPercent = hostShield ? getShieldRemainingPercent(hostShield, room.pkShieldAbsorbed || 0) : 0;
+
+  const oppShield = room.pkOpponentShieldTier ? PK_SHIELDS[room.pkOpponentShieldTier] : null;
+  const oppShieldActive = oppShield && room.pkOpponentShieldEndTime && new Date(room.pkOpponentShieldEndTime).getTime() > Date.now();
+  const oppShieldPercent = oppShield ? getShieldRemainingPercent(oppShield, room.pkOpponentShieldAbsorbed || 0) : 0;
 
   useEffect(() => {
     if (!room.pkEndTime) return;
@@ -14,6 +27,9 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
       const end = new Date(room.pkEndTime).getTime();
       const now = new Date().getTime();
       const diff = end - now;
+      
+      setIsSnipe(isSnipeWindow(room.pkEndTime));
+
       if (diff <= 0) {
         setTimeLeft("00:00");
         clearInterval(interval);
@@ -32,8 +48,25 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
       <div className="absolute top-[68px] left-0 right-0 h-8 flex items-center">
         <div className="flex-1 h-full flex relative overflow-hidden">
           {/* Blue Side Score */}
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-30 text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
-            {pkScore}
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 z-30 flex items-center gap-2">
+            <div className="text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+              {pkScore}
+            </div>
+            {hostShieldActive && (
+              <motion.div 
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1 bg-white/20 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/30"
+              >
+                <Shield size={10} style={{ color: hostShield.color }} fill={hostShield.color} />
+                <div className="w-8 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full transition-all duration-300" 
+                    style={{ width: `${hostShieldPercent}%`, backgroundColor: hostShield.color }} 
+                  />
+                </div>
+              </motion.div>
+            )}
           </div>
 
           {/* Host Progress (Blue) */}
@@ -53,8 +86,25 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
           />
 
           {/* Yellow Side Score */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-30 text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
-            {pkOpponentScore}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 z-30 flex items-center gap-2">
+            {oppShieldActive && (
+              <motion.div 
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1 bg-white/20 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/30"
+              >
+                <div className="w-8 h-1 bg-white/20 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full transition-all duration-300" 
+                    style={{ width: `${oppShieldPercent}%`, backgroundColor: oppShield.color }} 
+                  />
+                </div>
+                <Shield size={10} style={{ color: oppShield.color }} fill={oppShield.color} />
+              </motion.div>
+            )}
+            <div className="text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+              {pkOpponentScore}
+            </div>
           </div>
 
           {/* Central Divider Glow */}
@@ -112,8 +162,23 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
               ROUND {room.pkRound || 1}
             </span>
             <span className="text-[11px] font-black text-white/40">·</span>
-            <span className="text-[11px] font-black text-white/60 tracking-widest">{timeLeft}</span>
+            <span className={cn(
+              "text-[11px] font-black tracking-widest transition-colors duration-300",
+              isSnipe ? "text-red-500 animate-pulse" : "text-white/60"
+            )}>
+              {timeLeft}
+            </span>
           </div>
+          {isSnipe && (
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="flex items-center gap-1 bg-red-500/20 px-2 py-0.5 rounded-full border border-red-500/30"
+            >
+              <Zap size={8} className="text-red-500 fill-red-500" />
+              <span className="text-[8px] font-black text-red-500 uppercase tracking-tighter">Snipe Window (1.5x)</span>
+            </motion.div>
+          )}
         </div>
 
         {/* Right Side Status Balls (Opponent) */}
@@ -248,17 +313,27 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
         </div>
         
         {/* Center Info Bar */}
-        <div className="bg-black/60 backdrop-blur-2xl px-10 py-2.5 rounded-full border border-white/10 flex items-center gap-4 shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
+        <div className="bg-black/60 backdrop-blur-2xl px-10 py-2.5 rounded-full border border-white/10 flex flex-col items-center gap-1 shadow-[0_8px_20px_rgba(0,0,0,0.5)]">
           {room.pkRound === 3 && timeLeft === "00:00" ? (
-            <span className="text-[14px] text-white font-black uppercase tracking-widest animate-pulse">
-              {(() => {
-                const wins = room.pkResults?.filter((r: string) => r === 'win').length || 0;
-                const losses = room.pkResults?.filter((r: string) => r === 'loss').length || 0;
-                if (wins > losses) return "Victory! 🏆";
-                if (wins < losses) return "Defeat 😖";
-                return "Draw 🤝";
-              })()}
-            </span>
+            <>
+              <span className="text-[14px] text-white font-black uppercase tracking-widest animate-pulse">
+                {(() => {
+                  const wins = room.pkResults?.filter((r: string) => r === 'win').length || 0;
+                  const losses = room.pkResults?.filter((r: string) => r === 'loss').length || 0;
+                  if (wins > losses) return "Victory! 🏆";
+                  if (wins < losses) return "Defeat 😖";
+                  return "Draw 🤝";
+                })()}
+              </span>
+              {room.pkForfeit && (
+                <div className="flex items-center gap-2 mt-1">
+                  <AlertTriangle size={12} className="text-yellow-400" />
+                  <span className="text-[10px] font-black text-yellow-400 uppercase tracking-widest">
+                    Forfeit: {room.pkForfeit.description}
+                  </span>
+                </div>
+              )}
+            </>
           ) : (
             <>
               <span className="text-[14px] text-white/90 font-bold tracking-tight">settlement of the PK</span>

@@ -24,6 +24,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PKBattle } from '../components/PKBattle';
 import { GiftAnimation } from '../components/GiftAnimation';
 import { NobleEntrance } from '../components/NobleEntrance';
+import { MicQueue } from '../components/MicQueue';
+import { initializeSeats, handleMicRequest, assignSeat, removeGuest, toggleMute } from '../micQueueLogic';
+import { getSnipeMultiplier, calculateFinalPKResult } from '../pkEnhancedLogic';
+import { GuestSeat, MicRequest } from '../types';
 import { LikeParticles, LikeParticlesRef } from '../components/LikeParticles';
 import { ChatMessage } from '../components/ChatMessage';
 import { LevelBadge } from '../components/LevelBadge';
@@ -179,14 +183,16 @@ export default function RoomPage() {
   const [isLowLatency, setIsLowLatency] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string }>>([]);
-  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string }>>([]);
-  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string } | null>(null);
+  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
+  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
+  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string, nobleTier?: string } | null>(null);
   const [isSearchingPK, setIsSearchingPK] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [seats, setSeats] = useState<GuestSeat[]>([]);
+  const [micQueue, setMicQueue] = useState<MicRequest[]>([]);
   const lastJoinKey = React.useRef<string | null>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
   const desktopChatRef = React.useRef<HTMLDivElement>(null);
@@ -214,21 +220,22 @@ export default function RoomPage() {
           const quantity = lastMsg.quantity || 1;
           const animationType = lastMsg.animationType || 'standard';
           const senderName = lastMsg.displayName;
+          const nobleTier = lastMsg.nobleTier || 'None';
           
           if (animationType === 'kiss' || animationType === 'flower') {
-            setActiveAnimation({ giftName, displayName: senderName, animationType });
+            setActiveAnimation({ giftName, displayName: senderName, animationType, nobleTier });
             setTimeout(() => setActiveAnimation(null), 4000);
           }
           
           const processGift = (giftData: any) => {
-            const { giftName, giftImage, quantity, animationType, senderName, photoURL, hostPhoto, id } = giftData;
+            const { giftName, giftImage, quantity, animationType, senderName, photoURL, hostPhoto, id, nobleTier } = giftData;
             const giftId = id || `msg-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
 
             setActiveGifts(prevActive => {
               const existingIndex = prevActive.findIndex(g => g.displayName === senderName && g.giftName === giftName);
               if (existingIndex !== -1) {
                 const updated = [...prevActive];
-                updated[existingIndex] = { ...updated[existingIndex], combo: updated[existingIndex].combo + quantity, animationType };
+                updated[existingIndex] = { ...updated[existingIndex], combo: updated[existingIndex].combo + quantity, animationType, nobleTier };
                 return updated;
               }
 
@@ -237,7 +244,7 @@ export default function RoomPage() {
               if (existingQueueIndex !== -1) {
                 setGiftQueue(prevQueue => {
                   const updated = [...prevQueue];
-                  updated[existingQueueIndex] = { ...updated[existingQueueIndex], combo: updated[existingQueueIndex].combo + quantity, animationType };
+                  updated[existingQueueIndex] = { ...updated[existingQueueIndex], combo: updated[existingQueueIndex].combo + quantity, animationType, nobleTier };
                   return updated;
                 });
                 return prevActive;
@@ -248,7 +255,7 @@ export default function RoomPage() {
                 id: giftId,
                 giftName, giftImage, displayName: senderName,
                 userPhoto: photoURL || hostPhoto,
-                combo: quantity, animationType
+                combo: quantity, animationType, nobleTier
               };
 
               if (prevActive.length < 2) {
@@ -262,7 +269,8 @@ export default function RoomPage() {
 
           processGift({
             giftName, giftImage, quantity, animationType, senderName,
-            photoURL: lastMsg.photoURL, hostPhoto: lastMsg.hostPhoto, id: lastMsg.id
+            photoURL: lastMsg.photoURL, hostPhoto: lastMsg.hostPhoto, id: lastMsg.id,
+            nobleTier
           });
         }
 
@@ -305,6 +313,54 @@ export default function RoomPage() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!room) return;
+    setSeats(room.seats || initializeSeats());
+    setMicQueue(room.micQueue || []);
+  }, [room?.seats, room?.micQueue]);
+
+  const handleJoinMicRequest = async (type: 'audio' | 'video') => {
+    if (!profile || !room) return;
+    const updatedQueue = handleMicRequest(micQueue, profile, type);
+    await updateDoc(doc(db, 'rooms', roomId), {
+      micQueue: updatedQueue
+    });
+  };
+
+  const handleAssignSeat = async (seatId: number, request: MicRequest) => {
+    if (!room) return;
+    const updatedSeats = assignSeat(seats, seatId, request.uid, request.type);
+    const updatedQueue = micQueue.filter(req => req.uid !== request.uid);
+    await updateDoc(doc(db, 'rooms', roomId), {
+      seats: updatedSeats,
+      micQueue: updatedQueue
+    });
+  };
+
+  const handleRemoveGuest = async (seatId: number) => {
+    if (!room) return;
+    const updatedSeats = removeGuest(seats, seatId);
+    await updateDoc(doc(db, 'rooms', roomId), {
+      seats: updatedSeats
+    });
+  };
+
+  const handleToggleMute = async (seatId: number) => {
+    if (!room) return;
+    const updatedSeats = toggleMute(seats, seatId);
+    await updateDoc(doc(db, 'rooms', roomId), {
+      seats: updatedSeats
+    });
+  };
+
+  const handleToggleLock = async (seatId: number) => {
+    if (!room) return;
+    const updatedSeats = seats.map(s => s.seatId === seatId ? { ...s, status: s.status === 'locked' ? 'empty' : 'locked' } : s);
+    await updateDoc(doc(db, 'rooms', roomId), {
+      seats: updatedSeats
+    });
+  };
+
   const visibleMessages = React.useMemo(() => {
     const fiveMinutesAgo = currentTime - 5 * 60 * 1000;
     
@@ -345,7 +401,7 @@ export default function RoomPage() {
     const giftId = `local-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
 
     if (animationType === 'kiss' || animationType === 'flower') {
-      setActiveAnimation({ giftName, displayName: senderName, animationType });
+      setActiveAnimation({ giftName, displayName: senderName, animationType, nobleTier: profile.nobleTitle || 'None' });
       setTimeout(() => setActiveAnimation(null), 4000);
     }
 
@@ -520,7 +576,7 @@ export default function RoomPage() {
       const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
       
       const rand = Math.random();
-      let type: 'chat' | 'gift' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' = 'chat';
+      let type: 'chat' | 'gift' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' | 'mic-request' = 'chat';
       const userObj = users[Math.floor(Math.random() * users.length)];
       const user = userObj.name;
       const level = userObj.level;
@@ -766,6 +822,22 @@ export default function RoomPage() {
         {/* PK BATTLE OVERLAY */}
         {room.pkStatus === 'battling' && <PKBattle room={room} />}
 
+        {/* MIC QUEUE / GUEST SEATS */}
+        {!isCleanMode && (
+          <div className="absolute left-4 right-4 top-[120px] z-30 pointer-events-auto">
+            <MicQueue 
+              isHost={profile?.uid === room.hostUid}
+              seats={seats}
+              micQueue={micQueue}
+              onJoinRequest={handleJoinMicRequest}
+              onAssignSeat={handleAssignSeat}
+              onRemoveGuest={handleRemoveGuest}
+              onToggleMute={handleToggleMute}
+              onToggleLock={handleToggleLock}
+            />
+          </div>
+        )}
+
         {/* PRIVATE CALL BUTTON (VIEWER ONLY) */}
         {!isCleanMode && profile?.uid !== room.hostUid && !isPrivateCalling && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 pointer-events-auto">
@@ -832,6 +904,7 @@ export default function RoomPage() {
                         displayName={gift.displayName}
                         userPhoto={gift.userPhoto}
                         combo={gift.combo}
+                        nobleTier={gift.nobleTier}
                         onComplete={() => {
                           setActiveGifts(prev => {
                             const filtered = prev.filter(g => g.id !== gift.id);
@@ -927,6 +1000,15 @@ export default function RoomPage() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleJoinMicRequest('audio')} 
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center border border-white/10 active:scale-90 transition-transform",
+                      micQueue.some(r => r.uid === profile?.uid) ? "bg-orange-500 text-white" : "bg-black/40 backdrop-blur-3xl text-white"
+                    )}
+                  >
+                    <Mic size={20} />
+                  </button>
                   <button onClick={sendLike} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-pink-500 active:scale-90 transition-transform">
                     <Heart size={20} fill={localLikes > 0 ? "currentColor" : "none"} />
                   </button>
@@ -995,7 +1077,7 @@ export default function RoomPage() {
           </div>
         )}
         {showTools && <RoomToolsModal onClose={() => setShowTools(false)} isHost={profile?.uid === room.hostUid} onAction={handleToolAction} currentQuality={quality} isCleanMode={isCleanMode} isRecording={isRecording} isLowLatency={isLowLatency} />}
-        {showGifts && <GiftingModal hostUid={room.hostUid} roomId={room.id} onClose={() => setShowGifts(false)} onGiftSent={handleLocalGift} />}
+        {showGifts && <GiftingModal room={room} onClose={() => setShowGifts(false)} onGiftSent={handleLocalGift} />}
       </AnimatePresence>
 
       <LikeParticles ref={likeParticlesRef} />
@@ -1010,6 +1092,7 @@ export default function RoomPage() {
           giftName={activeAnimation.giftName} 
           displayName={activeAnimation.displayName} 
           animationType={activeAnimation.animationType} 
+          nobleTier={activeAnimation.nobleTier}
         />
       )}
     </div>

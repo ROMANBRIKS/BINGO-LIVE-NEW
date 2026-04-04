@@ -10,9 +10,15 @@ import { useAuth } from '../context/AuthContext';
 import { PKBattle } from '../components/PKBattle';
 import { ChatMessage } from '../components/ChatMessage';
 import { NobleEntrance } from '../components/NobleEntrance';
+import { MicQueue } from '../components/MicQueue';
+import { initializeSeats, handleMicRequest, assignSeat, removeGuest, toggleMute } from '../micQueueLogic';
+import { GuestSeat, MicRequest, PKForfeit } from '../types';
 import { createThankYouMessage } from '../followLogic';
 import { generateSimulatedMessage } from '../simulationLogic';
 import { calculatePkResult, generatePkIncrements } from '../pkLogic';
+import { getSnipeMultiplier, calculateFinalPKResult } from '../pkEnhancedLogic';
+import { PK_SHIELDS, calculateShieldedScore } from '../pkShieldLogic';
+import { ShieldTier } from '../types';
 
 const MODES = ['Multi-guest LIVE', 'LIVE', 'Audio Live', 'Game LIVE'];
 
@@ -34,12 +40,12 @@ export default function GoLivePage() {
     hostName?: string;
     hostLevel?: number;
     text: string; 
-    type: 'chat' | 'join' | 'like' | 'system' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' | 'gift' | 'welcome'; 
+    type: 'chat' | 'join' | 'like' | 'system' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' | 'gift' | 'welcome' | 'mic-request'; 
     level?: number; 
     hostPhoto?: string;
     timestamp?: number;
   }[]>([]);
-  const [activeGift, setActiveGift] = useState<{ giftName: string, displayName: string, userPhoto?: string, combo: number, animationType?: string } | null>(null);
+  const [activeGift, setActiveGift] = useState<{ giftName: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string } | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [showChatInput, setShowChatInput] = useState(false);
   const [input, setInput] = useState('');
@@ -82,7 +88,19 @@ export default function GoLivePage() {
   const pkOpponentScoreRef = useRef(0);
   const [pkEndTime, setPkEndTime] = useState<string | null>(null);
   const [pkResults, setPkResults] = useState<('win' | 'loss' | 'draw')[]>([]);
+  const [pkForfeit, setPkForfeit] = useState<PKForfeit | null>(null);
+
+  const [pkShieldTier, setPkShieldTier] = useState<ShieldTier | null>(null);
+  const [pkShieldAbsorbed, setPkShieldAbsorbed] = useState(0);
+  const [pkShieldEndTime, setPkShieldEndTime] = useState<string | null>(null);
+
+  const [pkOpponentShieldTier, setPkOpponentShieldTier] = useState<ShieldTier | null>(null);
+  const [pkOpponentShieldAbsorbed, setPkOpponentShieldAbsorbed] = useState(0);
+  const [pkOpponentShieldEndTime, setPkOpponentShieldEndTime] = useState<string | null>(null);
+
   const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any } | null>(null);
+  const [seats, setSeats] = useState<GuestSeat[]>(initializeSeats());
+  const [micQueue, setMicQueue] = useState<MicRequest[]>([]);
   const pkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const roundTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -99,6 +117,21 @@ export default function GoLivePage() {
       setMessages(prev => {
         const updated = [...prev, newMessage].slice(-50);
         
+        if (newMessage.type === 'mic-request') {
+          setMicQueue(q => {
+            if (q.some(r => r.uid === newMessage.id)) return q;
+            const newReq: MicRequest = {
+              uid: newMessage.id,
+              displayName: newMessage.displayName || 'Guest',
+              photoURL: `https://api.dicebear.com/7.x/avataaars/svg?seed=${newMessage.displayName}`,
+              timestamp: Date.now(),
+              type: 'audio',
+              nobleTier: newMessage.nobleTier as any
+            };
+            return [...q, newReq];
+          });
+        }
+
         if (newMessage.type === 'join' && newMessage.nobleTier && newMessage.nobleTier !== 'None') {
           setNobleEntranceUser({ displayName: newMessage.displayName, tier: newMessage.nobleTier });
         }
@@ -121,17 +154,19 @@ export default function GoLivePage() {
       if (lastMsg.type === 'gift') {
         const giftName = lastMsg.text.replace('sent a ', '').replace('! 🎁', '');
         const animationType = (lastMsg as any).animationType || 'standard';
+        const nobleTier = (lastMsg as any).nobleTier || 'None';
         
         setActiveGift(prev => {
           if (prev && prev.giftName === giftName && prev.displayName === lastMsg.displayName) {
-            return { ...prev, combo: prev.combo + 1, animationType };
+            return { ...prev, combo: prev.combo + 1, animationType, nobleTier };
           }
           return { 
             giftName, 
             displayName: lastMsg.displayName, 
             userPhoto: lastMsg.hostPhoto,
             combo: 1, 
-            animationType 
+            animationType,
+            nobleTier
           };
         });
       }
@@ -210,9 +245,29 @@ export default function GoLivePage() {
       }, 3000);
     } else {
       // PK Finished
+      const finalResult = calculateFinalPKResult({
+        hostUid: profile?.uid || 'host',
+        pkScore: pkScoreRef.current,
+        pkOpponentScore: pkOpponentScoreRef.current,
+        pkOpponentUid: 'opponent',
+        pkResults: newResults,
+        pkRound: 3
+      } as any);
+
+      if (finalResult.forfeit) {
+        setPkForfeit(finalResult.forfeit);
+        setMessages(prev => [...prev, {
+          id: 'pk-forfeit-' + Date.now(),
+          type: 'system',
+          text: `PK OVER! Loser must: ${finalResult.forfeit?.description}`,
+          timestamp: Date.now()
+        }]);
+      }
+
       setTimeout(() => {
         stopPk();
-      }, 5000);
+        setPkForfeit(null);
+      }, 8000);
     }
   };
 
@@ -221,17 +276,58 @@ export default function GoLivePage() {
     
     pkIntervalRef.current = setInterval(() => {
       const { hostInc, oppInc } = generatePkIncrements(pkRound);
+      const multiplier = pkEndTime ? getSnipeMultiplier(pkEndTime) : 1.0;
       
+      // Apply Host Shield to Opponent's Increment
+      let finalOppInc = Math.floor(oppInc * multiplier);
+      const hShield = pkShieldTier ? PK_SHIELDS[pkShieldTier] : null;
+      const hShieldActive = hShield && pkShieldEndTime && new Date(pkShieldEndTime).getTime() > Date.now();
+      
+      if (hShieldActive) {
+        const { passedScore, newlyAbsorbed } = calculateShieldedScore(finalOppInc, hShield, pkShieldAbsorbed);
+        finalOppInc = passedScore;
+        setPkShieldAbsorbed(newlyAbsorbed);
+      }
+
+      // Apply Opponent Shield to Host's Increment
+      let finalHostInc = Math.floor(hostInc * multiplier);
+      const oShield = pkOpponentShieldTier ? PK_SHIELDS[pkOpponentShieldTier] : null;
+      const oShieldActive = oShield && pkOpponentShieldEndTime && new Date(pkOpponentShieldEndTime).getTime() > Date.now();
+
+      if (oShieldActive) {
+        const { passedScore, newlyAbsorbed } = calculateShieldedScore(finalHostInc, oShield, pkOpponentShieldAbsorbed);
+        finalHostInc = passedScore;
+        setPkOpponentShieldAbsorbed(newlyAbsorbed);
+      }
+
       setPkScore(prev => {
-        const next = prev + hostInc;
+        const next = prev + finalHostInc;
         pkScoreRef.current = next;
         return next;
       });
       setPkOpponentScore(prev => {
-        const next = prev + oppInc;
+        const next = prev + finalOppInc;
         pkOpponentScoreRef.current = next;
         return next;
       });
+
+      // Randomly activate shields for simulation
+      if (!pkShieldTier && Math.random() < 0.05) {
+        const tiers: ShieldTier[] = ['Light', 'Standard', 'Heavy', 'Emergency'];
+        const tier = tiers[Math.floor(Math.random() * tiers.length)];
+        setPkShieldTier(tier);
+        setPkShieldAbsorbed(0);
+        setPkShieldEndTime(new Date(Date.now() + PK_SHIELDS[tier].duration * 1000).toISOString());
+      }
+
+      if (!pkOpponentShieldTier && Math.random() < 0.05) {
+        const tiers: ShieldTier[] = ['Light', 'Standard', 'Heavy', 'Emergency'];
+        const tier = tiers[Math.floor(Math.random() * tiers.length)];
+        setPkOpponentShieldTier(tier);
+        setPkOpponentShieldAbsorbed(0);
+        setPkOpponentShieldEndTime(new Date(Date.now() + PK_SHIELDS[tier].duration * 1000).toISOString());
+      }
+
     }, 1000);
   };
 
@@ -317,6 +413,8 @@ export default function GoLivePage() {
         currentBeans: 0,
         viewerCount: 0,
         guests: [],
+        seats: initializeSeats(),
+        micQueue: [],
         isPrivate: false,
         createdAt: serverTimestamp(),
         pkStatus: 'idle'
@@ -346,6 +444,28 @@ export default function GoLivePage() {
     
     setInput('');
     setShowChatInput(false);
+  };
+
+  const handleJoinMicRequest = (type: 'audio' | 'video') => {
+    if (!profile) return;
+    setMicQueue(prev => handleMicRequest(prev, profile, type));
+  };
+
+  const handleAssignSeat = (seatId: number, request: MicRequest) => {
+    setSeats(prev => assignSeat(prev, seatId, request.uid, request.type));
+    setMicQueue(prev => prev.filter(req => req.uid !== request.uid));
+  };
+
+  const handleRemoveGuest = (seatId: number) => {
+    setSeats(prev => removeGuest(prev, seatId));
+  };
+
+  const handleToggleMute = (seatId: number) => {
+    setSeats(prev => toggleMute(prev, seatId));
+  };
+
+  const handleToggleLock = (seatId: number) => {
+    setSeats(prev => prev.map(s => s.seatId === seatId ? { ...s, status: s.status === 'locked' ? 'empty' : 'locked' } : s));
   };
 
   return (
@@ -555,7 +675,14 @@ export default function GoLivePage() {
                 pkOpponentScore,
                 pkEndTime,
                 pkRound,
-                pkResults
+                pkResults,
+                pkForfeit,
+                pkShieldTier,
+                pkShieldAbsorbed,
+                pkShieldEndTime,
+                pkOpponentShieldTier,
+                pkOpponentShieldAbsorbed,
+                pkOpponentShieldEndTime
               }} 
             />
           )}
@@ -754,6 +881,22 @@ export default function GoLivePage() {
         onComplete={() => setNobleEntranceUser(null)} 
       />
 
+      {/* MIC QUEUE / GUEST SEATS */}
+      {status === 'live' && (
+        <div className="fixed left-4 right-4 top-[120px] z-30 pointer-events-auto">
+          <MicQueue 
+            isHost={true}
+            seats={seats}
+            micQueue={micQueue}
+            onJoinRequest={handleJoinMicRequest}
+            onAssignSeat={handleAssignSeat}
+            onRemoveGuest={handleRemoveGuest}
+            onToggleMute={handleToggleMute}
+            onToggleLock={handleToggleLock}
+          />
+        </div>
+      )}
+
       {/* Gift Combo Overlay */}
       <div className="fixed top-1/3 left-4 z-[200] flex flex-col gap-4 pointer-events-none">
         <AnimatePresence>
@@ -764,6 +907,7 @@ export default function GoLivePage() {
               displayName={activeGift.displayName}
               userPhoto={activeGift.userPhoto}
               combo={activeGift.combo}
+              nobleTier={activeGift.nobleTier}
               onComplete={() => setActiveGift(null)}
             />
           )}
@@ -775,6 +919,7 @@ export default function GoLivePage() {
           giftName={activeGift.giftName} 
           displayName={activeGift.displayName} 
           animationType={activeGift.animationType} 
+          nobleTier={activeGift.nobleTier}
         />
       )}
     </div>

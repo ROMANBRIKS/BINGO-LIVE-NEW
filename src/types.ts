@@ -36,6 +36,40 @@ export interface Agency {
   totalHosts: number;
 }
 
+export interface GuestSeat {
+  seatId: number;
+  uid: string | null;
+  status: 'empty' | 'occupied' | 'locked';
+  type: 'audio' | 'video';
+  isMuted: boolean;
+}
+
+export interface MicRequest {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  timestamp: number;
+  type: 'audio' | 'video';
+  nobleTier?: NobleTier;
+}
+
+export type ForfeitType = 
+  | 'Pushups' 
+  | 'Sing a Song' 
+  | 'Dance' 
+  | 'Shoutout' 
+  | 'Funny Face' 
+  | 'Custom';
+
+export interface PKForfeit {
+  id: string;
+  type: ForfeitType;
+  description: string;
+  duration: number; // in seconds
+}
+
+export type ShieldTier = 'Light' | 'Standard' | 'Heavy' | 'Emergency';
+
 export interface Room {
   id: string;
   hostUid: string;
@@ -46,6 +80,8 @@ export interface Room {
   viewerCount: number;
   likes: number;
   guests: string[];
+  seats?: GuestSeat[];
+  micQueue?: MicRequest[];
   isPrivate: boolean;
   createdAt: any; // Firestore Timestamp
   pkStatus?: 'idle' | 'searching' | 'battling';
@@ -54,6 +90,14 @@ export interface Room {
   pkScore?: number;
   pkOpponentScore?: number;
   pkEndTime?: string;
+  pkForfeit?: PKForfeit;
+  pkWinnerUid?: string | null;
+  pkShieldTier?: ShieldTier;
+  pkShieldAbsorbed?: number;
+  pkShieldEndTime?: string;
+  pkOpponentShieldTier?: ShieldTier;
+  pkOpponentShieldAbsorbed?: number;
+  pkOpponentShieldEndTime?: string;
 }
 
 export interface Gift {

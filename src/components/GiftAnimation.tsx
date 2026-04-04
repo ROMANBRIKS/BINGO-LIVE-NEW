@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Gift as GiftIcon } from 'lucide-react';
+import { Gift as GiftIcon, Sparkles, Zap } from 'lucide-react';
+import { cn } from '../lib/utils';
+import { getGiftingEffect } from '../nobleGiftingLogic';
+import { NobleTier } from '../NobleTypes';
 
 const KissAnimation = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -193,32 +196,68 @@ const FlowerAnimation = () => {
   );
 };
 
-export const GiftAnimation = React.memo(({ giftName, displayName, combo = 1, animationType }: { giftName: string, displayName: string, combo?: number, animationType?: string }) => {
+export const GiftAnimation = React.memo(({ giftName, displayName, combo = 1, animationType, nobleTier = 'None' }: { giftName: string, displayName: string, combo?: number, animationType?: string, nobleTier?: string }) => {
+  const effects = getGiftingEffect({ nobleTitle: nobleTier as NobleTier } as any);
+
   return (
     <>
       <motion.div 
         initial={{ x: -200, opacity: 0, scale: 0.8 }}
         animate={{ x: 0, opacity: 1, scale: 1 }}
         exit={{ x: 200, opacity: 0, scale: 0.8 }}
-        className="fixed top-1/3 left-4 z-[150] flex items-center gap-3 bg-gradient-to-r from-orange-600/90 via-pink-600/90 to-purple-600/90 backdrop-blur-md p-1.5 pr-8 rounded-full shadow-[0_0_30px_rgba(249,115,22,0.4)] border border-white/30"
+        className={cn(
+          "fixed top-1/3 left-4 z-[150] flex items-center gap-3 backdrop-blur-md p-1.5 pr-8 rounded-full shadow-2xl border",
+          effects.hasShine ? "bg-gradient-to-r from-yellow-600/90 via-yellow-400/90 to-yellow-600/90 border-yellow-200/50" : 
+          "bg-gradient-to-r from-orange-600/90 via-pink-600/90 to-purple-600/90 border-white/30 shadow-[0_0_30px_rgba(249,115,22,0.4)]"
+        )}
       >
-        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] relative overflow-hidden">
+        <div className={cn(
+          "w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] relative overflow-hidden",
+          effects.hasShine && "border-2 border-yellow-200"
+        )}>
           <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/20 to-transparent" />
-          <GiftIcon size={24} className="text-orange-500 relative z-10" />
+          <GiftIcon size={24} className={cn("relative z-10", effects.hasShine ? "text-yellow-600" : "text-orange-500")} />
+          
+          {effects.hasSparkle && (
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 flex items-center justify-center"
+            >
+              <Sparkles size={40} className="text-yellow-400/30" />
+            </motion.div>
+          )}
         </div>
         <div className="flex flex-col">
-          <p className="text-white font-black italic text-[11px] uppercase leading-none drop-shadow-md">{displayName}</p>
-          <p className="text-yellow-300 font-black text-[9px] uppercase tracking-wider drop-shadow-sm">Sent {giftName}</p>
+          <div className="flex items-center gap-1">
+            <p className="text-white font-black italic text-[11px] uppercase leading-none drop-shadow-md">{displayName}</p>
+            {effects.hasShine && <Zap size={10} fill="currentColor" className="text-yellow-200" />}
+          </div>
+          <p className={cn(
+            "font-black text-[9px] uppercase tracking-wider drop-shadow-sm",
+            effects.hasShine ? "text-white" : "text-yellow-300"
+          )}>Sent {giftName}</p>
         </div>
         {combo > 1 && (
           <motion.div 
             key={combo}
             initial={{ scale: 2, rotate: 20 }}
             animate={{ scale: 1, rotate: 0 }}
-            className="absolute -right-4 top-1/2 -translate-y-1/2 bg-yellow-400 text-black font-black italic text-sm px-3 py-1 rounded-full shadow-xl border-2 border-white transform rotate-12"
+            className={cn(
+              "absolute -right-4 top-1/2 -translate-y-1/2 font-black italic text-sm px-3 py-1 rounded-full shadow-xl border-2 transform rotate-12",
+              effects.hasShine ? "bg-white text-yellow-600 border-yellow-200" : "bg-yellow-400 text-black border-white"
+            )}
           >
             X{combo}
           </motion.div>
+        )}
+        
+        {effects.hasShine && (
+          <motion.div
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 pointer-events-none"
+          />
         )}
       </motion.div>
 

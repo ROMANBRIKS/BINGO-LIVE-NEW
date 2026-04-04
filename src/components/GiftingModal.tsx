@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { doc, collection, addDoc, serverTimestamp, increment, setDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { Gift } from '../types';
+import { Gift, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { Diamond, ChevronRight, User } from 'lucide-react';
+import { Diamond, ChevronRight, User, Zap } from 'lucide-react';
+import { calculateGiftingPower, formatPowerDisplay } from '../nobleGiftingLogic';
+import { getSnipeMultiplier, isSnipeWindow } from '../pkEnhancedLogic';
+import { PK_SHIELDS, ShieldTier, calculateShieldedScore } from '../pkShieldLogic';
 
 // Combined gift data from screenshots for the "Popular" tab
 const POPULAR_GIFTS: Gift[] = [
@@ -31,14 +34,18 @@ const POPULAR_GIFTS: Gift[] = [
   { id: 'pink_diamond', name: 'Pink Diamond', cost: 100, image: '💖', animationType: 'standard' },
 ];
 
-const TABS = ['Popular', 'Activity', 'Local', 'Fun', 'Treasure'];
+const TABS = ['Popular', 'Activity', 'Local', 'Fun', 'Treasure', 'Shields'];
 
-export const GiftingModal = ({ hostUid, roomId, onClose, onGiftSent }: { hostUid: string, roomId: string, onClose: () => void, onGiftSent?: (gift: Gift, quantity: number) => void }) => {
+export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose: () => void, onGiftSent?: (gift: Gift, quantity: number) => void }) => {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('Popular');
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [sending, setSending] = useState(false);
+
+  const pkEndTime = room.pkEndTime;
+  const isSnipe = pkEndTime ? isSnipeWindow(pkEndTime) : false;
+  const snipeMultiplier = pkEndTime ? getSnipeMultiplier(pkEndTime) : 1.0;
 
   const quantities = [1, 10, 99, 188, 999];
 
@@ -60,9 +67,24 @@ export const GiftingModal = ({ hostUid, roomId, onClose, onGiftSent }: { hostUid
     setSending(true);
     try {
       const userRef = doc(db, 'users', profile.uid);
-      const hostRef = doc(db, 'users', hostUid);
-      const roomRef = doc(db, 'rooms', roomId);
+      const hostRef = doc(db, 'users', room.hostUid);
+      const roomRef = doc(db, 'rooms', room.id);
       const totalCost = selectedGift.cost * quantity;
+      let giftingPower = Math.floor(calculateGiftingPower(totalCost, profile) * snipeMultiplier);
+
+      // Apply Opponent Shield to Current Gift
+      const oShield = room.pkOpponentShieldTier ? PK_SHIELDS[room.pkOpponentShieldTier] : null;
+      const oShieldActive = oShield && room.pkOpponentShieldEndTime && new Date(room.pkOpponentShieldEndTime).getTime() > Date.now();
+
+      if (oShieldActive) {
+        const { passedScore, newlyAbsorbed } = calculateShieldedScore(giftingPower, oShield, room.pkOpponentShieldAbsorbed || 0);
+        giftingPower = passedScore;
+        
+        // Update Opponent Shield Absorption
+        await updateDoc(roomRef, {
+          pkOpponentShieldAbsorbed: newlyAbsorbed
+        });
+      }
 
       await setDoc(userRef, {
         diamonds: increment(-totalCost),
@@ -76,14 +98,27 @@ export const GiftingModal = ({ hostUid, roomId, onClose, onGiftSent }: { hostUid
 
       await updateDoc(roomRef, {
         currentBeans: increment(totalCost),
-        pkScore: increment(totalCost)
+        pkScore: increment(giftingPower)
       });
+
+      // Handle Shield Activation (Buying a shield for the current host)
+      if (activeTab === 'Shields' && selectedGift) {
+        const tier = selectedGift.id as ShieldTier;
+        const shield = PK_SHIELDS[tier];
+        const endTime = new Date(Date.now() + shield.duration * 1000).toISOString();
+        
+        await updateDoc(roomRef, {
+          pkShieldTier: tier,
+          pkShieldAbsorbed: 0,
+          pkShieldEndTime: endTime
+        });
+      }
 
       if (onGiftSent) {
         onGiftSent(selectedGift, quantity);
       }
 
-      await addDoc(collection(db, `rooms/${roomId}/messages`), {
+      await addDoc(collection(db, `rooms/${room.id}/messages`), {
         text: `sent ${quantity}x ${selectedGift.name}! 🎁`,
         uid: profile.uid,
         displayName: profile.displayName,
@@ -93,12 +128,13 @@ export const GiftingModal = ({ hostUid, roomId, onClose, onGiftSent }: { hostUid
         giftId: selectedGift.id,
         giftImage: selectedGift.image,
         quantity: quantity,
-        animationType: selectedGift.animationType
+        animationType: selectedGift.animationType,
+        nobleTier: profile.nobleTitle || 'None'
       });
 
       await addDoc(collection(db, 'transactions'), {
         fromUid: profile.uid,
-        toUid: hostUid,
+        toUid: room.hostUid,
         amount: totalCost,
         type: 'gift',
         timestamp: serverTimestamp(),
@@ -210,7 +246,40 @@ export const GiftingModal = ({ hostUid, roomId, onClose, onGiftSent }: { hostUid
               </div>
             </button>
           ))}
-          {activeTab !== 'Popular' && (
+          {activeTab === 'Shields' && Object.values(PK_SHIELDS).map(shield => (
+            <button 
+              key={shield.tier}
+              onClick={() => setSelectedGift({
+                id: shield.tier,
+                name: `${shield.tier} Shield`,
+                cost: shield.costBeans,
+                image: '🛡️',
+                animationType: 'standard'
+              })}
+              className={`flex-none w-[70px] flex flex-col items-center relative group ${
+                selectedGift?.id === shield.tier ? 'scale-105' : ''
+              }`}
+            >
+              {selectedGift?.id === shield.tier && (
+                <div className="absolute inset-0 bg-white/10 rounded-lg -m-1.5" />
+              )}
+              <div className="relative">
+                <div className="w-12 h-12 flex items-center justify-center mb-0.5">
+                  <span className="text-3xl group-hover:scale-110 transition-transform inline-block" style={{ color: shield.color }}>🛡️</span>
+                </div>
+                <div className="absolute -top-1 -right-1 bg-blue-500 text-[7px] font-bold px-1 rounded uppercase">Shield</div>
+              </div>
+              <span className="text-[9px] text-white/90 text-center line-clamp-1 mb-0.5">{shield.tier} Shield</span>
+              <div className="flex items-center gap-0.5 text-white/40 text-[8px]">
+                <Diamond size={7} />
+                {shield.costBeans}
+              </div>
+              <div className="text-[7px] text-white/30 mt-0.5">
+                {Math.round(shield.absorptionRate * 100)}% Block
+              </div>
+            </button>
+          ))}
+          {!['Popular', 'Shields'].includes(activeTab) && (
             <div className="w-full py-8 text-center text-white/40 text-xs">
               No gifts available in this category yet.
             </div>
@@ -220,9 +289,24 @@ export const GiftingModal = ({ hostUid, roomId, onClose, onGiftSent }: { hostUid
         {/* Bottom Control Bar */}
         <div className="p-3 bg-black/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <Diamond size={14} className="text-yellow-500" />
-              <span className="text-base font-bold text-white">{profile?.diamonds || 0}</span>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1">
+                <Diamond size={14} className="text-yellow-500" />
+                <span className="text-base font-bold text-white">{profile?.diamonds || 0}</span>
+              </div>
+              {profile && formatPowerDisplay(profile) && (
+                <div className="flex items-center gap-0.5 text-[8px] font-black text-cyan-400 uppercase tracking-tighter">
+                  <Zap size={8} fill="currentColor" />
+                  {formatPowerDisplay(profile)}
+                  {isSnipe && <span className="text-red-500 ml-1">x1.5 Snipe!</span>}
+                </div>
+              )}
+              {!formatPowerDisplay(profile) && isSnipe && (
+                <div className="flex items-center gap-0.5 text-[8px] font-black text-red-500 uppercase tracking-tighter">
+                  <Zap size={8} fill="currentColor" />
+                  Snipe Window x1.5!
+                </div>
+              )}
             </div>
             <button 
               onClick={handleRecharge}

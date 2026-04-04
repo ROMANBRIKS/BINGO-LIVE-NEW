@@ -36,10 +36,13 @@ export const generateSimulatedMessage = (hostProfile: UserProfile | null) => {
   const level = userObj.level || Math.floor(Math.random() * 10) + 1;
 
   const rand = Math.random();
-  let type: 'chat' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' = 'chat';
+  let type: 'chat' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' | 'mic-request' = 'chat';
   let text = SIMULATED_CHAT_MESSAGES[Math.floor(Math.random() * SIMULATED_CHAT_MESSAGES.length)];
 
-  if (rand > 0.98) {
+  if (rand > 0.99) {
+    type = 'mic-request';
+    text = 'requested to join the mic';
+  } else if (rand > 0.98) {
     type = 'guest-live-prompt';
     text = 'Wanna meet with the broadcaster? Click to join the Guest Live!';
   } else if (rand > 0.95) {

@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '../lib/utils';
+import { getGiftingEffect } from '../nobleGiftingLogic';
+import { NobleTier } from '../NobleTypes';
 
 interface GiftComboProps {
   giftName: string;
@@ -7,6 +10,7 @@ interface GiftComboProps {
   displayName: string;
   userPhoto?: string;
   combo: number;
+  nobleTier?: string;
   onComplete: () => void;
 }
 
@@ -16,10 +20,12 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
   displayName, 
   userPhoto, 
   combo, 
+  nobleTier = 'None',
   onComplete 
 }) => {
   const [displayCombo, setDisplayCombo] = useState(1);
   const [isPulsing, setIsPulsing] = useState(false);
+  const effects = getGiftingEffect({ nobleTitle: nobleTier as NobleTier } as any);
 
   // Incremental counting logic
   useEffect(() => {
@@ -60,9 +66,16 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
       className="flex items-center gap-3 pointer-events-none mb-2"
     >
       {/* Banner - Reduced by 30% */}
-      <div className="flex items-center gap-2 bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-md pl-1 pr-8 py-1 rounded-full border border-white/10 shadow-2xl relative">
+      <div className={cn(
+        "flex items-center gap-2 backdrop-blur-md pl-1 pr-8 py-1 rounded-full border shadow-2xl relative overflow-hidden",
+        effects.hasShine ? "bg-gradient-to-r from-yellow-600/90 via-yellow-400/90 to-transparent border-yellow-200/50" : 
+        "bg-gradient-to-r from-black/80 via-black/40 to-transparent border-white/10"
+      )}>
         {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.5)] z-10">
+        <div className={cn(
+          "w-8 h-8 rounded-full overflow-hidden border-2 shadow-[0_0_10px_rgba(250,204,21,0.5)] z-10",
+          effects.hasShine ? "border-white" : "border-yellow-400"
+        )}>
           <img 
             src={userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} 
             alt="" 
@@ -75,10 +88,22 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
           <span className="text-[10px] font-black text-white leading-none drop-shadow-md uppercase tracking-tighter">
             {displayName}
           </span>
-          <span className="text-[8px] text-yellow-400 font-bold italic drop-shadow-sm mt-0.5">
+          <span className={cn(
+            "text-[8px] font-bold italic drop-shadow-sm mt-0.5",
+            effects.hasShine ? "text-white" : "text-yellow-400"
+          )}>
             Sent {giftName}
           </span>
         </div>
+
+        {/* Shine Effect */}
+        {effects.hasShine && (
+          <motion.div
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 pointer-events-none"
+          />
+        )}
 
         {/* Gift Image - Floating at the end of the banner */}
         <div className="absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center z-20">
