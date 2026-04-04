@@ -7,6 +7,10 @@ import { Search, Bell, Diamond, Coins, Plus, Trophy } from 'lucide-react';
 export const Navbar = React.memo(() => {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
+  if (isStreamPage) return null;
 
   if (!profile) return null;
 

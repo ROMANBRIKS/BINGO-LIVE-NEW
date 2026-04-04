@@ -13,9 +13,10 @@ import { getDeviceType } from '../lib/device';
 import { 
   X, Plus, Coins, Users, Star, MessageSquare, List, Users2, Gift as GiftIcon, ShoppingBag, Settings,
   Smile, Menu, Maximize2, Ban, Bell, Heart, BarChart3, Sparkles, Type, Mail, SendHorizontal,
-  Phone, PhoneCall, Check, Video, Mic, MicOff, VideoOff, Share2, MoreHorizontal
+  Phone, PhoneCall, Check, Video, Mic, MicOff, VideoOff, Share2, MoreHorizontal, ChevronDown
 } from 'lucide-react';
 import { WingedHeart } from '../components/WingedHeart';
+import { GiftCombo } from '../components/GiftCombo';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PKBattle } from '../components/PKBattle';
 import { GiftAnimation } from '../components/GiftAnimation';
@@ -43,7 +44,6 @@ export default function RoomPage() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showChatInput, setShowChatInput] = useState(false);
-  const [systemMessage, setSystemMessage] = useState<any | null>(null);
   const [localLikes, setLocalLikes] = useState(0);
   const [privateCallRequest, setPrivateCallRequest] = useState<any | null>(null);
   const [isPrivateCalling, setIsPrivateCalling] = useState(false);
@@ -169,24 +169,18 @@ export default function RoomPage() {
     pendingLikesRef.current += 1;
   };
 
-  useEffect(() => {
-    if (roomId) {
-      setSystemMessage({
-        id: 'system-welcome',
-        type: 'system',
-        text: 'Minors are strictly prohibited from using BINGO LIVE. The review team will monitor rooms 24/7. Please report any violations.',
-        timestamp: Date.now()
-      });
-    }
-  }, [roomId]);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
   const [isLowLatency, setIsLowLatency] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeGift, setActiveGift] = useState<{ giftName: string, displayName: string, combo: number, animationType?: string } | null>(null);
+  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string }>>([]);
+  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string }>>([]);
+  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string } | null>(null);
   const [isSearchingPK, setIsSearchingPK] = useState(false);
-  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const lastJoinKey = React.useRef<string | null>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
@@ -194,27 +188,85 @@ export default function RoomPage() {
   const deviceType = getDeviceType();
   const isMobile = deviceType !== 'desktop';
 
+  const lastProcessedMsgId = React.useRef<string | null>(null);
+
   useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.isGift) {
-        const giftName = lastMsg.text.replace('sent a ', '').replace('! 🎁', '');
-        const animationType = lastMsg.animationType || 'standard';
-        setActiveGift(prev => {
-          if (prev && prev.giftName === giftName && prev.displayName === lastMsg.displayName) {
-            return { ...prev, combo: prev.combo + 1, animationType };
+    const allMessages = [...messages, ...simulatedMessages].sort((a, b) => {
+      const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || Date.now());
+      const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || Date.now());
+      return timeA - timeB;
+    });
+
+    if (allMessages.length > 0) {
+      const lastMsg = allMessages[allMessages.length - 1];
+      
+      if (lastMsg.id !== lastProcessedMsgId.current) {
+        lastProcessedMsgId.current = lastMsg.id;
+
+        if ((lastMsg.type === 'gift' || lastMsg.isGift) && lastMsg.uid !== profile?.uid) {
+          const giftName = lastMsg.giftName || lastMsg.text.replace('sent a ', '').replace('! 🎁', '').replace(/sent \d+x /, '');
+          const giftImage = lastMsg.giftImage || (lastMsg.text.includes('🌹') ? '🌹' : '🎁');
+          const quantity = lastMsg.quantity || 1;
+          const animationType = lastMsg.animationType || 'standard';
+          const senderName = lastMsg.displayName;
+          
+          if (animationType === 'kiss' || animationType === 'flower') {
+            setActiveAnimation({ giftName, displayName: senderName, animationType });
+            setTimeout(() => setActiveAnimation(null), 4000);
           }
-          return { giftName, displayName: lastMsg.displayName, combo: 1, animationType };
-        });
-        const duration = (animationType === 'kiss' || animationType === 'flower') ? 5000 : 3000;
-        const timer = setTimeout(() => setActiveGift(null), duration);
-        return () => clearTimeout(timer);
-      }
-      if (lastMsg.type === 'like' && lastMsg.uid !== profile?.uid) {
-        likeParticlesRef.current?.triggerLike();
+          
+          const processGift = (giftData: any) => {
+            const { giftName, giftImage, quantity, animationType, senderName, photoURL, hostPhoto, id } = giftData;
+            const giftId = id || `msg-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
+
+            setActiveGifts(prevActive => {
+              const existingIndex = prevActive.findIndex(g => g.displayName === senderName && g.giftName === giftName);
+              if (existingIndex !== -1) {
+                const updated = [...prevActive];
+                updated[existingIndex] = { ...updated[existingIndex], combo: updated[existingIndex].combo + quantity, animationType };
+                return updated;
+              }
+
+              // Check queue
+              const existingQueueIndex = giftQueue.findIndex(g => g.displayName === senderName && g.giftName === giftName);
+              if (existingQueueIndex !== -1) {
+                setGiftQueue(prevQueue => {
+                  const updated = [...prevQueue];
+                  updated[existingQueueIndex] = { ...updated[existingQueueIndex], combo: updated[existingQueueIndex].combo + quantity, animationType };
+                  return updated;
+                });
+                return prevActive;
+              }
+
+              // New gift
+              const newGift = {
+                id: giftId,
+                giftName, giftImage, displayName: senderName,
+                userPhoto: photoURL || hostPhoto,
+                combo: quantity, animationType
+              };
+
+              if (prevActive.length < 2) {
+                return [...prevActive, newGift];
+              } else {
+                setGiftQueue(prevQueue => [...prevQueue, newGift]);
+                return prevActive;
+              }
+            });
+          };
+
+          processGift({
+            giftName, giftImage, quantity, animationType, senderName,
+            photoURL: lastMsg.photoURL, hostPhoto: lastMsg.hostPhoto, id: lastMsg.id
+          });
+        }
+
+        if (lastMsg.type === 'like' && lastMsg.uid !== profile?.uid) {
+          likeParticlesRef.current?.triggerLike();
+        }
       }
     }
-  }, [messages, profile?.uid]);
+  }, [messages, simulatedMessages, profile?.uid]);
 
   useEffect(() => {
     if (notification) {
@@ -223,17 +275,121 @@ export default function RoomPage() {
     }
   }, [notification]);
 
-  useEffect(() => {
-    if (shouldAutoScroll) {
-      if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-      if (desktopChatRef.current) desktopChatRef.current.scrollTop = desktopChatRef.current.scrollHeight;
-    }
-  }, [messages, shouldAutoScroll]);
+  const lastMessageCountRef = React.useRef(0);
 
-  const handleChatScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-    setShouldAutoScroll(isAtBottom);
+  useEffect(() => {
+    const allMessages = [...messages, ...simulatedMessages];
+    const currentCount = allMessages.length;
+    
+    if (chatRef.current) {
+      if (isAtBottom) {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        setHasNewMessages(false);
+      } else if (currentCount > lastMessageCountRef.current) {
+        // Only show "New Messages" if the count actually increased while we were scrolled up
+        setHasNewMessages(true);
+      }
+    }
+    lastMessageCountRef.current = currentCount;
+  }, [messages, simulatedMessages, isAtBottom]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 10000); // Update every 10 seconds to refresh the 5-minute filter
+    return () => clearInterval(interval);
+  }, []);
+
+  const visibleMessages = React.useMemo(() => {
+    const fiveMinutesAgo = currentTime - 5 * 60 * 1000;
+    
+    const systemMsg = {
+      id: 'system-welcome',
+      type: 'system' as const,
+      text: 'Minors are strictly prohibited from using BINGO LIVE. The review team will monitor rooms 24/7. Please report any violations.',
+      timestamp: 0 // Keep it at the very top
+    };
+
+    return [systemMsg, ...messages, ...simulatedMessages]
+      .filter(msg => {
+        if (msg.id === 'system-welcome') return true;
+        const ts = msg.timestamp?.toMillis ? msg.timestamp.toMillis() : (typeof msg.timestamp === 'number' ? msg.timestamp : Date.now());
+        return ts > fiveMinutesAgo;
+      })
+      .sort((a, b) => {
+        const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : (typeof a.timestamp === 'number' ? a.timestamp : Date.now() + 1000);
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : (typeof b.timestamp === 'number' ? b.timestamp : Date.now() + 1000);
+        return timeA - timeB;
+      });
+  }, [messages, simulatedMessages, currentTime]);
+
+  const handleLocalGift = (gift: any, quantity: number) => {
+    if (!profile) return;
+    
+    const giftName = gift.name;
+    const giftImage = gift.image;
+    const animationType = gift.animationType || 'standard';
+    const senderName = profile.displayName;
+    const giftId = `local-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
+
+    if (animationType === 'kiss' || animationType === 'flower') {
+      setActiveAnimation({ giftName, displayName: senderName, animationType });
+      setTimeout(() => setActiveAnimation(null), 4000);
+    }
+
+    setActiveGifts(prevActive => {
+      const existingIndex = prevActive.findIndex(g => g.displayName === senderName && g.giftName === giftName);
+      if (existingIndex !== -1) {
+        const updated = [...prevActive];
+        updated[existingIndex] = { ...updated[existingIndex], combo: updated[existingIndex].combo + quantity, animationType };
+        return updated;
+      }
+
+      // Check queue
+      const existingQueueIndex = giftQueue.findIndex(g => g.displayName === senderName && g.giftName === giftName);
+      if (existingQueueIndex !== -1) {
+        setGiftQueue(prevQueue => {
+          const updated = [...prevQueue];
+          updated[existingQueueIndex] = { ...updated[existingQueueIndex], combo: updated[existingQueueIndex].combo + quantity, animationType };
+          return updated;
+        });
+        return prevActive;
+      }
+
+      const newGift = {
+        id: giftId,
+        giftName, giftImage, displayName: senderName,
+        userPhoto: profile.photoURL,
+        combo: quantity, animationType
+      };
+
+      if (prevActive.length < 2) {
+        return [...prevActive, newGift];
+      } else {
+        setGiftQueue(prevQueue => [...prevQueue, newGift]);
+        return prevActive;
+      }
+    });
+  };
+
+  const handleChatScroll = () => {
+    if (chatRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatRef.current;
+      // Use a slightly larger threshold for "at bottom" to be more forgiving
+      const atBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setIsAtBottom(atBottom);
+      if (atBottom) {
+        setHasNewMessages(false);
+      }
+    }
+  };
+
+  const scrollToBottom = () => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      setIsAtBottom(true);
+      setHasNewMessages(false);
+    }
   };
 
   const startPK = async () => {
@@ -290,6 +446,18 @@ export default function RoomPage() {
           level: profile.level || 1,
           timestamp: serverTimestamp()
         });
+
+        // If user hasn't followed, also add a follow prompt
+        if (!isFollowing) {
+          await addDoc(collection(db, `rooms/${roomId}/messages`), {
+            type: 'follow-prompt',
+            uid: profile.uid,
+            displayName: hostProfile?.displayName || 'the host',
+            photoURL: profile.photoURL || '',
+            hostPhoto: hostProfile?.photoURL || '',
+            timestamp: serverTimestamp()
+          });
+        }
       } catch (error) {
         console.error('Error adding join message', error);
       }
@@ -315,7 +483,7 @@ export default function RoomPage() {
     });
     const q = query(collection(db, `rooms/${roomId}/messages`), orderBy('timestamp', 'desc'), limit(50));
     const unsubMsgs = onSnapshot(q, (snap) => {
-      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })).reverse());
+      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })).reverse());
     });
     
     return () => { 
@@ -341,13 +509,19 @@ export default function RoomPage() {
       const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
       
       const rand = Math.random();
-      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' = 'chat';
+      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' = 'chat';
       const userObj = users[Math.floor(Math.random() * users.length)];
       const user = userObj.name;
       const level = userObj.level;
       let text = texts[Math.floor(Math.random() * texts.length)];
 
-      if (rand > 0.95) {
+      if (rand > 0.98) {
+        type = 'guest-live-prompt';
+        text = 'Wanna meet with the broadcaster? Click to join the Guest Live!';
+      } else if (rand > 0.95) {
+        type = 'like-prompt';
+        text = 'Tap like to give the host a little energy!';
+      } else if (rand > 0.92) {
         type = 'follow-prompt';
         text = 'to get LIVE notifications';
       } else if (rand > 0.85) {
@@ -366,14 +540,33 @@ export default function RoomPage() {
         displayName: type === 'follow-prompt' ? (hostProfile?.displayName || 'the host') : user,
         text,
         type,
+        isGift: type === 'gift',
+        giftName: type === 'gift' ? 'Rose' : undefined,
+        giftImage: type === 'gift' ? '🌹' : undefined,
+        quantity: 1,
         level: type === 'follow-prompt' ? undefined : level,
         timestamp: Date.now(),
         hostPhoto: hostProfile?.photoURL,
-        hostName: hostProfile?.displayName
+        hostName: hostProfile?.displayName,
+        isNew: type === 'join' && Math.random() > 0.7
       };
 
       setSimulatedMessages(prev => {
         const updated = [...prev, newMessage].slice(-30);
+        
+        // If it was a join, also add a follow prompt simulation
+        if (type === 'join') {
+          const followPrompt = {
+            id: 'sim-follow-prompt-' + Math.random().toString(36).substr(2, 9),
+            displayName: hostProfile?.displayName || 'the host',
+            text: 'to get LIVE notifications',
+            type: 'follow-prompt' as const,
+            timestamp: Date.now() + 100,
+            hostPhoto: hostProfile?.photoURL
+          };
+          return [...updated, followPrompt].slice(-30);
+        }
+
         if (type === 'follow') {
           const thankYou = {
             id: 'sim-thank-' + Math.random().toString(36).substr(2, 9),
@@ -446,6 +639,7 @@ export default function RoomPage() {
     try {
       await addDoc(collection(db, `rooms/${roomId}/messages`), { text: input, uid: profile.uid, displayName: profile.displayName, photoURL: profile.photoURL || '', level: profile.level || 1, type: 'chat', timestamp: serverTimestamp() });
       setInput('');
+      setShowChatInput(false);
     } catch (error) { console.error('Send message error', error); }
   };
 
@@ -488,51 +682,81 @@ export default function RoomPage() {
       <div className="relative z-10 h-full flex flex-col pointer-events-none">
         {/* HEADER SECTION - EXACT REPLICATION */}
         {!isCleanMode && (
-          <div className="flex flex-col pointer-events-none px-4 pt-10">
-            {/* Bingo Live Logo at the very top */}
-            <div className="flex flex-col items-center gap-1 mb-2">
-              <h1 className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">Bingo Live</h1>
-              <div className="h-[1px] w-12 bg-white/10" />
-            </div>
-
-            {/* System Warning Banner */}
-            <div className="bg-red-500/10 border-y border-red-500/20 py-1.5 px-4 mb-4">
-              <p className="text-[9px] text-red-400 font-bold text-center leading-tight uppercase tracking-wider">
-                Minors are strictly prohibited from using BINGO LIVE. The review team will monitor rooms 24/7. Please report any violations.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between pointer-events-auto">
-              {/* Left Group: Host Info & Coin Balance */}
-              <div className="flex items-center gap-3">
-                <div className="bg-black/30 backdrop-blur-3xl p-1.5 pr-5 rounded-full border border-white/10 flex items-center gap-3 shadow-xl">
-                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white/20">
+          <div className="flex flex-col pointer-events-none px-4 pt-2 relative">
+            <div className="flex items-start justify-between pointer-events-auto">
+              {/* Left Group: Host Info & Secondary Pills */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full p-0.5 pr-0 border border-white/10 shadow-lg scale-90 origin-left">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20">
                     <img src={hostProfile?.photoURL || 'https://i.pravatar.cc/150?u=host'} alt="Host" className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex items-center gap-2 bg-yellow-500/10 px-3 py-1 rounded-full border border-yellow-500/20">
-                    <Coins size={14} className="text-yellow-400" />
-                    <span className="text-yellow-400 text-[14px] font-black italic tracking-tight">1319198</span>
+                  <div className="flex flex-col px-1.5 min-w-[60px]">
+                    <span className="text-white text-[10px] font-bold leading-tight truncate max-w-[80px]">
+                      {hostProfile?.displayName || 'keep it secret'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Coins size={8} className="text-yellow-400" />
+                      <span className="text-yellow-400 text-[8px] font-bold">
+                        {hostProfile?.beans || 8931}
+                      </span>
+                    </div>
                   </div>
+                  {profile?.uid !== room.hostUid && (
+                    <button 
+                      onClick={toggleFollow}
+                      className={cn(
+                        "w-7 h-7 rounded-full flex items-center justify-center text-white ml-0.5 transition-all",
+                        isFollowing ? "bg-white/20" : "bg-cyan-400"
+                      )}
+                    >
+                      {isFollowing ? <Check size={14} strokeWidth={4} /> : <Plus size={14} strokeWidth={4} />}
+                    </button>
+                  )}
                 </div>
-                {/* Random User Avatar 1 */}
-                <div className="w-11 h-11 rounded-full bg-black/30 backdrop-blur-3xl border border-white/10 overflow-hidden flex items-center justify-center">
-                  <img src="https://i.pravatar.cc/100?u=user1" alt="User" className="w-full h-full object-cover opacity-60" />
+
+                <div className="flex items-center gap-1.5">
+                  <div className="bg-black/30 backdrop-blur-md rounded-full px-2 py-0.5 flex items-center gap-1 border border-white/5 scale-90 origin-left">
+                    <BarChart3 size={10} className="text-yellow-400" />
+                    <span className="text-white text-[9px] font-medium">Region List</span>
+                  </div>
+                  <div className="bg-black/30 backdrop-blur-md rounded-full px-2 py-0.5 flex items-center gap-1 border border-white/5 scale-90 origin-left">
+                    <Star size={10} className="text-yellow-400 fill-yellow-400" />
+                    <Coins size={10} className="text-white/60" />
+                    <span className="text-white text-[9px] font-medium">174/200</span>
+                  </div>
                 </div>
               </div>
 
               {/* Right Group: Viewers & Close */}
-              <div className="flex items-center gap-2.5">
-                <div className="w-11 h-11 bg-black/30 backdrop-blur-3xl rounded-full border border-white/10 flex items-center justify-center text-white font-black text-lg">D</div>
-                <div className="w-11 h-11 bg-black/30 backdrop-blur-3xl rounded-full border border-white/10 overflow-hidden flex items-center justify-center">
-                  <img src="https://i.pravatar.cc/100?u=user2" alt="User" className="w-full h-full object-cover opacity-60" />
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center -space-x-2 mr-0.5 scale-90 origin-right">
+                  <div className="relative">
+                    <div className="w-7 h-7 rounded-full border border-white/20 overflow-hidden">
+                      <img src="https://i.pravatar.cc/100?u=v1" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-yellow-500 rounded-full px-1 py-0 text-[6px] font-bold text-white border border-black/20">26</div>
+                  </div>
+                  <div className="relative">
+                    <div className="w-7 h-7 rounded-full border-2 border-yellow-400/50 overflow-hidden">
+                      <img src="https://i.pravatar.cc/100?u=v2" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="absolute inset-0 border-2 border-yellow-400 rounded-full pointer-events-none" />
+                  </div>
                 </div>
-                <div className="bg-black/30 backdrop-blur-3xl rounded-full px-5 py-2.5 border border-white/10 flex items-center gap-1.5 shadow-xl">
-                  <span className="text-white text-[15px] font-black tracking-tighter">63</span>
+                
+                <div className="bg-black/20 backdrop-blur-md rounded-full px-2 py-1 border border-white/5 scale-90 origin-right">
+                  <span className="text-white text-[11px] font-medium opacity-80">{room.viewerCount || 411}</span>
                 </div>
-                <button onClick={() => navigate('/')} className="w-11 h-11 bg-black/30 backdrop-blur-3xl rounded-full text-white border border-white/10 flex items-center justify-center active:scale-90 transition-transform">
-                  <X size={26} strokeWidth={3} />
+                
+                <button onClick={() => navigate('/')} className="w-7 h-7 flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-all scale-90 origin-right">
+                  <X size={24} strokeWidth={2.5} />
                 </button>
               </div>
+            </div>
+
+            {/* ID string at bottom right of header */}
+            <div className="absolute right-4 top-[40px] opacity-40">
+              <span className="text-white text-[11px] font-medium tracking-wide">ID:{room.id.substring(0, 5)}_Bomiz</span>
             </div>
           </div>
         )}
@@ -591,60 +815,119 @@ export default function RoomPage() {
         </AnimatePresence>
 
         {/* CHAT & ACTION SECTION */}
-        <div className="mt-auto p-4 flex flex-col gap-4 pointer-events-none">
+        <div className="mt-auto p-4 pb-1 flex flex-col gap-2 pointer-events-none relative z-20">
           {!isCleanMode && (
-            <div className="flex flex-col gap-4">
-              {/* System Message Replicated */}
-              {systemMessage && (
-                <div className="bg-black/20 backdrop-blur-md p-3 rounded-2xl border border-white/5 max-w-[80%] pointer-events-auto">
-                  <p className="text-[13px] text-[#00e5ff] font-medium leading-relaxed drop-shadow-sm">{systemMessage.text}</p>
+            <>
+              <div className="flex flex-col gap-2 items-start relative">
+                {/* Gift Combo Overlay - Positioned above chat */}
+                <div className="absolute bottom-full left-0 mb-2 z-[200] flex flex-col-reverse gap-1.5 pointer-events-none">
+                  <AnimatePresence mode="popLayout">
+                    {activeGifts.map((gift) => (
+                      <GiftCombo 
+                        key={gift.id}
+                        giftName={gift.giftName}
+                        giftImage={gift.giftImage}
+                        displayName={gift.displayName}
+                        userPhoto={gift.userPhoto}
+                        combo={gift.combo}
+                        onComplete={() => {
+                          setActiveGifts(prev => {
+                            const filtered = prev.filter(g => g.id !== gift.id);
+                            // If we have space and something in queue, pull it in
+                            setGiftQueue(queue => {
+                              if (queue.length > 0 && filtered.length < 2) {
+                                const [next, ...rest] = queue;
+                                setActiveGifts([...filtered, next]);
+                                return rest;
+                              }
+                              return queue;
+                            });
+                            return filtered;
+                          });
+                        }}
+                      />
+                    ))}
+                  </AnimatePresence>
                 </div>
-              )}
-              
-              {/* Chat Messages */}
-              <div ref={chatRef} onScroll={handleChatScroll} className="max-h-[30vh] overflow-y-auto no-scrollbar flex flex-col gap-2 pointer-events-auto">
-                {[...messages, ...simulatedMessages]
-                  .sort((a, b) => {
-                    const timeA = a.timestamp?.seconds ? a.timestamp.seconds * 1000 : a.timestamp;
-                    const timeB = b.timestamp?.seconds ? b.timestamp.seconds * 1000 : b.timestamp;
-                    return timeA - timeB;
-                  })
-                  .map(msg => (
-                    <ChatMessage 
-                      key={msg.id} 
-                      message={{
-                        ...msg,
-                        onFollow: toggleFollow,
-                        isFollowing: isFollowing
-                      }} 
-                    />
-                  ))
-                }
+
+                {/* New Messages Indicator */}
+                <AnimatePresence>
+                  {hasNewMessages && (
+                    <motion.button
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      onClick={scrollToBottom}
+                      className="absolute -top-10 left-4 bg-cyan-400 text-black px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(34,211,238,0.4)] z-30 pointer-events-auto active:scale-95 transition-transform"
+                    >
+                      New Messages <ChevronDown size={14} className="animate-bounce" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+                
+                {/* Chat Messages */}
+                <div 
+                  ref={chatRef} 
+                  onScroll={handleChatScroll} 
+                  className="w-[65%] max-h-[40vh] overflow-y-auto scrollbar-hide flex flex-col gap-2 pointer-events-auto scroll-smooth"
+                >
+                  <div className="flex flex-col gap-2 min-h-full">
+                    <div className="flex-1" />
+                    {visibleMessages.map(msg => (
+                      <ChatMessage 
+                        key={msg.id} 
+                        message={{
+                          ...msg,
+                          onFollow: toggleFollow,
+                          isFollowing: isFollowing,
+                          onLike: sendLike,
+                          onJoinGuest: () => setNotification({ message: "Guest Live request sent! 🎥", type: 'info' })
+                        }} 
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Replies */}
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1 pointer-events-auto">
+                {['Hi 👋', '😘😘😘', 'So gorgeous!', 'Good vibes'].map((reply) => (
+                  <button
+                    key={reply}
+                    onClick={() => {
+                      setInput(reply);
+                      setShowChatInput(true);
+                    }}
+                    className="whitespace-nowrap px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-[11px] font-medium border border-white/10 active:scale-95 transition-transform"
+                  >
+                    {reply}
+                  </button>
+                ))}
               </div>
 
               {/* Bottom Interaction Bar */}
-              <div className="flex items-center justify-between pointer-events-auto pb-4">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setShowChatInput(true)} className="w-12 h-12 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
-                    <MessageSquare size={22} />
+              <div className="flex items-center justify-between pointer-events-auto pb-0 w-full">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setShowChatInput(true)} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
+                    <MessageSquare size={18} />
                   </button>
-                  <button onClick={() => setShowTools(true)} className="w-12 h-12 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
-                    <List size={22} />
+                  <button onClick={() => setShowTools(true)} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
+                    <List size={18} />
                   </button>
-                  <button className="w-12 h-12 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
-                    <ShoppingBag size={22} />
+                  <button className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
+                    <ShoppingBag size={18} />
                   </button>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={sendLike} className="w-12 h-12 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-pink-500 active:scale-90 transition-transform">
-                    <Heart size={24} fill={localLikes > 0 ? "currentColor" : "none"} />
+                <div className="flex items-center gap-2">
+                  <button onClick={sendLike} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-pink-500 active:scale-90 transition-transform">
+                    <Heart size={20} fill={localLikes > 0 ? "currentColor" : "none"} />
                   </button>
-                  <button onClick={() => setShowGifts(true)} className="w-14 h-14 bg-gradient-to-br from-[#ff0099] to-[#ff6600] rounded-full flex items-center justify-center text-white shadow-2xl active:scale-90 transition-transform">
-                    <GiftIcon size={28} fill="currentColor" />
+                  <button onClick={() => setShowGifts(true)} className="w-12 h-12 bg-gradient-to-br from-[#ff0099] to-[#ff6600] rounded-full flex items-center justify-center text-white shadow-2xl active:scale-90 transition-transform">
+                    <GiftIcon size={24} fill="currentColor" />
                   </button>
                 </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -654,20 +937,68 @@ export default function RoomPage() {
         {showChatInput && (
           <div className="fixed inset-0 z-[200] flex flex-col justify-end">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowChatInput(false)} className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative bg-white rounded-t-[2.5rem] p-6 pb-12 shadow-2xl">
-              <form onSubmit={sendMessage} className="flex items-center gap-3">
-                <input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Say something nice..." className="flex-1 bg-slate-100 rounded-2xl px-5 py-3.5 text-slate-900 focus:outline-none" />
-                <button type="submit" className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white shadow-lg"><SendHorizontal size={24} /></button>
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative bg-white rounded-t-[2.5rem] p-4 pb-10 shadow-2xl">
+              {/* Stickers Row inside Chat Input */}
+              <div className="flex items-center justify-around py-4 border-b border-slate-100 mb-4">
+                {['🤡', '😍', '😂', '🌹', '🔥', '😡', '😱'].map((sticker, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      addDoc(collection(db, `rooms/${roomId}/messages`), { 
+                        text: sticker, 
+                        uid: profile?.uid, 
+                        displayName: profile?.displayName, 
+                        photoURL: profile?.photoURL || '', 
+                        level: profile?.level || 1, 
+                        type: 'chat', 
+                        timestamp: serverTimestamp() 
+                      });
+                      setShowChatInput(false);
+                    }}
+                    className="text-2xl hover:scale-125 active:scale-90 transition-transform"
+                  >
+                    <img 
+                      src={`https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/${
+                        ['Clown Face', 'Smiling Face with Heart-Eyes', 'Face with Tears of Joy', 'Rose', 'Fire', 'Enraged Face', 'Face Screaming in Fear'][idx]
+                      }.png`} 
+                      alt={sticker}
+                      className="w-10 h-10 object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={sendMessage} className="flex items-center gap-3 bg-slate-100 rounded-full px-4 py-2">
+                <input 
+                  autoFocus 
+                  value={input} 
+                  onChange={(e) => setInput(e.target.value)} 
+                  placeholder="Chat with everyone" 
+                  className="flex-1 bg-transparent py-2 text-slate-900 focus:outline-none text-[15px]" 
+                />
+                <button type="button" className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <Smile size={24} />
+                </button>
+                <button type="submit" className="text-slate-400 hover:text-blue-500 transition-colors active:scale-90">
+                  <SendHorizontal size={24} />
+                </button>
               </form>
             </motion.div>
           </div>
         )}
         {showTools && <RoomToolsModal onClose={() => setShowTools(false)} isHost={profile?.uid === room.hostUid} onAction={handleToolAction} currentQuality={quality} isCleanMode={isCleanMode} isRecording={isRecording} isLowLatency={isLowLatency} />}
-        {showGifts && <GiftingModal hostUid={room.hostUid} roomId={room.id} onClose={() => setShowGifts(false)} />}
+        {showGifts && <GiftingModal hostUid={room.hostUid} roomId={room.id} onClose={() => setShowGifts(false)} onGiftSent={handleLocalGift} />}
       </AnimatePresence>
 
       <LikeParticles ref={likeParticlesRef} />
-      {activeGift && <GiftAnimation giftName={activeGift.giftName} displayName={activeGift.displayName} combo={activeGift.combo} animationType={activeGift.animationType} />}
+      
+      {activeAnimation && (
+        <GiftAnimation 
+          giftName={activeAnimation.giftName} 
+          displayName={activeAnimation.displayName} 
+          animationType={activeAnimation.animationType} 
+        />
+      )}
     </div>
   );
 }

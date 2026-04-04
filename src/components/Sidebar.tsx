@@ -10,6 +10,9 @@ export const Sidebar = React.memo(() => {
   const location = useLocation();
   const [showGoLive, setShowGoLive] = useState(false);
 
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
+  if (isStreamPage) return null;
+
   const menuItems = [
     { icon: HomeIcon, label: 'Live', path: '/' },
     { icon: Trophy, label: 'Top', path: '/leaderboard' },

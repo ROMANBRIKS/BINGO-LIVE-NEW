@@ -1,7 +1,12 @@
 import React from 'react';
 import { TrendingUp, Users, Star, Flame } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 export const RightSidebar = React.memo(() => {
+  const location = useLocation();
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
+  if (isStreamPage) return null;
+
   return (
     <aside className="hidden lg:flex sticky top-0 h-screen w-80 bg-black/40 backdrop-blur-xl border-l border-white/5 flex-col p-6 z-40 shrink-0 gap-8">
       {/* Trending Section */}

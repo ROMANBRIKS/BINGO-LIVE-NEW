@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle } from 'lucide-react';
+import { GiftCombo } from '../components/GiftCombo';
+import { GiftAnimation } from '../components/GiftAnimation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle, Smile, SendHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -22,7 +24,44 @@ export default function GoLivePage() {
   const [status, setStatus] = useState<'setup' | 'preparing' | 'countdown' | 'live'>('setup');
   const [countdown, setCountdown] = useState(3);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [messages, setMessages] = useState<{ id: string; displayName: string; text: string; type: 'chat' | 'gift' | 'system' | 'join' | 'follow' | 'follow-prompt'; level?: number; hostPhoto?: string }[]>([]);
+  const [messages, setMessages] = useState<{ 
+    id: string; 
+    displayName: string; 
+    text: string; 
+    type: 'chat' | 'join' | 'like' | 'system' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' | 'gift'; 
+    level?: number; 
+    hostPhoto?: string;
+    timestamp?: number;
+  }[]>([]);
+  const [activeGift, setActiveGift] = useState<{ giftName: string, displayName: string, userPhoto?: string, combo: number, animationType?: string } | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [showChatInput, setShowChatInput] = useState(false);
+  const [input, setInput] = useState('');
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const visibleMessages = React.useMemo(() => {
+    const fiveMinutesAgo = currentTime - 5 * 60 * 1000;
+    
+    const systemMsg = {
+      id: 'system-welcome',
+      type: 'system' as const,
+      displayName: 'System',
+      text: 'Minors are strictly prohibited from using BINGO LIVE. The review team will monitor rooms 24/7. Please report any violations.',
+      timestamp: 0
+    };
+
+    return [systemMsg, ...messages]
+      .filter(msg => {
+        if (msg.id === 'system-welcome') return true;
+        const ts = msg.timestamp || Date.now();
+        return ts > fiveMinutesAgo;
+      })
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  }, [messages, currentTime]);
 
   // PK Simulation State
   const [isPkActive, setIsPkActive] = useState(false);
@@ -56,13 +95,19 @@ export default function GoLivePage() {
       const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
       
       const rand = Math.random();
-      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' = 'chat';
+      let type: 'chat' | 'gift' | 'join' | 'follow' | 'follow-prompt' | 'like-prompt' | 'guest-live-prompt' = 'chat';
       const userObj = users[Math.floor(Math.random() * users.length)];
       const user = userObj.name;
       const level = userObj.level;
       let text = texts[Math.floor(Math.random() * texts.length)];
 
-      if (rand > 0.95) {
+      if (rand > 0.98) {
+        type = 'guest-live-prompt';
+        text = 'Wanna meet with the broadcaster? Click to join the Guest Live!';
+      } else if (rand > 0.95) {
+        type = 'like-prompt';
+        text = 'Tap like to give the host a little energy!';
+      } else if (rand > 0.92) {
         type = 'follow-prompt';
         text = 'to get LIVE notifications';
       } else if (rand > 0.85) {
@@ -82,19 +127,34 @@ export default function GoLivePage() {
         text,
         type,
         level: type === 'follow-prompt' ? undefined : level,
-        hostPhoto: profile?.photoURL
+        hostPhoto: profile?.photoURL,
+        timestamp: Date.now(),
+        isNew: type === 'join' && Math.random() > 0.7
       };
 
       setMessages(prev => {
-        const updated = [...prev, newMessage].slice(-50); // Keep last 50 messages for scrollability
+        const updated = [...prev, newMessage].slice(-50);
         
-        // If it was a follow, add a system thank you message
+        // If it was a join, also add a follow prompt simulation
+        if (type === 'join') {
+          const followPrompt = {
+            id: Math.random().toString(36).substr(2, 9),
+            displayName: profile?.displayName || 'the host',
+            text: 'to get LIVE notifications',
+            type: 'follow-prompt' as const,
+            timestamp: Date.now() + 100,
+            hostPhoto: profile?.photoURL
+          };
+          return [...updated, followPrompt].slice(-50);
+        }
+
         if (type === 'follow') {
           const thankYou = {
             id: Math.random().toString(36).substr(2, 9),
             displayName: 'System',
             text: `Anchor: Thanks for the follow, ${user}! ❤️`,
-            type: 'system' as const
+            type: 'system' as const,
+            timestamp: Date.now()
           };
           return [...updated, thankYou].slice(-50);
         }
@@ -107,18 +167,47 @@ export default function GoLivePage() {
   }, [status]);
 
   useEffect(() => {
-    if (chatContainerRef.current && isAtBottom) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-      setHasNewMessages(false);
-    } else if (!isAtBottom) {
-      setHasNewMessages(true);
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.type === 'gift') {
+        const giftName = lastMsg.text.replace('sent a ', '').replace('! 🎁', '');
+        const animationType = (lastMsg as any).animationType || 'standard';
+        
+        setActiveGift(prev => {
+          if (prev && prev.giftName === giftName && prev.displayName === lastMsg.displayName) {
+            return { ...prev, combo: prev.combo + 1, animationType };
+          }
+          return { 
+            giftName, 
+            displayName: lastMsg.displayName, 
+            userPhoto: lastMsg.hostPhoto,
+            combo: 1, 
+            animationType 
+          };
+        });
+      }
     }
+  }, [messages]);
+
+  const lastMessageCountRef = useRef(0);
+
+  useEffect(() => {
+    const currentCount = messages.length;
+    if (chatContainerRef.current) {
+      if (isAtBottom) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        setHasNewMessages(false);
+      } else if (currentCount > lastMessageCountRef.current) {
+        setHasNewMessages(true);
+      }
+    }
+    lastMessageCountRef.current = currentCount;
   }, [messages, isAtBottom]);
 
   const handleScroll = () => {
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-      const atBottom = scrollHeight - scrollTop - clientHeight < 10;
+      const atBottom = scrollHeight - scrollTop - clientHeight < 50;
       setIsAtBottom(atBottom);
       if (atBottom) {
         setHasNewMessages(false);
@@ -301,6 +390,23 @@ export default function GoLivePage() {
       alert("Failed to start broadcast. Please try again.");
       setStatus('setup');
     }
+  };
+
+  const sendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    
+    setMessages(prev => [...prev, { 
+      id: Math.random().toString(), 
+      displayName: profile?.displayName || 'Me', 
+      text: input, 
+      type: 'chat' as const, 
+      level: profile?.level || 1, 
+      timestamp: Date.now() 
+    }].slice(-50));
+    
+    setInput('');
+    setShowChatInput(false);
   };
 
   return (
@@ -552,34 +658,54 @@ export default function GoLivePage() {
               </motion.button>
             )}
 
-            {/* Chat Section - 60% width */}
+            {/* Chat Section - 65% width */}
             <div 
               ref={chatContainerRef}
               onScroll={handleScroll}
-              className="w-[60%] flex flex-col gap-1 max-h-[250px] overflow-y-auto scrollbar-hide scroll-smooth"
+              className="w-[65%] flex flex-col gap-1 max-h-[300px] overflow-y-auto scrollbar-hide scroll-smooth"
             >
-              {/* Minor's Warning as First Message */}
-              <div className="inline-flex items-center gap-1.5 mb-1.5 px-3 py-2 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 w-fit max-w-full">
-                <p className="text-[9px] leading-relaxed text-[#00e5ff] font-bold italic">
-                  ⚠️ Minors are strictly prohibited from using BINGO LIVE. The review team will monitor live content 24/7. Please report any violations promptly.
-                </p>
+              <div className="flex flex-col gap-1 min-h-full justify-end items-start">
+                <div className="flex-1" />
+                {visibleMessages.map(msg => (
+                  <ChatMessage 
+                    key={msg.id} 
+                    message={{
+                      ...msg,
+                      onFollow: () => {},
+                      onLike: () => {},
+                      onJoinGuest: () => {}
+                    }} 
+                  />
+                ))}
               </div>
+            </div>
 
-              {messages.map(msg => (
-                <ChatMessage 
-                  key={msg.id} 
-                  message={{
-                    ...msg,
-                    onFollow: () => {} // No-op for streamer
-                  }} 
-                />
+            {/* Quick Replies */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1 pointer-events-auto">
+              {['Hi 👋', '😘😘😘', 'So gorgeous!', 'Good vibes'].map((reply) => (
+                <button
+                  key={reply}
+                  onClick={() => {
+                    setMessages(prev => [...prev, { 
+                      id: Math.random().toString(), 
+                      displayName: profile?.displayName || 'Me', 
+                      text: reply, 
+                      type: 'chat' as const, 
+                      level: profile?.level || 1, 
+                      timestamp: Date.now() 
+                    }].slice(-50));
+                  }}
+                  className="whitespace-nowrap px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-[11px] font-medium border border-white/10 active:scale-95 transition-transform"
+                >
+                  {reply}
+                </button>
               ))}
             </div>
 
             {/* Streamer Controls */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
+                <button onClick={() => setShowChatInput(true)} className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
                   <MessageCircle size={20} className="text-white" />
                 </button>
                 <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
@@ -621,6 +747,85 @@ export default function GoLivePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODALS & OVERLAYS */}
+      <AnimatePresence>
+        {showChatInput && (
+          <div className="fixed inset-0 z-[200] flex flex-col justify-end">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowChatInput(false)} className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative bg-white rounded-t-[2.5rem] p-4 pb-10 shadow-2xl">
+              {/* Stickers Row inside Chat Input */}
+              <div className="flex items-center justify-around py-4 border-b border-slate-100 mb-4">
+                {['🤡', '😍', '😂', '🌹', '🔥', '😡', '😱'].map((sticker, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setMessages(prev => [...prev, { 
+                        id: Math.random().toString(), 
+                        displayName: profile?.displayName || 'Me', 
+                        text: sticker, 
+                        type: 'chat' as const, 
+                        level: profile?.level || 1, 
+                        timestamp: Date.now() 
+                      }].slice(-50));
+                      setShowChatInput(false);
+                    }}
+                    className="text-2xl hover:scale-125 active:scale-90 transition-transform"
+                  >
+                    <img 
+                      src={`https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/${
+                        ['Clown Face', 'Smiling Face with Heart-Eyes', 'Face with Tears of Joy', 'Rose', 'Fire', 'Enraged Face', 'Face Screaming in Fear'][idx]
+                      }.png`} 
+                      alt={sticker}
+                      className="w-10 h-10 object-contain"
+                    />
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={sendMessage} className="flex items-center gap-3 bg-slate-100 rounded-full px-4 py-2">
+                <input 
+                  autoFocus 
+                  value={input} 
+                  onChange={(e) => setInput(e.target.value)} 
+                  placeholder="Chat with everyone" 
+                  className="flex-1 bg-transparent py-2 text-slate-900 focus:outline-none text-[15px]" 
+                />
+                <button type="button" className="text-slate-400 hover:text-slate-600 transition-colors">
+                  <Smile size={24} />
+                </button>
+                <button type="submit" className="text-slate-400 hover:text-blue-500 transition-colors active:scale-90">
+                  <SendHorizontal size={24} />
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Gift Combo Overlay */}
+      <div className="fixed top-1/3 left-4 z-[200] flex flex-col gap-4 pointer-events-none">
+        <AnimatePresence>
+          {activeGift && (
+            <GiftCombo 
+              key={`${activeGift.displayName}-${activeGift.giftName}`}
+              giftName={activeGift.giftName}
+              displayName={activeGift.displayName}
+              userPhoto={activeGift.userPhoto}
+              combo={activeGift.combo}
+              onComplete={() => setActiveGift(null)}
+            />
+          )}
+        </AnimatePresence>
+      </div>
+
+      {activeGift && (activeGift.animationType === 'kiss' || activeGift.animationType === 'flower') && (
+        <GiftAnimation 
+          giftName={activeGift.giftName} 
+          displayName={activeGift.displayName} 
+          animationType={activeGift.animationType} 
+        />
       )}
     </div>
   );

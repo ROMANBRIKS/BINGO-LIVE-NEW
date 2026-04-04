@@ -142,7 +142,6 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
-          {!isPK && <div className="absolute top-4 left-4 bg-red-600 px-3 py-1 rounded-full text-[10px] font-black text-white italic animate-pulse shadow-lg">LIVE</div>}
         </div>
         
         {isPK && (

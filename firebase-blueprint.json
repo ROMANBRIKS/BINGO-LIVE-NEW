@@ -97,11 +97,12 @@
         "photoURL": { "type": "string" },
         "level": { "type": "number" },
         "nobleTitle": { "type": "string", "description": "User's noble title (accolade)" },
-        "type": { "type": "string", "enum": ["chat", "join", "like", "system", "follow", "welcome"] },
+        "type": { "type": "string", "enum": ["chat", "join", "like", "system", "follow", "welcome", "follow-prompt", "guest-live-prompt", "like-prompt"] },
         "hostName": { "type": "string", "description": "The name of the host (for welcome messages)" },
         "hostPhoto": { "type": "string", "description": "The photo URL of the host (for welcome messages)" },
         "hostLevel": { "type": "number", "description": "The level of the host (for welcome messages)" },
         "isGift": { "type": "boolean" },
+        "isNew": { "type": "boolean", "description": "Whether the user is new to the room" },
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "displayName", "photoURL", "timestamp"]

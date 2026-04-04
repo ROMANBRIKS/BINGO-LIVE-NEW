@@ -118,7 +118,7 @@ service cloud.firestore {
              data.uid is string && data.displayName is string &&
              data.photoURL is string &&
              isRecent(data.timestamp) &&
-             (!('type' in data) || data.type in ['chat', 'join', 'like', 'system', 'follow', 'welcome', 'follow-prompt']) &&
+             (!('type' in data) || data.type in ['chat', 'join', 'like', 'system', 'follow', 'welcome', 'follow-prompt', 'guest-live-prompt', 'like-prompt']) &&
              ((!('type' in data) || data.type == 'chat') ? (hasRequiredFields(['text']) && data.text is string && data.text.size() > 0) : true) &&
              (!('text' in data) || (data.text is string && data.text.size() < 500)) &&
              (!('level' in data) || (data.level is number && data.level >= 1)) &&
@@ -126,7 +126,8 @@ service cloud.firestore {
              (!('hostName' in data) || data.hostName is string) &&
              (!('hostPhoto' in data) || data.hostPhoto is string) &&
              (!('hostLevel' in data) || data.hostLevel is number) &&
-             (!('isGift' in data) || data.isGift is bool);
+             (!('isGift' in data) || data.isGift is bool) &&
+             (!('isNew' in data) || data.isNew is bool);
     }
 
     function isValidPrivateCall(data) {

@@ -3,24 +3,31 @@ import { cn } from '../lib/utils';
 
 export const LevelBadge = React.memo(({ level, className }: { level: number, className?: string }) => {
   const getColors = () => {
-    if (level >= 80) return "from-purple-600 to-pink-600";
-    if (level >= 50) return "from-red-500 to-orange-500";
-    if (level >= 20) return "from-blue-500 to-cyan-500";
-    return "from-orange-400 to-orange-600"; // Matches the brownish/orange diamond in the image
+    if (level >= 80) return "bg-gradient-to-r from-purple-600 to-pink-600";
+    if (level >= 50) return "bg-gradient-to-r from-purple-500 to-indigo-600";
+    if (level >= 20) return "bg-gradient-to-r from-blue-400 to-blue-600";
+    if (level >= 10) return "bg-gradient-to-r from-cyan-400 to-cyan-600";
+    return "bg-gradient-to-r from-orange-400 to-orange-600";
+  };
+
+  const getDiamondColor = () => {
+    if (level >= 80) return "text-pink-200";
+    if (level >= 50) return "text-purple-200";
+    if (level >= 20) return "text-blue-100";
+    if (level >= 10) return "text-cyan-100";
+    return "text-orange-200";
   };
 
   return (
     <div className={cn(
-      "relative w-6 h-4 flex items-center justify-center",
+      "inline-flex items-center gap-0.5 px-1 py-0.5 rounded-full shadow-sm border border-white/20 h-3.5 min-w-[24px] justify-center",
+      getColors(),
       className
     )}>
-      {/* Diamond Shape */}
-      <div className={cn(
-        "absolute inset-0 bg-gradient-to-br rounded-[2px] rotate-45 scale-[0.7] shadow-sm border border-white/20",
-        getColors()
-      )} />
-      {/* Level Number */}
-      <span className="relative z-10 text-[9px] font-black text-white drop-shadow-sm">
+      <svg viewBox="0 0 24 24" className={cn("w-2 h-2 fill-current", getDiamondColor())}>
+        <path d="M12 2L4.5 12L12 22L19.5 12L12 2Z" />
+      </svg>
+      <span className="text-[8px] font-black text-white leading-none">
         {level}
       </span>
     </div>

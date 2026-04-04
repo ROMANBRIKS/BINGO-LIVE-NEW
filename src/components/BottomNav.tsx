@@ -8,6 +8,9 @@ export const BottomNav = React.memo(() => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
+  if (isStreamPage) return null;
+
   return (
     <>
       <div className="fixed bottom-0 left-0 right-0 h-12 bg-[#1a1a1a] flex items-center justify-around px-2 z-50 border-t border-white/5 sm:hidden">
