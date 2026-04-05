@@ -39,6 +39,8 @@ export default function RoomPage() {
   const { roomId } = useParams();
   const { profile } = useAuth();
   const navigate = useNavigate();
+
+  // 1. ALL STATE DEFINITIONS AT THE TOP
   const [room, setRoom] = useState<Room | null>(null);
   const [hostProfile, setHostProfile] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -58,8 +60,34 @@ export default function RoomPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any } | null>(null);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
+  const [isLowLatency, setIsLowLatency] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
+  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
+  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string, nobleTier?: string } | null>(null);
+  const [isSearchingPK, setIsSearchingPK] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [seats, setSeats] = useState<GuestSeat[]>([]);
+  const [micQueue, setMicQueue] = useState<MicRequest[]>([]);
+
+  // 2. REFS
   const pendingLikesRef = React.useRef(0);
   const likeParticlesRef = React.useRef<LikeParticlesRef>(null);
+  const lastJoinKey = React.useRef<string | null>(null);
+  const chatRef = React.useRef<HTMLDivElement>(null);
+  const desktopChatRef = React.useRef<HTMLDivElement>(null);
+  const lastProcessedMsgId = React.useRef<string | null>(null);
+  const lastMessageCountRef = React.useRef(0);
+
+  // 3. UTILS
+  const deviceType = getDeviceType();
+  const isMobile = deviceType !== 'desktop';
 
   useEffect(() => {
     if (room) {
@@ -178,29 +206,6 @@ export default function RoomPage() {
     pendingLikesRef.current += 1;
   };
 
-  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
-  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
-  const [isLowLatency, setIsLowLatency] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
-  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
-  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string, nobleTier?: string } | null>(null);
-  const [isSearchingPK, setIsSearchingPK] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [hasNewMessages, setHasNewMessages] = useState(false);
-  const [currentTime, setCurrentTime] = useState(Date.now());
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [seats, setSeats] = useState<GuestSeat[]>([]);
-  const [micQueue, setMicQueue] = useState<MicRequest[]>([]);
-  const lastJoinKey = React.useRef<string | null>(null);
-  const chatRef = React.useRef<HTMLDivElement>(null);
-  const desktopChatRef = React.useRef<HTMLDivElement>(null);
-  const deviceType = getDeviceType();
-  const isMobile = deviceType !== 'desktop';
-
-  const lastProcessedMsgId = React.useRef<string | null>(null);
-
   useEffect(() => {
     const allMessages = [...messages, ...simulatedMessages].sort((a, b) => {
       const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || Date.now());
@@ -287,8 +292,6 @@ export default function RoomPage() {
       return () => clearTimeout(timer);
     }
   }, [notification]);
-
-  const lastMessageCountRef = React.useRef(0);
 
   useEffect(() => {
     const allMessages = [...messages, ...simulatedMessages];
@@ -1082,6 +1085,28 @@ export default function RoomPage() {
 
       <LikeParticles ref={likeParticlesRef} />
       
+      {/* Notifications Overlay */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 20 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[300] pointer-events-none"
+          >
+            <div className={cn(
+              "px-6 py-3 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl flex items-center gap-3",
+              notification.type === 'success' ? "bg-green-500/90 text-white" : "bg-blue-500/90 text-white"
+            )}>
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                {notification.type === 'success' ? <Check size={14} /> : <Sparkles size={14} />}
+              </div>
+              <span className="text-sm font-black uppercase tracking-tight italic">{notification.message}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <NobleEntrance 
         user={nobleEntranceUser} 
         onComplete={() => setNobleEntranceUser(null)} 

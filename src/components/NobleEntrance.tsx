@@ -24,8 +24,11 @@ export const NobleEntrance: React.FC<NobleEntranceProps> = ({ user, onComplete }
 
   useEffect(() => {
     if (user && user.tier !== 'None') {
+      const levelData = NOBLE_LEVELS[user.tier];
+      if (!levelData) return;
+
       setIsVisible(true);
-      const duration = NOBLE_LEVELS[user.tier].entranceDuration * 1000;
+      const duration = levelData.entranceDuration * 1000;
       const timer = setTimeout(() => {
         setIsVisible(false);
         if (onComplete) onComplete();

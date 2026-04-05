@@ -15,9 +15,9 @@ interface NobleBadgeProps {
 }
 
 export const NobleBadge: React.FC<NobleBadgeProps> = ({ tier, size = 'md', showLabel = false }) => {
-  const level = NOBLE_LEVELS[tier];
+  const level = NOBLE_LEVELS[tier] || NOBLE_LEVELS['None'];
   
-  if (tier === 'None') return null;
+  if (tier === 'None' || !level) return null;
 
   const sizeMap = {
     sm: { width: 'w-6', height: 'h-6', fontSize: 'text-[10px]', iconSize: 'text-xs' },

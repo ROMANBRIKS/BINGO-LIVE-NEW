@@ -36,6 +36,14 @@ export const getGiftingEffect = (user: UserProfile): {
   const nobleTier: NobleTier = user.nobleTitle || 'None';
   const levelData = NOBLE_LEVELS[nobleTier];
 
+  if (!levelData) {
+    return {
+      hasSparkle: false,
+      hasShine: false,
+      effectColor: '#9ca3af'
+    };
+  }
+
   return {
     // Sparkle unlocked at Grand Duke (Rank 3) and above
     hasSparkle: levelData.rank >= 3,

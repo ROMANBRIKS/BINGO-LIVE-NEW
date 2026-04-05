@@ -43,6 +43,11 @@ This file tracks all custom logic, features, and systems implemented in the Bing
 - **PK Shield Overlay**: (`src/components/PKShieldOverlay.tsx`) Immersive visual layer with glow and health bars.
 - **Gift Combo Logic**: Animation and tracking of consecutive gifts.
 - **Noble Entrance UI**: Special banners and animations for high-rank entries.
+- **Noble Frame**: (`src/components/NobleFrame.tsx`) Premium visual border wrapping avatars based on Noble tier with animated glows for high ranks.
+- **Fan Club Badge**: (`src/components/FanClubBadge.tsx`) Dynamic, color-coded badge for chat with level and host abbreviation.
+- **Fan Club Welcome**: (`src/components/FanClubWelcome.tsx`) Dramatic entrance animation for top-tier Super Fans with sparkles and banners.
+- **Family Badge**: (`src/components/FamilyBadge.tsx`) Unique identifier for family members with level-based colors and glow effects.
+- **Mini-Game Overlay**: (`src/components/MiniGameOverlay.tsx`) High-energy interactive UI for live battles with real-time leaderboards and tap actions.
 
 ## 8. Data Model (Types)
 - **File**: `src/types.ts`
@@ -334,6 +339,292 @@ This file tracks all custom logic, features, and systems implemented in the Bing
     6. **Streaming**: Output the composite frame to the live stream.
 - **Advantages**: No licensing costs (Open-Source), optimized for consumer hardware, high creative flexibility.
 - **Technical Considerations**: Device-dependent performance, edge refinement challenges, and asset management requirements.
+
+## 15. Fan Club Logic
+- **Concept**: A social bonding system between streamers and supporters based on "Intimacy Points."
+- **Key Features**:
+    - **Intimacy Points**: Earned through gifting (10 pts/diamond), watching (5 pts/min), and daily check-ins (100 pts).
+    - **Progression System**: Leveling up from 1 to 100+ based on total points.
+    - **Tiered Rewards**: Badge colors and perks (Chat Highlight, Priority Queue, Exclusive Emotes) that unlock at specific levels (10, 30, 60, 90).
+    - **Daily Check-in**: A retention mechanic allowing users to claim a daily bonus.
+    - **Badge System**: Dynamic badges that display the user's fan level and tier color.
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export interface FanClubMember {
+      uid: string;
+      hostUid: string;
+      level: number;
+      intimacyPoints: number;
+      lastCheckIn: number;
+      isSuperFan: boolean;
+    }
+
+    export const calculateIntimacyPoints = (type: 'gifting' | 'watching' | 'checkin', value: number = 0): number => {
+      switch (type) {
+        case 'gifting': return value * 10;
+        case 'watching': return Math.floor(value / 60) * 5;
+        case 'checkin': return 100;
+        default: return 0;
+      }
+    };
+
+    export const getLevelFromPoints = (points: number): number => {
+      return Math.floor(Math.sqrt(points / 50)) + 1;
+    };
+
+    export const getBadgeStyle = (level: number): { color: string; label: string } => {
+      const tier = [...FAN_CLUB_LEVELS].reverse().find(l => level >= l.level) || FAN_CLUB_LEVELS[0];
+      return { color: tier.badgeColor, label: `FAN ${level}` };
+    };
+    ```
+
+## 16. Noble Expiration Logic
+- **Concept**: Manages the 30-day Noble subscription cycle, including expiration tracking and renewal reminders.
+- **Key Features**:
+    - **Expiration Tracking**: Calculates days remaining based on a 30-day (2,592,000,000 ms) cycle.
+    - **Renewal Reminders**: Automated triggers for 7-day, 3-day, and 1-day warnings.
+    - **Renewal Discounts**: 10% discount for users who renew before their current status expires.
+    - **Dynamic Messaging**: Context-aware messages based on the remaining time and Noble tier.
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export interface ExpirationStatus {
+      isExpired: boolean;
+      daysRemaining: number;
+      shouldRemind: boolean;
+      reminderType: '7d' | '3d' | '1d' | 'none';
+    }
+
+    export const calculateExpirationStatus = (user: UserProfile): ExpirationStatus => {
+      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+      const timeElapsed = Date.now() - new Date(user.lastNoblePurchaseDate).getTime();
+      const daysRemaining = Math.ceil((thirtyDaysInMs - timeElapsed) / (24 * 60 * 60 * 1000));
+
+      return {
+        isExpired: daysRemaining <= 0,
+        daysRemaining: Math.max(0, daysRemaining),
+        shouldRemind: [7, 3, 1].includes(daysRemaining),
+        reminderType: daysRemaining === 7 ? '7d' : daysRemaining === 3 ? '3d' : daysRemaining === 1 ? '1d' : 'none'
+      };
+    };
+
+    export const getNextRenewalCost = (baseCost: number, isActive: boolean): number => {
+      return isActive ? Math.floor(baseCost * 0.9) : baseCost;
+    };
+    ```
+
+## 17. Family Logic
+- **Concept**: Manages in-app communities where streamers and viewers pool resources for collective benefits.
+- **Key Features**:
+    - **Shared Points Pool**: Members earn points for the family through gifting and watching.
+    - **Family Multipliers**: 1.2x multiplier for points contributed to the family pool, boosted to 1.5x during PK battles.
+    - **Family PK Bonus**: Up to 20% score boost (2% per member) when multiple family members are present in the same PK room.
+    - **Progression System**: Family levels scale based on total pooled points.
+    - **Role Management**: Tiered roles (Leader, Elder, Member) with specific contribution tracking.
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export interface Family {
+      id: string;
+      name: string;
+      ownerUid: string;
+      level: number;
+      totalPoints: number;
+    }
+
+    export const calculateFamilyPoints = (basePoints: number, isPK: boolean): number => {
+      const multiplier = isPK ? 1.5 : 1.2;
+      return Math.floor(basePoints * multiplier);
+    };
+
+    export const getFamilyPKBonus = (memberCountInRoom: number): number => {
+      const boost = Math.min(memberCountInRoom * 0.02, 0.20);
+      return 1 + boost;
+    };
+    ```
+
+## 18. Agency Logic
+- **Concept**: Management layer for hosts and agencies, focusing on recruitment, performance-based tiers, and earnings distribution.
+- **Key Features**:
+    - **Agency Tiers (1-5)**: Progression based on host count and monthly earnings (Beans).
+    - **Commission Rates**: Tiered earnings for agencies ranging from 10% to 20%.
+    - **Host Salary Calculation**: Automated logic to calculate net earnings after platform fees (50%) and agency commissions.
+    - **Performance Tracking**: Logic to determine tier upgrades based on monthly metrics.
+    - **Recruitment Eligibility**: Checks to ensure only independent hosts can apply to agencies.
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export type AgencyTier = 1 | 2 | 3 | 4 | 5;
+
+    export const calculateAgencyCommission = (beansEarned: number, agency: Agency): number => {
+      const tierConfig = AGENCY_TIERS[agency.tier as AgencyTier] || AGENCY_TIERS[1];
+      return Math.floor(beansEarned * tierConfig.commissionRate);
+    };
+
+    export const calculateHostSalary = (beansEarned: number, agency?: Agency): number => {
+      const platformFee = 0.50;
+      const netAfterPlatform = beansEarned * (1 - platformFee);
+      if (!agency) return Math.floor(netAfterPlatform);
+      const tierConfig = AGENCY_TIERS[agency.tier as AgencyTier] || AGENCY_TIERS[1];
+      return Math.floor(netAfterPlatform * (1 - tierConfig.commissionRate));
+    };
+    ```
+
+## 19. AI Live Assistant Logic
+- **Concept**: An intelligent engine that monitors stream performance metrics and provides real-time, actionable advice to the host.
+- **Key Features**:
+    - **Performance Analysis**: Monitors chat velocity, gift frequency, lighting quality, and framing.
+    - **Prioritized Suggestions**: Generates advice (High/Medium/Low priority) based on metric thresholds.
+    - **Visual Quality Checks**: Detects dim lighting or poor framing using simulated video analysis scores.
+    - **Engagement Boosters**: Suggests conversation topics when chat activity is low.
+    - **Gifting Strategies**: Identifies opportunities to mention gift goals based on high chat activity but low gifting.
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export interface StreamMetric {
+      chatVelocity: number;
+      giftFrequency: number;
+      lightingScore: number;
+      framingScore: number;
+    }
+
+    export const analyzeStreamPerformance = (metrics: StreamMetric): AISuggestion[] => {
+      const suggestions: AISuggestion[] = [];
+      if (metrics.chatVelocity < 5) {
+        suggestions.push({ type: 'topic', title: 'LOW CHAT ACTIVITY', priority: 'high', ... });
+      }
+      if (metrics.lightingScore < 40) {
+        suggestions.push({ type: 'lighting', title: 'DIM LIGHTING', priority: 'medium', ... });
+      }
+      return suggestions.sort((a, b) => priorityMap[b.priority] - priorityMap[a.priority]);
+    };
+    ```
+
+## 20. Nearby Discovery Logic
+- **Concept**: A geolocation utility to filter and rank live streams based on their physical proximity to the user.
+- **Key Features**:
+    - **Haversine Distance Calculation**: Precise distance calculation between two coordinates in kilometers.
+    - **Proximity Filtering**: Ability to filter streams within a specific radius (e.g., 50km).
+    - **Distance Ranking**: Sorting streams from closest to farthest.
+    - **User-Friendly Formatting**: Converting raw distances into readable strings (e.g., "500m away", "12.5km away").
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export interface Location {
+      latitude: number;
+      longitude: number;
+    }
+
+    export const calculateDistance = (loc1: Location, loc2: Location): number => {
+      const R = 6371; // Earth radius in km
+      const dLat = (loc2.latitude - loc1.latitude) * (Math.PI / 180);
+      const dLon = (loc2.longitude - loc1.longitude) * (Math.PI / 180);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(loc1.latitude * (Math.PI / 180)) * Math.cos(loc2.latitude * (Math.PI / 180)) * 
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    };
+
+    export const getNearbyStreams = (userLoc: Location, streams: StreamLocation[], maxRadius: number = 50) => {
+      return streams
+        .map(s => ({ ...s, distance: calculateDistance(userLoc, s) }))
+        .filter(s => s.distance <= maxRadius)
+        .sort((a, b) => a.distance - b.distance);
+    };
+    ```
+
+## 21. Virtual Avatar Logic
+- **Concept**: A system to manage 2D/3D avatar states for anonymous streaming, allowing hosts to replace their real camera feed with a virtual character.
+- **Key Features**:
+    - **Avatar State Management**: Tracking active status, model URLs, and current expressions.
+    - **Expression Control**: Dynamic switching between 'neutral', 'happy', 'surprised', and 'talking' states.
+    - **Energy-Based Animation**: Adjusting animation speed based on streamer energy levels (e.g., chat velocity or volume).
+    - **Visibility Toggling**: Seamless switching between real camera and virtual avatar.
+    - **Tiered Avatar Models**: Providing premium models based on the user's level (Basic, Pro, Legendary).
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export type AvatarType = '2D' | '3D' | 'Emoji';
+
+    export interface AvatarState {
+      id: string;
+      type: AvatarType;
+      isActive: boolean;
+      modelUrl: string;
+      expression: 'neutral' | 'happy' | 'surprised' | 'talking';
+    }
+
+    export const getAvatarAnimationSpeed = (energyLevel: number): number => {
+      return 0.5 + (energyLevel / 100);
+    };
+
+    export const getAvatarModelByLevel = (userLevel: number): string => {
+      if (userLevel >= 90) return '/models/legendary_avatar.glb';
+      if (userLevel >= 50) return '/models/pro_avatar.glb';
+      return '/models/basic_avatar.glb';
+    };
+    ```
+
+## 22. Mini-Game Logic
+- **Concept**: A modular framework for interactive games between streamers and viewers (e.g., Tap Battle, Voting, Truth or Dare).
+- **Key Features**:
+    - **Game State Management**: Tracking game type, status (waiting, active, finished), and timing.
+    - **Real-Time Scoring**: Updating participant scores dynamically during active gameplay.
+    - **Live Leaderboard**: Sorting and displaying top participants by score.
+    - **Winner Determination**: Logic to identify the winner and calculate total points once the game ends.
+    - **Modular Config**: Support for custom game goals and rewards (e.g., Beans).
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export type GameType = 'TapBattle' | 'Voting' | 'TruthOrDare';
+    export type GameStatus = 'waiting' | 'active' | 'finished';
+
+    export interface MiniGame {
+      id: string;
+      type: GameType;
+      status: GameStatus;
+      scores: Record<string, number>;
+    }
+
+    export const updateGameScore = (game: MiniGame, uid: string, points: number): MiniGame => {
+      if (game.status !== 'active') return game;
+      const currentScore = game.scores[uid] || 0;
+      return {
+        ...game,
+        scores: { ...game.scores, [uid]: currentScore + points }
+      };
+    };
+
+    export const getGameLeaderboard = (game: MiniGame, limit: number = 5) => {
+      return Object.entries(game.scores)
+        .map(([uid, score]) => ({ uid, score }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit);
+    };
+    ```
+
+## 23. Short Video Logic
+- **Concept**: Logic for TikTok-style vertical feed engagement, ranking, and discovery.
+- **Key Features**:
+    - **Engagement Scoring**: Weighted calculation (Likes=1, Comments=2, Shares=5) divided by views to determine video quality.
+    - **Recommended Feed**: Personalized sorting of videos based on engagement scores.
+    - **View Count Formatting**: User-friendly display (e.g., "1.2K", "3.5M").
+    - **Interaction Logic**: Simple state management for liking/unliking videos.
+- **Conceptual Example (TypeScript)**:
+    ```typescript
+    export interface ShortVideo {
+      id: string;
+      likes: number;
+      comments: number;
+      shares: number;
+      views: number;
+    }
+
+    export const calculateEngagementScore = (video: ShortVideo): number => {
+      if (video.views === 0) return 0;
+      const totalEngagement = (video.likes * 1) + (video.comments * 2) + (video.shares * 5);
+      return totalEngagement / video.views;
+    };
+
+    export const formatViewCount = (count: number): string => {
+      if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+      if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+      return count.toString();
+    };
+    ```
 
 ---
 ## 🚀 Planned Features (To Be Added)
