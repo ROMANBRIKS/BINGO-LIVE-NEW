@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isSnipeWindow } from '../pkEnhancedLogic';
 import { PK_SHIELDS, getShieldRemainingPercent } from '../pkShieldLogic';
+import { PKShieldOverlay } from './PKShieldOverlay';
 import { Zap, AlertTriangle, Shield } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -20,6 +21,23 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
   const oppShield = room.pkOpponentShieldTier ? PK_SHIELDS[room.pkOpponentShieldTier] : null;
   const oppShieldActive = oppShield && room.pkOpponentShieldEndTime && new Date(room.pkOpponentShieldEndTime).getTime() > Date.now();
   const oppShieldPercent = oppShield ? getShieldRemainingPercent(oppShield, room.pkOpponentShieldAbsorbed || 0) : 0;
+
+  const [hostShieldTimeLeft, setHostShieldTimeLeft] = useState(0);
+  const [oppShieldTimeLeft, setOppShieldTimeLeft] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (room.pkShieldEndTime) {
+        const diff = new Date(room.pkShieldEndTime).getTime() - Date.now();
+        setHostShieldTimeLeft(Math.max(0, Math.floor(diff / 1000)));
+      }
+      if (room.pkOpponentShieldEndTime) {
+        const diff = new Date(room.pkOpponentShieldEndTime).getTime() - Date.now();
+        setOppShieldTimeLeft(Math.max(0, Math.floor(diff / 1000)));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [room.pkShieldEndTime, room.pkOpponentShieldEndTime]);
 
   useEffect(() => {
     if (!room.pkEndTime) return;
@@ -46,27 +64,25 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
     <div className="absolute inset-0 z-40 pointer-events-none">
       {/* 1. TOP PROGRESS BAR - EXACT PIXEL MATCH */}
       <div className="absolute top-[68px] left-0 right-0 h-8 flex items-center">
+        <PKShieldOverlay 
+          activeShield={hostShield} 
+          absorbedPoints={room.pkShieldAbsorbed || 0} 
+          timeLeft={hostShieldTimeLeft} 
+          isHost={true} 
+        />
+        <PKShieldOverlay 
+          activeShield={oppShield} 
+          absorbedPoints={room.pkOpponentShieldAbsorbed || 0} 
+          timeLeft={oppShieldTimeLeft} 
+          isHost={false} 
+        />
+        
         <div className="flex-1 h-full flex relative overflow-hidden">
           {/* Blue Side Score */}
           <div className="absolute left-2 top-1/2 -translate-y-1/2 z-30 flex items-center gap-2">
             <div className="text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
               {pkScore}
             </div>
-            {hostShieldActive && (
-              <motion.div 
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex items-center gap-1 bg-white/20 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/30"
-              >
-                <Shield size={10} style={{ color: hostShield.color }} fill={hostShield.color} />
-                <div className="w-8 h-1 bg-white/20 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full transition-all duration-300" 
-                    style={{ width: `${hostShieldPercent}%`, backgroundColor: hostShield.color }} 
-                  />
-                </div>
-              </motion.div>
-            )}
           </div>
 
           {/* Host Progress (Blue) */}
@@ -87,21 +103,6 @@ export const PKBattle = React.memo(({ room }: { room: any }) => {
 
           {/* Yellow Side Score */}
           <div className="absolute right-2 top-1/2 -translate-y-1/2 z-30 flex items-center gap-2">
-            {oppShieldActive && (
-              <motion.div 
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex items-center gap-1 bg-white/20 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-white/30"
-              >
-                <div className="w-8 h-1 bg-white/20 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full transition-all duration-300" 
-                    style={{ width: `${oppShieldPercent}%`, backgroundColor: oppShield.color }} 
-                  />
-                </div>
-                <Shield size={10} style={{ color: oppShield.color }} fill={oppShield.color} />
-              </motion.div>
-            )}
             <div className="text-white font-bold text-[18px] drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
               {pkOpponentScore}
             </div>
