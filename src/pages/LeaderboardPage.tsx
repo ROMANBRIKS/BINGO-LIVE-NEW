@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useToast } from '../context/ToastContext';
 import { UserProfile } from '../types';
 import { cn } from '../lib/utils';
 import { Trophy, Star, Crown, Flame, ChevronRight, Diamond, Coins } from 'lucide-react';
@@ -8,6 +9,7 @@ import { motion } from 'framer-motion';
 import { LevelBadge } from '../components/LevelBadge';
 
 export default function LeaderboardPage() {
+  const { showToast } = useToast();
   const [topHosts, setTopHosts] = useState<UserProfile[]>([]);
   const [topGivers, setTopGivers] = useState<UserProfile[]>([]);
   const [activeTab, setActiveTab] = useState<'hosts' | 'givers'>('hosts');
@@ -85,7 +87,7 @@ export default function LeaderboardPage() {
         {/* Rank 2 */}
         {top3[1] && (
           <div 
-            onClick={() => alert(`Viewing ${top3[1].displayName}'s profile...`)}
+            onClick={() => showToast(`Viewing ${top3[1].displayName}'s profile...`, 'info')}
             className="flex flex-col items-center group cursor-pointer"
           >
             <div className="relative mb-4">
@@ -102,7 +104,7 @@ export default function LeaderboardPage() {
         {/* Rank 1 */}
         {top3[0] && (
           <div 
-            onClick={() => alert(`Viewing ${top3[0].displayName}'s profile...`)}
+            onClick={() => showToast(`Viewing ${top3[0].displayName}'s profile...`, 'info')}
             className="flex flex-col items-center group -mt-8 cursor-pointer"
           >
             <div className="relative mb-4">
@@ -122,7 +124,7 @@ export default function LeaderboardPage() {
         {/* Rank 3 */}
         {top3[2] && (
           <div 
-            onClick={() => alert(`Viewing ${top3[2].displayName}'s profile...`)}
+            onClick={() => showToast(`Viewing ${top3[2].displayName}'s profile...`, 'info')}
             className="flex flex-col items-center group cursor-pointer"
           >
             <div className="relative mb-4">
@@ -141,7 +143,7 @@ export default function LeaderboardPage() {
         {rest.map((user, i) => (
           <div 
             key={user.uid} 
-            onClick={() => alert(`Viewing ${user.displayName}'s profile...`)}
+            onClick={() => showToast(`Viewing ${user.displayName}'s profile...`, 'info')}
             className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group cursor-pointer active:scale-[0.98]"
           >
             <span className="w-6 text-center font-black italic text-white/20 group-hover:text-white/40 transition-colors">{i + 4}</span>

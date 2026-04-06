@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Video, MicOff, UserPlus, X, Lock, Unlock, MoreVertical, Trash2 } from 'lucide-react';
 import { GuestSeat, MicRequest, UserProfile } from '../types';
+import { useToast } from '../context/ToastContext';
 import { GuestSeat as GuestSeatComponent } from './GuestSeat';
 import { cn } from '../lib/utils';
 
@@ -26,6 +27,7 @@ export const MicQueue: React.FC<MicQueueProps> = ({
   onToggleMute,
   onToggleLock,
 }) => {
+  const { showToast } = useToast();
   const [showQueue, setShowQueue] = React.useState(false);
   const [selectedSeat, setSelectedSeat] = React.useState<number | null>(null);
 
@@ -163,7 +165,7 @@ export const MicQueue: React.FC<MicQueueProps> = ({
                             if (emptySeat) {
                               onAssignSeat(emptySeat.seatId, req);
                             } else {
-                              alert("No empty seats available!");
+                              showToast("No empty seats available!", 'error');
                             }
                           }}
                           className="px-4 py-2 bg-orange-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all"

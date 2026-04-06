@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { PKBattle } from '../components/PKBattle';
 import { ChatMessage } from '../components/ChatMessage';
 import { NobleEntrance } from '../components/NobleEntrance';
@@ -24,6 +25,7 @@ const MODES = ['Multi-guest LIVE', 'LIVE', 'Audio Live', 'Game LIVE'];
 
 export default function GoLivePage() {
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -424,7 +426,7 @@ export default function GoLivePage() {
       setStatus('live');
     } catch (error) {
       console.error("Error creating room:", error);
-      alert("Failed to start broadcast. Please try again.");
+      showToast("Failed to start broadcast. Please try again.", 'error');
       setStatus('setup');
     }
   };

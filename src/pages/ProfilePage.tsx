@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/utils';
 import { 
   Settings, Wallet, Briefcase, Calendar, ShoppingBag, FileText, Star, CheckCircle, 
@@ -19,6 +20,7 @@ import { GoLiveModal } from '../components/GoLiveModal';
 
 export default function ProfilePage() {
   const { profile, logout } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [showGoLive, setShowGoLive] = useState(false);
 
@@ -35,7 +37,7 @@ export default function ProfilePage() {
       await setDoc(userRef, {
         diamonds: increment(1000)
       }, { merge: true });
-      alert("Recharged 1,000 Diamonds! 💎");
+      showToast("Recharged 1,000 Diamonds! 💎", 'success');
     } catch (error) {
       console.error("Recharge error:", error);
     }
@@ -43,6 +45,7 @@ export default function ProfilePage() {
 
   const menuItems = [
     { icon: Wallet, label: 'Wallet', color: 'text-orange-500', bg: 'bg-orange-500/10' },
+    { icon: Crown, label: 'Noble Center', color: 'text-yellow-500', bg: 'bg-yellow-500/10', path: '/noble-center' },
     { icon: Briefcase, label: 'Agency Center', color: 'text-blue-500', bg: 'bg-blue-500/10', path: '/creator-center' },
     { icon: Calendar, label: 'Events', color: 'text-pink-500', bg: 'bg-pink-500/10', badge: 'NEW' },
     { icon: ShoppingBag, label: 'Shop', color: 'text-purple-500', bg: 'bg-purple-500/10' },
@@ -61,7 +64,7 @@ export default function ProfilePage() {
         <div className="px-4 pt-4 pb-2 flex items-center justify-between">
           <h1 className="text-lg font-black text-white tracking-tighter uppercase">BINGO LIVE</h1>
           <button 
-            onClick={() => alert("Settings coming soon! ⚙️")}
+            onClick={() => showToast("Settings coming soon! ⚙️", 'info')}
             className="p-1.5 bg-white/5 rounded-full text-white/40 hover:bg-white/10 transition-colors"
           >
             <Settings size={18} />
@@ -78,7 +81,7 @@ export default function ProfilePage() {
                 <img src={profile.photoURL || `https://picsum.photos/seed/${profile.uid}/128/128`} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
               </div>
               <button 
-                onClick={() => alert("Edit profile picture coming soon! 📸")}
+                onClick={() => showToast("Edit profile picture coming soon! 📸", 'info')}
                 className="absolute -bottom-1 -right-1 w-6 h-6 bg-orange-500 rounded-full border-2 border-[#1a1a1a] flex items-center justify-center text-white shadow-lg hover:scale-110 active:scale-90 transition-all"
               >
                 <Plus size={12} />
@@ -116,7 +119,7 @@ export default function ProfilePage() {
                 </p>
               </div>
               <button 
-                onClick={() => alert("Renewal coming soon! 👑")}
+                onClick={() => navigate('/noble-center')}
                 className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors"
               >
                 Renew
@@ -127,7 +130,7 @@ export default function ProfilePage() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div 
-            onClick={() => alert("Friends list coming soon! 👥")}
+            onClick={() => showToast("Friends list coming soon! 👥", 'info')}
             className="flex flex-col items-center p-4 bg-white/5 rounded-3xl shadow-sm border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"
           >
             <span className="text-lg font-black italic">{profile.friends}</span>
@@ -141,7 +144,7 @@ export default function ProfilePage() {
             <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Following</span>
           </div>
           <div 
-            onClick={() => alert("Fans list coming soon! 📣")}
+            onClick={() => showToast("Fans list coming soon! 📣", 'info')}
             className="flex flex-col items-center p-4 bg-white/5 rounded-3xl shadow-sm border border-white/5 cursor-pointer hover:bg-white/10 transition-colors"
           >
             <span className="text-lg font-black italic">{profile.fans}</span>
@@ -188,7 +191,7 @@ export default function ProfilePage() {
         {menuItems.map((item, i) => (
           <div 
             key={i}
-            onClick={() => item.path ? navigate(item.path) : alert(`${item.label} feature coming soon! 🚀`)}
+            onClick={() => item.path ? navigate(item.path) : showToast(`${item.label} feature coming soon! 🚀`, 'info')}
             className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all cursor-pointer group border border-white/5"
           >
             <div className="flex items-center gap-4">

@@ -52,6 +52,7 @@ export default function HomePage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeTab, setActiveTab] = useState('Popular');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
   const tabs = ['Nearby', 'Popular', 'Featured', 'Explore', 'Music', 'Gaming', 'Chat', 'Dance', 'Beauty'];
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -114,10 +115,48 @@ export default function HomePage() {
     };
   }, []);
 
-  const filteredRooms = rooms.filter(room => 
-    room.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    room.hostUid?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    if (activeTab === 'Nearby' && !userLocation) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          (err) => console.error("Location error:", err)
+        );
+      }
+    }
+  }, [activeTab, userLocation]);
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+  };
+
+  const filteredRooms = rooms.filter(room => {
+    const matchesSearch = room.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      room.hostUid?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'Nearby') {
+      return room.latitude !== null && room.longitude !== null;
+    }
+
+    return true;
+  }).sort((a, b) => {
+    if (activeTab === 'Nearby' && userLocation) {
+      const distA = calculateDistance(userLocation.lat, userLocation.lng, a.latitude || 0, a.longitude || 0);
+      const distB = calculateDistance(userLocation.lat, userLocation.lng, b.latitude || 0, b.longitude || 0);
+      return distA - distB;
+    }
+    return (b.viewerCount || 0) - (a.viewerCount || 0);
+  });
 
   return (
     <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none">

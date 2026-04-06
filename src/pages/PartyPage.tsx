@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { ArrowLeft, Play, Users, Music, Gamepad2 } from 'lucide-react';
 
 export default function PartyPage() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   
   const partyRooms = [
     { id: '1', title: 'Friday Night Vibes 🎵', host: 'DJ Spark', viewers: '1.2k', type: 'Music' },
@@ -30,7 +32,7 @@ export default function PartyPage() {
           {partyRooms.map(room => (
           <div 
             key={room.id} 
-            onClick={() => alert(`Joining ${room.title}... 🥳`)}
+            onClick={() => showToast(`Joining ${room.title}... 🥳`, 'info')}
             className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-white/10 transition-colors cursor-pointer active:scale-[0.98]"
           >
             <div className="flex items-center gap-4">
@@ -49,7 +51,7 @@ export default function PartyPage() {
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                alert(`Joining ${room.title}... 🥳`);
+                showToast(`Joining ${room.title}... 🥳`, 'info');
               }}
               className="bg-cyan-400 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg shadow-cyan-400/20 active:scale-95 transition-all"
             >

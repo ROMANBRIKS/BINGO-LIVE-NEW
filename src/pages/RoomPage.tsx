@@ -6,6 +6,7 @@ import {
   getDoc, where
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import { useToast } from '../context/ToastContext';
 import { Room, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { createThankYouMessage, createInitialFollowPrompt } from '../followLogic';
@@ -21,6 +22,7 @@ import {
 import { WingedHeart } from '../components/WingedHeart';
 import { GiftCombo } from '../components/GiftCombo';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PrivateCallManager } from '../components/PrivateCallManager';
 import { PKBattle } from '../components/PKBattle';
 import { GiftAnimation } from '../components/GiftAnimation';
 import { NobleEntrance } from '../components/NobleEntrance';
@@ -34,10 +36,12 @@ import { LevelBadge } from '../components/LevelBadge';
 import { VideoStream } from '../components/VideoStream';
 import { GiftingModal } from '../components/GiftingModal';
 import { RoomToolsModal } from '../components/RoomToolsModal';
+import { AICoach } from '../components/AICoach';
 
 export default function RoomPage() {
   const { roomId } = useParams();
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   // 1. ALL STATE DEFINITIONS AT THE TOP
@@ -49,19 +53,15 @@ export default function RoomPage() {
   const [showGifts, setShowGifts] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const [showGames, setShowGames] = useState(false);
+  const [showAICoach, setShowAICoach] = useState(false);
   const [isCleanMode, setIsCleanMode] = useState(false);
   const [quality, setQuality] = useState('HD');
   const [isMinimized, setIsMinimized] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showChatInput, setShowChatInput] = useState(false);
   const [localLikes, setLocalLikes] = useState(0);
-  const [privateCallRequest, setPrivateCallRequest] = useState<any | null>(null);
-  const [isPrivateCalling, setIsPrivateCalling] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isCameraOff, setIsCameraOff] = useState(false);
   const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any } | null>(null);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
-  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'info' } | null>(null);
   const [isLowLatency, setIsLowLatency] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -113,93 +113,6 @@ export default function RoomPage() {
     const interval = setInterval(syncLikes, 3000);
     return () => clearInterval(interval);
   }, [roomId]);
-
-  useEffect(() => {
-    if (!roomId || !profile?.uid || !room) return;
-
-    // Streamer side: Listen for incoming requests
-    if (profile.uid === room.hostUid) {
-      const q = query(
-        collection(db, 'private_calls'),
-        where('hostUid', '==', profile.uid),
-        where('status', '==', 'pending'),
-        limit(1)
-      );
-      return onSnapshot(q, (snap) => {
-        if (!snap.empty) {
-          setPrivateCallRequest({ id: snap.docs[0].id, ...snap.docs[0].data() });
-        } else {
-          setPrivateCallRequest(null);
-        }
-      });
-    }
-
-    // Viewer side: Listen for acceptance
-    if (profile.uid !== room.hostUid) {
-      const q = query(
-        collection(db, 'private_calls'),
-        where('viewerUid', '==', profile.uid),
-        where('status', '==', 'accepted'),
-        limit(1)
-      );
-      return onSnapshot(q, (snap) => {
-        if (!snap.empty) {
-          setIsPrivateCalling(true);
-        } else {
-          setIsPrivateCalling(false);
-        }
-      });
-    }
-  }, [roomId, profile?.uid, room?.hostUid]);
-
-  const requestPrivateCall = async () => {
-    if (!profile || !room || !roomId) return;
-    try {
-      await addDoc(collection(db, 'private_calls'), {
-        roomId,
-        hostUid: room.hostUid,
-        viewerUid: profile.uid,
-        viewerName: profile.displayName,
-        viewerPhoto: profile.photoURL || '',
-        status: 'pending',
-        fee: 500,
-        createdAt: serverTimestamp()
-      });
-      setNotification({ message: 'Private call request sent! 📞', type: 'info' });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'private_calls');
-    }
-  };
-
-  const acceptPrivateCall = async () => {
-    if (!privateCallRequest) return;
-    try {
-      await updateDoc(doc(db, 'private_calls', privateCallRequest.id), {
-        status: 'accepted',
-        startedAt: serverTimestamp()
-      });
-      setIsPrivateCalling(true);
-      setPrivateCallRequest(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `private_calls/${privateCallRequest.id}`);
-    }
-  };
-
-  const declinePrivateCall = async () => {
-    if (!privateCallRequest) return;
-    try {
-      await updateDoc(doc(db, 'private_calls', privateCallRequest.id), {
-        status: 'declined'
-      });
-      setPrivateCallRequest(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `private_calls/${privateCallRequest.id}`);
-    }
-  };
-
-  const endPrivateCall = async () => {
-    setIsPrivateCalling(false);
-  };
 
   const handleTapLike = () => {
     setLocalLikes(prev => prev + 1);
@@ -285,13 +198,6 @@ export default function RoomPage() {
       }
     }
   }, [messages, simulatedMessages, profile?.uid]);
-
-  useEffect(() => {
-    if (notification) {
-      const timer = setTimeout(() => setNotification(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
 
   useEffect(() => {
     const allMessages = [...messages, ...simulatedMessages];
@@ -717,7 +623,7 @@ export default function RoomPage() {
     switch (action) {
       case 'Share':
         navigator.clipboard.writeText(window.location.href);
-        setNotification({ message: 'Link copied to clipboard! 🔗', type: 'success' });
+        showToast('Link copied to clipboard! 🔗', 'success');
         break;
       case 'Clean Mode': setIsCleanMode(!isCleanMode); break;
       case 'Minimize': setIsMinimized(!isMinimized); break;
@@ -737,6 +643,7 @@ export default function RoomPage() {
           hostUid={room.hostUid}
           pkStatus={room.pkStatus}
           opponentUid={room.pkOpponentUid}
+          isVirtual={room.type === 'virtual'}
         />
       </div>
 
@@ -841,55 +748,36 @@ export default function RoomPage() {
           </div>
         )}
 
-        {/* PRIVATE CALL BUTTON (VIEWER ONLY) */}
-        {!isCleanMode && profile?.uid !== room.hostUid && !isPrivateCalling && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 pointer-events-auto">
-            <button 
-              onClick={requestPrivateCall}
-              className="w-14 h-14 bg-yellow-500 rounded-full flex items-center justify-center text-black shadow-2xl active:scale-95 transition-transform border-4 border-white/20"
-            >
-              <Phone size={28} strokeWidth={3} />
-            </button>
-            <div className="w-14 h-14 bg-black/30 backdrop-blur-3xl rounded-full flex items-center justify-center text-yellow-400 border border-white/10">
-              <Bell size={24} />
-            </div>
+        {/* PRIVATE CALL MANAGER */}
+        {!isCleanMode && room && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50 pointer-events-auto flex flex-col gap-4">
+            <PrivateCallManager 
+              roomId={roomId || ''} 
+              hostUid={room.hostUid} 
+              isHost={profile?.uid === room.hostUid}
+              userProfile={profile}
+            />
+            {profile?.uid === room.hostUid && (
+              <button 
+                onClick={() => setShowAICoach(!showAICoach)}
+                className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center text-white shadow-lg border border-white/20 active:scale-90 transition-all"
+              >
+                <Sparkles size={24} />
+              </button>
+            )}
           </div>
         )}
 
-        {/* INCOMING CALL NOTIFICATION REMOVED */}
-
-        {/* PRIVATE CALL OVERLAY */}
-        <AnimatePresence>
-          {isPrivateCalling && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-[150] bg-black pointer-events-auto"
-            >
-              <div className="h-full w-full relative">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-32 h-32 rounded-full bg-slate-800 animate-pulse mx-auto mb-4" />
-                    <p className="text-white font-black italic uppercase tracking-widest">Private Session Active</p>
-                  </div>
-                </div>
-                
-                <div className="absolute bottom-12 left-0 right-0 flex justify-center gap-8">
-                  <button onClick={() => setIsMuted(!isMuted)} className={cn("w-16 h-16 rounded-full flex items-center justify-center text-white transition-colors", isMuted ? "bg-red-500" : "bg-white/10")}>
-                    {isMuted ? <MicOff size={28} /> : <Mic size={28} />}
-                  </button>
-                  <button onClick={endPrivateCall} className="w-20 h-20 bg-red-500 rounded-full flex items-center justify-center text-white shadow-2xl active:scale-95 transition-transform">
-                    <Phone size={32} className="rotate-[135deg]" />
-                  </button>
-                  <button onClick={() => setIsCameraOff(!isCameraOff)} className={cn("w-16 h-16 rounded-full flex items-center justify-center text-white transition-colors", isCameraOff ? "bg-red-500" : "bg-white/10")}>
-                    {isCameraOff ? <VideoOff size={28} /> : <Video size={28} />}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* AI COACH OVERLAY */}
+        {showAICoach && profile?.uid === room.hostUid && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 z-50 pointer-events-auto">
+            <AICoach 
+              room={room} 
+              messages={messages} 
+              onClose={() => setShowAICoach(false)} 
+            />
+          </div>
+        )}
 
         {/* CHAT & ACTION SECTION */}
         <div className="mt-auto p-4 pb-1 flex flex-col gap-2 pointer-events-none relative z-20">
@@ -959,7 +847,7 @@ export default function RoomPage() {
                           onFollow: toggleFollow,
                           isFollowing: isFollowing,
                           onLike: sendLike,
-                          onJoinGuest: () => setNotification({ message: "Guest Live request sent! 🎥", type: 'info' }),
+                          onJoinGuest: () => showToast("Guest Live request sent! 🎥", 'info'),
                           onClick: () => {
                             if (profile?.uid === room?.hostUid && msg.displayName && msg.type !== 'system') {
                               setInput(`@${msg.displayName} `);
@@ -1085,28 +973,6 @@ export default function RoomPage() {
 
       <LikeParticles ref={likeParticlesRef} />
       
-      {/* Notifications Overlay */}
-      <AnimatePresence>
-        {notification && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 20 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-[300] pointer-events-none"
-          >
-            <div className={cn(
-              "px-6 py-3 rounded-2xl shadow-2xl border border-white/10 backdrop-blur-xl flex items-center gap-3",
-              notification.type === 'success' ? "bg-green-500/90 text-white" : "bg-blue-500/90 text-white"
-            )}>
-              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
-                {notification.type === 'success' ? <Check size={14} /> : <Sparkles size={14} />}
-              </div>
-              <span className="text-sm font-black uppercase tracking-tight italic">{notification.message}</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <NobleEntrance 
         user={nobleEntranceUser} 
         onComplete={() => setNobleEntranceUser(null)} 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -13,18 +13,26 @@ import {
 import { cn } from '../lib/utils';
 import { GoLiveModal } from '../components/GoLiveModal';
 import { AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { Agency, UserProfile } from '../types';
+import { db } from '../firebase';
+import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 
-const ServiceCard = ({ icon: Icon, label, color }: { icon: any, label: string, color: string }) => (
-  <div 
-    onClick={() => alert(`${label} feature coming soon! 🛠️`)}
-    className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
-  >
-    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", color)}>
-      <Icon size={24} />
+const ServiceCard = ({ icon: Icon, label, color }: { icon: any, label: string, color: string }) => {
+  const { showToast } = useToast();
+  return (
+    <div 
+      onClick={() => showToast(`${label} feature coming soon! 🛠️`, 'info')}
+      className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
+    >
+      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", color)}>
+        <Icon size={24} />
+      </div>
+      <span className="text-[11px] font-bold text-slate-700 text-center leading-tight uppercase tracking-tight">{label}</span>
     </div>
-    <span className="text-[11px] font-bold text-slate-700 text-center leading-tight uppercase tracking-tight">{label}</span>
-  </div>
-);
+  );
+};
 
 const ExampleImage = ({ src, label, status }: { src: string, label: string, status: 'good' | 'ng' }) => (
   <div className="flex flex-col gap-2">
@@ -46,125 +54,166 @@ const ExampleImage = ({ src, label, status }: { src: string, label: string, stat
   </div>
 );
 
-const InteractiveToolsSection = () => (
-  <div className="space-y-4 pt-8 border-t border-slate-50">
-    <h3 className="font-black italic uppercase tracking-tight text-slate-900">Interactive Tools</h3>
-    <p className="text-sm text-slate-500 leading-relaxed">
-      Various room tools and games to choose from
-    </p>
-    <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-xl space-y-8">
-      {/* Room Tools */}
-      <div className="space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Room Tools</h4>
-        <div className="grid grid-cols-5 gap-4">
-          {[
-            { icon: Camera, label: 'Camera' },
-            { icon: Sparkles, label: 'Beauty' },
-            { icon: Smile, label: 'Mask' },
-            { icon: Columns2, label: 'Mirror' },
-            { icon: RotateCw, label: 'Flip' },
-            { icon: ZoomIn, label: 'Zoom in' },
-            { icon: Zap, label: 'Flash' },
-            { icon: Key, label: 'Key Settings' },
-            { icon: Mic2, label: 'Singing Mode' },
-            { icon: Youtube, label: 'Youtube' },
-            { icon: MonitorUp, label: 'Share Screen' },
-            { icon: Megaphone, label: 'DIY Notify', badge: 1 },
-            { icon: Music, label: 'Music' },
-            { icon: Phone, label: 'Line' },
-            { icon: Dog, label: 'Pet' },
-            { icon: CalendarHeart, label: 'Date' },
-          ].map((tool, i) => (
-            <div 
-              key={i} 
-              onClick={() => alert(`${tool.label} feature coming soon! 🛠️`)}
-              className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
-            >
-              <div className="relative w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-cyan-50 group-hover:text-cyan-500 transition-colors">
-                <tool.icon size={20} />
-                {tool.badge && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                    {tool.badge}
-                  </div>
-                )}
+const InteractiveToolsSection = ({ onOpenGoLive }: { onOpenGoLive: () => void }) => {
+  const { showToast } = useToast();
+  return (
+    <div className="space-y-4 pt-8 border-t border-slate-50">
+      <h3 className="font-black italic uppercase tracking-tight text-slate-900">Interactive Tools</h3>
+      <p className="text-sm text-slate-500 leading-relaxed">
+        Various room tools and games to choose from
+      </p>
+      <div className="bg-white rounded-[2.5rem] p-6 border border-slate-100 shadow-xl space-y-8">
+        {/* Room Tools */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Room Tools</h4>
+          <div className="grid grid-cols-5 gap-4">
+            {[
+              { icon: Dog, label: 'Virtual Avatar', badge: 'New' },
+              { icon: Sparkles, label: 'AI Coach', badge: 'New' },
+              { icon: Camera, label: 'Camera' },
+              { icon: Sparkles, label: 'Beauty' },
+              { icon: Smile, label: 'Mask' },
+              { icon: Columns2, label: 'Mirror' },
+              { icon: RotateCw, label: 'Flip' },
+              { icon: ZoomIn, label: 'Zoom in' },
+              { icon: Zap, label: 'Flash' },
+              { icon: Key, label: 'Key Settings' },
+              { icon: Mic2, label: 'Singing Mode' },
+              { icon: Youtube, label: 'Youtube' },
+              { icon: MonitorUp, label: 'Share Screen' },
+              { icon: Megaphone, label: 'DIY Notify', badge: 1 },
+              { icon: Music, label: 'Music' },
+              { icon: Phone, label: 'Line' },
+              { icon: Dog, label: 'Pet' },
+              { icon: CalendarHeart, label: 'Date' },
+            ].map((tool, i) => (
+              <div 
+                key={i} 
+                onClick={() => tool.label === 'Virtual Avatar' || tool.label === 'AI Coach' ? onOpenGoLive() : showToast(`${tool.label} feature coming soon! 🛠️`, 'info')}
+                className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
+              >
+                <div className="relative w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-cyan-50 group-hover:text-cyan-500 transition-colors">
+                  <tool.icon size={20} />
+                  {tool.badge && (
+                    <div className={cn(
+                      "absolute -top-1 -right-1 px-1.5 py-0.5 text-[6px] font-black uppercase italic tracking-tighter rounded-full border-2 border-white shadow-sm",
+                      tool.badge === 'New' ? "bg-cyan-500 text-white" : "bg-pink-500 text-white"
+                    )}>
+                      {tool.badge}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9px] font-bold text-slate-400 text-center leading-tight group-hover:text-slate-900">{tool.label}</span>
               </div>
-              <span className="text-[9px] font-bold text-slate-400 text-center leading-tight group-hover:text-slate-900">{tool.label}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Other Tools */}
-      <div className="space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Other Tools</h4>
-        <div className="grid grid-cols-5 gap-4">
-          {[
-            { icon: Video, label: 'Recorder' },
-            { icon: Newspaper, label: 'Viewer\'s Info' },
-            { icon: UserPlus, label: 'Newcomers' },
-            { icon: Gift, label: 'Gift Sound' },
-            { icon: Heart, label: 'Wish lists' },
-            { icon: Ticket, label: 'Fan Lottery' },
-          ].map((tool, i) => (
-            <div 
-              key={i} 
-              onClick={() => alert(`${tool.label} feature coming soon! 🛠️`)}
-              className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
-            >
-              <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-cyan-50 group-hover:text-cyan-500 transition-colors">
-                <tool.icon size={20} />
+        {/* Other Tools */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Other Tools</h4>
+          <div className="grid grid-cols-5 gap-4">
+            {[
+              { icon: Video, label: 'Recorder' },
+              { icon: Newspaper, label: 'Viewer\'s Info' },
+              { icon: UserPlus, label: 'Newcomers' },
+              { icon: Gift, label: 'Gift Sound' },
+              { icon: Heart, label: 'Wish lists' },
+              { icon: Ticket, label: 'Fan Lottery' },
+            ].map((tool, i) => (
+              <div 
+                key={i} 
+                onClick={() => showToast(`${tool.label} feature coming soon! 🛠️`, 'info')}
+                className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
+              >
+                <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-cyan-50 group-hover:text-cyan-500 transition-colors">
+                  <tool.icon size={20} />
+                </div>
+                <span className="text-[9px] font-bold text-slate-400 text-center leading-tight group-hover:text-slate-900">{tool.label}</span>
               </div>
-              <span className="text-[9px] font-bold text-slate-400 text-center leading-tight group-hover:text-slate-900">{tool.label}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Play Center */}
-      <div className="space-y-4">
-        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Play Center</h4>
-        <div className="grid grid-cols-5 gap-4">
-          {[
-            { icon: '🎨', label: 'Draw Guess', color: 'bg-blue-100' },
-            { icon: '🎡', label: 'Turntable', color: 'bg-indigo-100' },
-            { icon: '🎰', label: 'Big Winner', color: 'bg-purple-100' },
-            { icon: '⚔️', label: 'Group PK', color: 'bg-pink-100' },
-            { icon: '🦖', label: 'Dino', color: 'bg-cyan-100' },
-            { icon: '💰', label: 'Earn Money', color: 'bg-orange-100' },
-            { icon: '📘', label: 'Guide', color: 'bg-yellow-100' },
-            { icon: '🏆', label: 'PK Qualifying', color: 'bg-slate-100' },
-            { icon: '🎁', label: 'Gift Wall', color: 'bg-violet-100' },
-            { icon: '🤝', label: 'Match', color: 'bg-cyan-100' },
-            { icon: '🦀', label: 'Craw', color: 'bg-blue-100' },
-          ].map((game, i) => (
-            <div 
-              key={i} 
-              onClick={() => alert(`${game.label} feature coming soon! 🎮`)}
-              className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
-            >
-              <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-sm group-hover:shadow-md transition-shadow", game.color)}>
-                {game.icon}
+        {/* Play Center */}
+        <div className="space-y-4">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Play Center</h4>
+          <div className="grid grid-cols-5 gap-4">
+            {[
+              { icon: '🎨', label: 'Draw Guess', color: 'bg-blue-100' },
+              { icon: '🎡', label: 'Turntable', color: 'bg-indigo-100' },
+              { icon: '🎰', label: 'Big Winner', color: 'bg-purple-100' },
+              { icon: '⚔️', label: 'Group PK', color: 'bg-pink-100' },
+              { icon: '🦖', label: 'Dino', color: 'bg-cyan-100' },
+              { icon: '💰', label: 'Earn Money', color: 'bg-orange-100' },
+              { icon: '📘', label: 'Guide', color: 'bg-yellow-100' },
+              { icon: '🏆', label: 'PK Qualifying', color: 'bg-slate-100' },
+              { icon: '🎁', label: 'Gift Wall', color: 'bg-violet-100' },
+              { icon: '🤝', label: 'Match', color: 'bg-cyan-100' },
+              { icon: '🦀', label: 'Craw', color: 'bg-blue-100' },
+            ].map((game, i) => (
+              <div 
+                key={i} 
+                onClick={() => showToast(`${game.label} feature coming soon! 🎮`, 'info')}
+                className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
+              >
+                <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-sm group-hover:shadow-md transition-shadow", game.color)}>
+                  {game.icon}
+                </div>
+                <span className="text-[9px] font-black text-slate-400 text-center leading-tight group-hover:text-slate-900">{game.label}</span>
               </div>
-              <span className="text-[9px] font-black text-slate-400 text-center leading-tight group-hover:text-slate-900">{game.label}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function CreatorCenterPage() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('Live');
   const [tutorialTab, setTutorialTab] = useState('Live Skills');
   const [isGoLiveModalOpen, setIsGoLiveModalOpen] = useState(false);
+  const [agency, setAgency] = useState<Agency | null>(null);
+  const [agencyHosts, setAgencyHosts] = useState<UserProfile[]>([]);
+  const [isLoadingAgency, setIsLoadingAgency] = useState(false);
+
+  useEffect(() => {
+    const fetchAgencyData = async () => {
+      if (!profile || profile.role !== 'agency') return;
+      
+      setIsLoadingAgency(true);
+      try {
+        const agencySnap = await getDocs(query(collection(db, 'agencies'), where('ownerUid', '==', profile.uid), limit(1)));
+        if (!agencySnap.empty) {
+          const agencyData = agencySnap.docs[0].data() as Agency;
+          setAgency(agencyData);
+          
+          const hostsSnap = await getDocs(query(collection(db, 'users'), where('agencyId', '==', agencyData.id), orderBy('totalBeansEarned', 'desc'), limit(10)));
+          setAgencyHosts(hostsSnap.docs.map(d => d.data() as UserProfile));
+        }
+      } catch (error) {
+        console.error("Error fetching agency data:", error);
+      } finally {
+        setIsLoadingAgency(false);
+      }
+    };
+
+    if (activeTab === 'Agency') {
+      fetchAgencyData();
+    }
+  }, [activeTab, profile]);
 
   const services = [
     { icon: Megaphone, label: 'Check my events', color: 'bg-cyan-50 text-cyan-500' },
+    { icon: Sparkles, label: 'Earnings Center', color: 'bg-orange-50 text-orange-500', path: '/earnings-dashboard' },
     { icon: Crown, label: 'Host level', color: 'bg-teal-50 text-teal-500' },
     { icon: ShieldCheck, label: 'Apply for official hosts', color: 'bg-blue-50 text-blue-500' },
-    { icon: AlertTriangle, label: 'Account Violations', color: 'bg-orange-50 text-orange-500' },
+    { icon: Users, label: 'Family Center', color: 'bg-orange-50 text-orange-500', path: '/family-dashboard' },
+    { icon: Heart, label: 'Fan Club Center', color: 'bg-pink-50 text-pink-500', path: '/fan-club-center' },
     { icon: GraduationCap, label: 'Host Academy', color: 'bg-indigo-50 text-indigo-500' },
     { icon: Headset, label: 'Customer Services', color: 'bg-sky-50 text-sky-500' },
     { icon: Contact2, label: 'Real name authentication', color: 'bg-emerald-50 text-emerald-500' },
@@ -233,7 +282,7 @@ export default function CreatorCenterPage() {
                   <span className="text-xs text-slate-400">Fans can reserve your next Live</span>
                 </div>
                 <button 
-                  onClick={() => alert("Create Live Preview coming soon! 📅")}
+                  onClick={() => showToast("Create Live Preview coming soon! 📅", 'info')}
                   className="px-6 py-2 bg-slate-50 border border-slate-100 rounded-full text-xs font-black uppercase italic tracking-widest hover:bg-slate-100 active:scale-95 transition-all"
                 >
                   Create
@@ -246,7 +295,16 @@ export default function CreatorCenterPage() {
               <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Live Services</h2>
               <div className="grid grid-cols-2 gap-3">
                 {services.map((service, i) => (
-                  <ServiceCard key={i} {...service} />
+                  <div 
+                    key={i}
+                    onClick={() => service.path ? navigate(service.path) : showToast(`${service.label} feature coming soon! 🛠️`, 'info')}
+                    className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
+                  >
+                    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", service.color)}>
+                      <service.icon size={24} />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-700 text-center leading-tight uppercase tracking-tight">{service.label}</span>
+                  </div>
                 ))}
               </div>
             </section>
@@ -459,7 +517,7 @@ export default function CreatorCenterPage() {
                         </div>
                       </div>
                     </div>
-                    <InteractiveToolsSection />
+                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
                   </>
                 )}
 
@@ -550,16 +608,19 @@ export default function CreatorCenterPage() {
                         </div>
                       </div>
                     </div>
-                    <InteractiveToolsSection />
+                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
                   </>
                 )}
 
                 {tutorialTab === 'Virtual Live' && (
                   <>
                     <div className="space-y-4">
-                      <h3 className="font-black italic uppercase tracking-tight text-slate-900">1. Virtual Avatar Setup</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-black italic uppercase tracking-tight text-slate-900">1. Virtual Avatar Setup</h3>
+                        <span className="bg-cyan-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest">Active Now</span>
+                      </div>
                       <p className="text-sm text-slate-500 leading-relaxed">
-                        Customize your virtual character to express your unique style.
+                        Customize your virtual character to express your unique style. No camera needed!
                       </p>
                       <div className="aspect-[9/16] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-[3rem] overflow-hidden border-8 border-slate-800 relative shadow-2xl">
                         <div className="absolute inset-0 bg-black/20" />
@@ -580,7 +641,12 @@ export default function CreatorCenterPage() {
                           </div>
                         </div>
                         <div className="absolute bottom-10 left-0 right-0 px-8">
-                          <div className="w-full py-4 bg-white text-slate-900 rounded-full text-center font-black uppercase italic tracking-widest text-sm shadow-xl">Confirm Avatar</div>
+                          <div 
+                            onClick={() => setIsGoLiveModalOpen(true)}
+                            className="w-full py-4 bg-white text-slate-900 rounded-full text-center font-black uppercase italic tracking-widest text-sm shadow-xl cursor-pointer active:scale-95 transition-all"
+                          >
+                            Confirm Avatar
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -610,7 +676,7 @@ export default function CreatorCenterPage() {
                         ))}
                       </div>
                     </div>
-                    <InteractiveToolsSection />
+                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
                   </>
                 )}
 
@@ -706,7 +772,7 @@ export default function CreatorCenterPage() {
                         </div>
                       </div>
                     </div>
-                    <InteractiveToolsSection />
+                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
                   </>
                 )}
               </div>
@@ -723,7 +789,7 @@ export default function CreatorCenterPage() {
                   {playCenterIcons.map((item, i) => (
                     <div 
                       key={i} 
-                      onClick={() => alert(`${item.label} feature coming soon! 🎮`)}
+                      onClick={() => showToast(`${item.label} feature coming soon! 🎮`, 'info')}
                       className="flex flex-col items-center gap-2 group cursor-pointer"
                     >
                       <div className={cn(
@@ -741,104 +807,205 @@ export default function CreatorCenterPage() {
           </>
         ) : (
           <div className="space-y-6">
-            {/* Agency Banner */}
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-              <div className="relative z-10 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                    <Briefcase size={24} className="text-cyan-400" />
-                  </div>
-                  <h3 className="font-black italic uppercase tracking-tight text-xl">Agency Center</h3>
-                </div>
-                <p className="text-sm text-slate-300 leading-relaxed max-w-[240px]">
-                  Join an agency to unlock professional support, higher commissions, and exclusive growth opportunities.
-                </p>
-                <button 
-                  onClick={() => alert("Agency application coming soon! 📝")}
-                  className="px-8 py-3 bg-cyan-400 text-white rounded-full font-black uppercase italic tracking-widest text-xs shadow-lg shadow-cyan-400/20 active:scale-95 transition-all"
-                >
-                  Join Now
-                </button>
-              </div>
-            </div>
-
-            {/* Agency Benefits */}
-            <section className="space-y-3">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Agency Benefits</h2>
-              <div className="grid grid-cols-1 gap-3">
-                {[
-                  { icon: Star, title: 'Higher Commission', desc: 'Get up to 20% more earnings from your live streams.', color: 'text-yellow-400' },
-                  { icon: ShieldCheck, title: 'Official Support', desc: 'Direct access to official support and account protection.', color: 'text-blue-400' },
-                  { icon: Trophy, title: 'Exclusive Events', desc: 'Participate in agency-only tournaments and challenges.', color: 'text-orange-400' },
-                  { icon: Zap, title: 'Fast Growth', desc: 'Professional training and promotion from experienced agents.', color: 'text-cyan-400' }
-                ].map((benefit, i) => (
-                  <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex items-center gap-4">
-                    <div className={cn("w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center", benefit.color)}>
-                      <benefit.icon size={24} />
+            {profile?.role === 'agency' && agency ? (
+              <div className="space-y-6">
+                {/* Agency Dashboard Header */}
+                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                          <Briefcase size={24} className="text-cyan-400" />
+                        </div>
+                        <div className="flex flex-col">
+                          <h3 className="font-black italic uppercase tracking-tight text-xl">{agency.name}</h3>
+                          <span className="text-[10px] text-cyan-400 font-black uppercase tracking-widest">Agency ID: {agency.id}</span>
+                        </div>
+                      </div>
+                      <div className="bg-white/10 px-4 py-2 rounded-xl text-center">
+                        <div className="text-[8px] text-white/40 uppercase font-black tracking-widest">Tier</div>
+                        <div className="text-sm font-black italic">LV.{agency.tier}</div>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="font-black italic uppercase tracking-tight text-slate-900">{benefit.title}</span>
-                      <span className="text-[10px] text-slate-400 leading-tight">{benefit.desc}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
 
-            {/* Find Agency */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between ml-2">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Find Agency</h2>
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Search by ID</span>
-              </div>
-              <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="ENTER AGENCY ID OR NAME"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-xs font-bold uppercase tracking-widest placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-                  />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-                    <Users size={18} />
+                    <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
+                      <div className="flex flex-col">
+                        <span className="text-[8px] text-white/40 uppercase font-black tracking-widest mb-1">Total Hosts</span>
+                        <span className="text-xl font-black italic">{agency.totalHosts}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] text-white/40 uppercase font-black tracking-widest mb-1">Commission</span>
+                        <span className="text-xl font-black italic">{agency.commissionRate}%</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[8px] text-white/40 uppercase font-black tracking-widest mb-1">Rebate</span>
+                        <span className="text-xl font-black italic">{agency.rebateRate}%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900">Recommended Agencies</h4>
-                  <div className="space-y-3">
-                    {[
-                      { name: 'Global Stars', id: 'AG8829', rating: 4.9, members: '1.2k' },
-                      { name: 'Elite Streamers', id: 'AG1102', rating: 4.8, members: '850' },
-                      { name: 'Vibe Agency', id: 'AG4453', rating: 4.7, members: '2.1k' }
-                    ].map((agency, i) => (
-                      <div 
-                        key={i} 
-                        onClick={() => alert(`Viewing agency ${agency.name} details...`)}
-                        className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 active:scale-[0.98] transition-all"
-                      >
+                {/* Host Performance */}
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between ml-2">
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Host Performance</h2>
+                    <button className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">View Reports</button>
+                  </div>
+                  <div className="bg-white rounded-[2.5rem] p-2 border border-slate-100 shadow-sm">
+                    {agencyHosts.length > 0 ? agencyHosts.map((host, i) => (
+                      <div key={host.uid} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-[2rem] transition-all">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 font-black italic text-xs">
-                            {agency.name[0]}
+                          <div className="relative">
+                            <img src={host.photoURL} className="w-12 h-12 rounded-2xl object-cover" />
+                            <div className="absolute -top-1 -left-1 w-5 h-5 bg-slate-900 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                              {i + 1}
+                            </div>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[11px] font-black italic uppercase text-slate-900">{agency.name}</span>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">ID: {agency.id}</span>
+                            <span className="text-[11px] font-black italic uppercase text-slate-900">{host.displayName}</span>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Beans: {host.totalBeansEarned}</span>
                           </div>
                         </div>
                         <div className="flex flex-col items-end">
-                          <div className="flex items-center gap-1 text-yellow-400">
-                            <Star size={10} fill="currentColor" />
-                            <span className="text-[10px] font-black">{agency.rating}</span>
-                          </div>
-                          <span className="text-[8px] text-slate-300 font-bold uppercase">{agency.members} members</span>
+                          <div className="text-[10px] font-black text-slate-900 italic">{(host.totalBeansEarned * (agency.commissionRate / 100)).toFixed(0)}</div>
+                          <span className="text-[8px] text-slate-300 font-bold uppercase tracking-tighter">Earnings</span>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="p-12 text-center space-y-4">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
+                          <Users size={32} />
+                        </div>
+                        <p className="text-xs text-slate-400 font-medium">No hosts recruited yet.</p>
+                        <button className="px-6 py-2 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase italic tracking-widest">Recruit Hosts</button>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Agency Tools */}
+                <section className="space-y-3">
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Agency Tools</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { icon: UserPlus, label: 'Recruit Hosts', color: 'bg-cyan-50 text-cyan-500' },
+                      { icon: Newspaper, label: 'Commission Reports', color: 'bg-indigo-50 text-indigo-500' },
+                      { icon: Megaphone, label: 'Agency Events', color: 'bg-orange-50 text-orange-500' },
+                      { icon: Settings, label: 'Agency Settings', color: 'bg-slate-50 text-slate-500' }
+                    ].map((tool, i) => (
+                      <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-95">
+                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", tool.color)}>
+                          <tool.icon size={24} />
+                        </div>
+                        <span className="text-[10px] font-black uppercase italic tracking-widest text-slate-900">{tool.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Agency Banner */}
+                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                        <Briefcase size={24} className="text-cyan-400" />
+                      </div>
+                      <h3 className="font-black italic uppercase tracking-tight text-xl">Agency Center</h3>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed max-w-[240px]">
+                      Join an agency to unlock professional support, higher commissions, and exclusive growth opportunities.
+                    </p>
+                    <button 
+                      onClick={() => showToast("Agency application coming soon! 📝", 'info')}
+                      className="px-8 py-3 bg-cyan-400 text-white rounded-full font-black uppercase italic tracking-widest text-xs shadow-lg shadow-cyan-400/20 active:scale-95 transition-all"
+                    >
+                      Join Now
+                    </button>
+                  </div>
+                </div>
+
+                {/* Agency Benefits */}
+                <section className="space-y-3">
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Agency Benefits</h2>
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { icon: Star, title: 'Higher Commission', desc: 'Get up to 20% more earnings from your live streams.', color: 'text-yellow-400' },
+                      { icon: ShieldCheck, title: 'Official Support', desc: 'Direct access to official support and account protection.', color: 'text-blue-400' },
+                      { icon: Trophy, title: 'Exclusive Events', desc: 'Participate in agency-only tournaments and challenges.', color: 'text-orange-400' },
+                      { icon: Zap, title: 'Fast Growth', desc: 'Professional training and promotion from experienced agents.', color: 'text-cyan-400' }
+                    ].map((benefit, i) => (
+                      <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex items-center gap-4">
+                        <div className={cn("w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center", benefit.color)}>
+                          <benefit.icon size={24} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-black italic uppercase tracking-tight text-slate-900">{benefit.title}</span>
+                          <span className="text-[10px] text-slate-400 leading-tight">{benefit.desc}</span>
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
+
+                {/* Find Agency */}
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between ml-2">
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Find Agency</h2>
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Search by ID</span>
+                  </div>
+                  <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        placeholder="ENTER AGENCY ID OR NAME"
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-xs font-bold uppercase tracking-widest placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                        <Users size={18} />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900">Recommended Agencies</h4>
+                      <div className="space-y-3">
+                        {[
+                          { name: 'Global Stars', id: 'AG8829', rating: 4.9, members: '1.2k' },
+                          { name: 'Elite Streamers', id: 'AG1102', rating: 4.8, members: '850' },
+                          { name: 'Vibe Agency', id: 'AG4453', rating: 4.7, members: '2.1k' }
+                        ].map((agency, i) => (
+                          <div 
+                            key={i} 
+                            onClick={() => showToast(`Viewing agency ${agency.name} details...`, 'info')}
+                            className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 active:scale-[0.98] transition-all"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 font-black italic text-xs">
+                                {agency.name[0]}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-[11px] font-black italic uppercase text-slate-900">{agency.name}</span>
+                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">ID: {agency.id}</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <div className="flex items-center gap-1 text-yellow-400">
+                                <Star size={10} fill="currentColor" />
+                                <span className="text-[10px] font-black">{agency.rating}</span>
+                              </div>
+                              <span className="text-[8px] text-slate-300 font-bold uppercase">{agency.members} members</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
-            </section>
+            )}
           </div>
         )}
       </div>

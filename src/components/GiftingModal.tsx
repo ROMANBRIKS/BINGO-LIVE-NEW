@@ -4,6 +4,7 @@ import { doc, collection, addDoc, serverTimestamp, increment, setDoc, updateDoc 
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Gift, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Diamond, ChevronRight, User, Zap } from 'lucide-react';
 import { calculateGiftingPower, formatPowerDisplay } from '../nobleGiftingLogic';
 import { getSnipeMultiplier, isSnipeWindow } from '../pkEnhancedLogic';
@@ -38,6 +39,7 @@ const TABS = ['Popular', 'Activity', 'Local', 'Fun', 'Treasure', 'Shields'];
 
 export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose: () => void, onGiftSent?: (gift: Gift, quantity: number) => void }) => {
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('Popular');
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -56,7 +58,7 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
       await setDoc(userRef, {
         diamonds: increment(1000)
       }, { merge: true });
-      alert("Recharged 1,000 Diamonds! 💎");
+      showToast("Recharged 1,000 Diamonds! 💎", 'success');
     } catch (error) {
       console.error("Recharge error:", error);
     }

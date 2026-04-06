@@ -2,7 +2,7 @@ import { NobleTier } from './NobleTypes';
 
 export type UserRole = 'user' | 'host' | 'agency' | 'admin';
 export type StreamStatus = 'live' | 'ended';
-export type StreamType = 'video' | 'audio';
+export type StreamType = 'video' | 'audio' | 'virtual';
 export type TransactionType = 'purchase' | 'gift' | 'salary' | 'rebate';
 
 export interface UserProfile {
@@ -34,6 +34,28 @@ export interface Agency {
   commissionRate: number;
   rebateRate: number;
   totalHosts: number;
+}
+
+export interface Family {
+  id: string;
+  name: string;
+  badge: string;
+  ownerUid: string;
+  description: string;
+  memberCount: number;
+  totalDiamondsSpent: number;
+  level: number;
+  ranking?: number;
+  announcement?: string;
+}
+
+export interface FamilyMember {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+  role: 'leader' | 'co-leader' | 'member';
+  joinedAt: any;
+  contributionPoints: number;
 }
 
 export interface GuestSeat {
@@ -98,6 +120,8 @@ export interface Room {
   pkOpponentShieldTier?: ShieldTier;
   pkOpponentShieldAbsorbed?: number;
   pkOpponentShieldEndTime?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Gift {
@@ -129,4 +153,13 @@ export interface PrivateCallRequest {
   createdAt: any;
   startedAt?: any;
   endedAt?: any;
+}
+
+export interface Message {
+  id: string;
+  senderUid: string;
+  senderName: string;
+  text: string;
+  timestamp: any;
+  type?: 'text' | 'gift' | 'system';
 }

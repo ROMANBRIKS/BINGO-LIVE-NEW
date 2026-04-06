@@ -1,16 +1,35 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Video, X, Sparkles, Camera, Mic } from 'lucide-react';
+import { Video, X, Sparkles, Camera, Mic, Dog, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { cn } from '../lib/utils';
 
 export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isVirtual, setIsVirtual] = useState(false);
+  const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+
+  const requestLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        (err) => {
+          console.error("Location error:", err);
+          showToast("Could not get location. Nearby discovery may not work.", 'warning');
+        }
+      );
+    }
+  };
 
   const handleStartBroadcast = async () => {
     if (!profile || loading) return;
@@ -20,13 +39,15 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
         hostUid: profile.uid,
         title: title || `${profile.displayName}'s Live Stream`,
         status: 'live',
-        type: 'video',
+        type: isVirtual ? 'virtual' : 'video',
         currentBeans: 0,
         viewerCount: 0,
         guests: [],
         isPrivate: false,
         createdAt: serverTimestamp(),
-        pkStatus: 'idle'
+        pkStatus: 'idle',
+        latitude: location?.lat || null,
+        longitude: location?.lng || null
       };
 
       const docRef = await addDoc(collection(db, 'rooms'), roomData);
@@ -34,7 +55,7 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
       onClose();
     } catch (error) {
       console.error("Error creating room:", error);
-      alert("Failed to start broadcast. Please try again.");
+      showToast("Failed to start broadcast. Please try again.", 'error');
     } finally {
       setLoading(false);
     }
@@ -79,15 +100,40 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center gap-2">
-              <Camera size={20} className="text-blue-400" />
-              <span className="text-[10px] font-black uppercase text-white/40">HD Video</span>
-            </div>
-            <div className="bg-white/5 rounded-2xl p-4 border border-white/5 flex flex-col items-center gap-2">
-              <Mic size={20} className="text-green-400" />
-              <span className="text-[10px] font-black uppercase text-white/40">Stereo Audio</span>
-            </div>
+            <button 
+              onClick={() => setIsVirtual(false)}
+              className={cn(
+                "rounded-2xl p-4 border flex flex-col items-center gap-2 transition-all",
+                !isVirtual ? "bg-orange-500/20 border-orange-500/50" : "bg-white/5 border-white/5"
+              )}
+            >
+              <Camera size={20} className={!isVirtual ? "text-orange-500" : "text-white/40"} />
+              <span className={cn("text-[10px] font-black uppercase", !isVirtual ? "text-white" : "text-white/40")}>Camera</span>
+            </button>
+            <button 
+              onClick={() => setIsVirtual(true)}
+              className={cn(
+                "rounded-2xl p-4 border flex flex-col items-center gap-2 transition-all",
+                isVirtual ? "bg-purple-500/20 border-purple-500/50" : "bg-white/5 border-white/5"
+              )}
+            >
+              <Dog size={20} className={isVirtual ? "text-purple-500" : "text-white/40"} />
+              <span className={cn("text-[10px] font-black uppercase", isVirtual ? "text-white" : "text-white/40")}>Virtual</span>
+            </button>
           </div>
+
+          <button 
+            onClick={requestLocation}
+            className={cn(
+              "w-full py-3 rounded-2xl border flex items-center justify-center gap-2 transition-all",
+              location ? "bg-green-500/20 border-green-500/50 text-green-500" : "bg-white/5 border-white/5 text-white/40"
+            )}
+          >
+            <MapPin size={16} />
+            <span className="text-[10px] font-black uppercase tracking-widest">
+              {location ? "Location Shared" : "Share Location for Nearby"}
+            </span>
+          </button>
         </div>
 
         <button 

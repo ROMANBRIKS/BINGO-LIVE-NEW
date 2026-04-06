@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import { useToast } from '../context/ToastContext';
 import { Home as HomeIcon, Trophy, Users, Star, Flame, TrendingUp, Search, Plus } from 'lucide-react';
 import { GoLiveModal } from './GoLiveModal';
 import { AnimatePresence } from 'framer-motion';
@@ -8,6 +9,7 @@ import { AnimatePresence } from 'framer-motion';
 export const Sidebar = React.memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { showToast } = useToast();
   const [showGoLive, setShowGoLive] = useState(false);
 
   const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
@@ -50,7 +52,7 @@ export const Sidebar = React.memo(() => {
               {[1, 2, 3].map(i => (
                 <div 
                   key={i} 
-                  onClick={() => alert(`Viewing Top Host ${i}'s profile...`)}
+                  onClick={() => showToast(`Viewing Top Host ${i}'s profile...`, 'info')}
                   className="flex items-center gap-3 px-3 group cursor-pointer active:scale-95 transition-all"
                 >
                   <div className="relative">

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Video, Mic, Shield, Zap, CheckCircle, HelpCircle } from 'lucide-react';
+import { Video, Mic, Shield, Zap, CheckCircle, HelpCircle, Sparkles } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getDeviceType, getBrowserName, isIOS, isAndroid } from '../lib/device';
+import { VirtualAvatar } from './VirtualAvatar';
 
 const PermissionGuide = ({ onClose, onGrant }: { onClose: () => void, onGrant: () => void }) => {
   const deviceType = getDeviceType();
@@ -80,7 +81,7 @@ const PermissionGuide = ({ onClose, onGrant }: { onClose: () => void, onGrant: (
   );
 };
 
-export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, opponentUid }: { isHost: boolean, roomId: string, hostUid: string, pkStatus?: string, opponentUid?: string }) => {
+export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, opponentUid, isVirtual }: { isHost: boolean, roomId: string, hostUid: string, pkStatus?: string, opponentUid?: string, isVirtual?: boolean }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -136,11 +137,15 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
     return (
       <div className="w-full h-full bg-slate-900 relative overflow-hidden flex">
         <div className={cn("relative h-full overflow-hidden", isPK ? "w-1/2 border-r border-white/10" : "w-full")}>
-          <img 
-            src={`https://picsum.photos/seed/${hostUid}/1920/1080`} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
+          {isVirtual ? (
+            <VirtualAvatar seed={hostUid} />
+          ) : (
+            <img 
+              src={`https://picsum.photos/seed/${hostUid}/1920/1080`} 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )}
           <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
         </div>
         
@@ -161,7 +166,9 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
   return (
     <div className="w-full h-full bg-black relative overflow-hidden flex">
       <div className={cn("relative h-full overflow-hidden", isPK ? "w-1/2 border-r border-white/10" : "w-full")}>
-        {hasPermission ? (
+        {isVirtual ? (
+          <VirtualAvatar seed={hostUid} />
+        ) : hasPermission ? (
           <video 
             ref={videoRef} 
             autoPlay 

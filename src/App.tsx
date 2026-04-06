@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { RightSidebar } from './components/RightSidebar';
@@ -22,6 +23,10 @@ const ChatDetailPage = lazy(() => import('./pages/ChatDetailPage'));
 const ComingSoonPage = lazy(() => import('./pages/ComingSoonPage'));
 const GoLivePage = lazy(() => import('./pages/GoLivePage'));
 const PointsRedemptionPage = lazy(() => import('./pages/PointsRedemptionPage'));
+const FamilyDashboardPage = lazy(() => import('./pages/FamilyDashboardPage'));
+const FanClubCenterPage = lazy(() => import('./pages/FanClubCenterPage'));
+const NobleCenterPage = lazy(() => import('./pages/NobleCenterPage'));
+const EarningsDashboardPage = lazy(() => import('./pages/EarningsDashboardPage'));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -66,6 +71,10 @@ const AppContent = () => {
               <Route path="/chats/:chatId" element={<ChatDetailPage />} />
               <Route path="/go-live" element={<GoLivePage />} />
               <Route path="/points-redemption" element={<PointsRedemptionPage />} />
+              <Route path="/family-dashboard" element={<FamilyDashboardPage />} />
+              <Route path="/fan-club-center" element={<FanClubCenterPage />} />
+              <Route path="/noble-center" element={<NobleCenterPage />} />
+              <Route path="/earnings-dashboard" element={<EarningsDashboardPage />} />
               <Route path="/following" element={<ComingSoonPage title="Following" />} />
               <Route path="/vip" element={<ComingSoonPage title="VIP Center" />} />
               <Route path="/pk" element={<ComingSoonPage title="PK Battles" />} />
@@ -123,11 +132,13 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </AuthProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }
