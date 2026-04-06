@@ -3,6 +3,11 @@ import { LevelBadge } from './LevelBadge';
 import { cn } from '../lib/utils';
 import { WingedHeart } from './WingedHeart';
 import { Plus, Heart } from 'lucide-react';
+import { FanClubBadge } from './FanClubBadge';
+import { NobleFrame } from './NobleFrame';
+import { FamilyBadge } from './FamilyBadge';
+import { NobleBadge } from './NobleBadge';
+import { NobleTier } from '../NobleTypes';
 
 interface ChatMessageProps {
   message?: any;
@@ -32,6 +37,11 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
     hostLevel, 
     hostPhoto,
     type = 'chat', 
+    fanClubLevel,
+    fanClubHostName,
+    photoURL,
+    familyName,
+    familyLevel
   } = msg;
 
   const onFollow = props.onFollow || msg.onFollow;
@@ -122,7 +132,13 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   if (type === 'join') {
     return wrapWithClick(
       <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300">
+        <NobleFrame tier={nobleTitle || 'None'} size={24}>
+          <img src={photoURL || 'https://i.pravatar.cc/100'} className="w-full h-full object-cover rounded-full" alt="" />
+        </NobleFrame>
+        {nobleTitle && nobleTitle !== 'None' && <NobleBadge tier={nobleTitle} size="sm" />}
         {level && <LevelBadge level={level} />}
+        {fanClubLevel && fanClubHostName && <FanClubBadge level={fanClubLevel} hostName={fanClubHostName} />}
+        {familyName && familyLevel && <FamilyBadge familyName={familyName} familyLevel={familyLevel} />}
         <span className="text-[11px] font-bold text-[#00e5ff]">
           {displayName}
         </span>
@@ -145,7 +161,10 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   if (type === 'follow') {
     return wrapWithClick(
       <div className="inline-flex items-center gap-2 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300">
+        {nobleTitle && nobleTitle !== 'None' && <NobleBadge tier={nobleTitle} size="sm" />}
         {level && <LevelBadge level={level} />}
+        {fanClubLevel && fanClubHostName && <FanClubBadge level={fanClubLevel} hostName={fanClubHostName} />}
+        {familyName && familyLevel && <FamilyBadge familyName={familyName} familyLevel={familyLevel} />}
         <p className="text-[11px] text-white/90">
           <span className="font-bold text-[#00e5ff]">{displayName}</span> : followed the anchor.
         </p>
@@ -191,7 +210,10 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   if (type === 'gift') {
     return wrapWithClick(
       <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-pink-500/20 backdrop-blur-md rounded-full border border-pink-500/30 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
+        {nobleTitle && nobleTitle !== 'None' && <NobleBadge tier={nobleTitle} size="sm" />}
         {level && <LevelBadge level={level} />}
+        {fanClubLevel && fanClubHostName && <FanClubBadge level={fanClubLevel} hostName={fanClubHostName} />}
+        {familyName && familyLevel && <FamilyBadge familyName={familyName} familyLevel={familyLevel} />}
         <p className="text-[11px] leading-relaxed text-pink-200">
           <span className="font-bold text-[#00e5ff] mr-1">{displayName}</span>
           {text}
@@ -203,7 +225,10 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
 
   return wrapWithClick(
     <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
+      {nobleTitle && nobleTitle !== 'None' && <NobleBadge tier={nobleTitle} size="sm" />}
       {level && <LevelBadge level={level} />}
+      {fanClubLevel && fanClubHostName && <FanClubBadge level={fanClubLevel} hostName={fanClubHostName} />}
+      {familyName && familyLevel && <FamilyBadge familyName={familyName} familyLevel={familyLevel} />}
       <p className="text-[11px] leading-relaxed">
         <span className="font-bold text-[#00e5ff] mr-1">{displayName} :</span>
         <span className={cn(

@@ -1,11 +1,13 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { cn } from '../lib/utils';
 import { Search, Bell, Diamond, Coins, Plus, Trophy } from 'lucide-react';
 
 export const Navbar = React.memo(() => {
   const { profile } = useAuth();
+  const { showToast, unreadCount, clearUnread } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -47,11 +49,18 @@ export const Navbar = React.memo(() => {
           <Search size={24} />
         </button>
         <button 
-          onClick={() => navigate('/chats')}
+          onClick={() => {
+            clearUnread();
+            showToast(`You have ${unreadCount} new notifications! 🔔`, 'info');
+          }}
           className="p-2 text-white/80 hover:text-white transition-colors relative"
         >
           <Bell size={24} />
-          <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-[#050505]" />
+          {unreadCount > 0 && (
+            <div className="absolute top-2 right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-[#050505] flex items-center justify-center">
+              <span className="text-[8px] font-bold text-white leading-none">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            </div>
+          )}
         </button>
       </div>
     </nav>

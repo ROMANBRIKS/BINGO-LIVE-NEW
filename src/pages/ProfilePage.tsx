@@ -8,7 +8,8 @@ import { cn } from '../lib/utils';
 import { 
   Settings, Wallet, Briefcase, Calendar, ShoppingBag, FileText, Star, CheckCircle, 
   ChevronRight, Bell, BarChart2, HelpCircle, TrendingUp, LogOut, User as UserIcon,
-  Diamond, Coins, Shield, Zap, Crown, Home as HomeIcon, Mic, Video, MessageSquare, Plus
+  Diamond, Coins, Shield, Zap, Crown, Home as HomeIcon, Mic, Video, MessageSquare, Plus,
+  Users2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LevelBadge } from '../components/LevelBadge';
@@ -20,7 +21,7 @@ import { GoLiveModal } from '../components/GoLiveModal';
 
 export default function ProfilePage() {
   const { profile, logout } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, unreadCount, clearUnread } = useToast();
   const navigate = useNavigate();
   const [showGoLive, setShowGoLive] = useState(false);
 
@@ -52,7 +53,10 @@ export default function ProfilePage() {
     { icon: FileText, label: 'Task Center', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
     { icon: Star, label: 'VIP Center', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
     { icon: CheckCircle, label: 'Verification', color: 'text-green-500', bg: 'bg-green-500/10' },
-    { icon: Bell, label: 'Notifications', color: 'text-red-500', bg: 'bg-red-500/10' },
+    { icon: Bell, label: 'Notifications', color: 'text-red-500', bg: 'bg-red-500/10', unread: unreadCount },
+    { icon: Star, label: 'Fan Club', color: 'text-pink-500', bg: 'bg-pink-500/10', path: '/fan-club' },
+    { icon: Users2, label: 'Family Center', color: 'text-indigo-500', bg: 'bg-indigo-500/10', path: '/family-dashboard' },
+    { icon: Zap, label: 'Points Redemption', color: 'text-yellow-500', bg: 'bg-yellow-500/10', path: '/points-redemption' },
     { icon: BarChart2, label: 'Analytics', color: 'text-indigo-500', bg: 'bg-indigo-500/10' },
     { icon: HelpCircle, label: 'Support', color: 'text-slate-500', bg: 'bg-slate-500/10' },
   ];
@@ -191,7 +195,10 @@ export default function ProfilePage() {
         {menuItems.map((item, i) => (
           <div 
             key={i}
-            onClick={() => item.path ? navigate(item.path) : showToast(`${item.label} feature coming soon! 🚀`, 'info')}
+            onClick={() => {
+              if (item.label === 'Notifications') clearUnread();
+              item.path ? navigate(item.path) : showToast(`${item.label} feature coming soon! 🚀`, 'info');
+            }}
             className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all cursor-pointer group border border-white/5"
           >
             <div className="flex items-center gap-4">
@@ -201,6 +208,11 @@ export default function ProfilePage() {
               <span className="font-black italic uppercase tracking-tight text-sm text-white/80">{item.label}</span>
             </div>
             <div className="flex items-center gap-3">
+              {item.unread && item.unread > 0 && (
+                <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {item.unread > 9 ? '9+' : item.unread}
+                </span>
+              )}
               {item.badge && (
                 <div className="w-16 h-8 bg-blue-500 rounded-lg overflow-hidden">
                   <img src="https://picsum.photos/seed/event/64/32" className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />

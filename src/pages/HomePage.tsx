@@ -6,6 +6,7 @@ import { Room } from '../types';
 import { cn } from '../lib/utils';
 import { Users, MapPin, Signal, Search, User as UserIcon, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useToast } from '../context/ToastContext';
 
 const RoomCard = React.memo(({ room }: { room: Room }) => {
   const navigate = useNavigate();
@@ -49,6 +50,7 @@ const RoomCard = React.memo(({ room }: { room: Room }) => {
 RoomCard.displayName = 'RoomCard';
 
 export default function HomePage() {
+  const { showToast, unreadCount, clearUnread } = useToast();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [activeTab, setActiveTab] = useState('Popular');
   const [searchQuery, setSearchQuery] = useState('');
@@ -120,7 +122,10 @@ export default function HomePage() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          (err) => console.error("Location error:", err)
+          (err) => {
+            console.error("Location error:", err);
+            showToast("Could not access location. Nearby rooms will not be sorted by distance.", 'warning');
+          }
         );
       }
     }
@@ -168,8 +173,23 @@ export default function HomePage() {
           <div className="flex items-center gap-4 text-white/70">
             <Search size={20} className="cursor-pointer" />
             <div className="relative">
-              <Bell size={20} className="cursor-pointer" />
-              <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-pink-500 rounded-full border border-[#1a1a1a]" />
+              <Bell 
+                size={20} 
+                className="cursor-pointer hover:text-white transition-colors" 
+                onClick={() => {
+                  if (unreadCount > 0) {
+                    showToast(`You have ${unreadCount} new notifications! 🔔`, 'info');
+                    clearUnread();
+                  } else {
+                    showToast("No new notifications! ✨", 'info');
+                  }
+                }}
+              />
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 bg-pink-500 text-white text-[8px] font-bold px-1 rounded-full border border-[#1a1a1a]">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </div>
+              )}
             </div>
           </div>
         </div>

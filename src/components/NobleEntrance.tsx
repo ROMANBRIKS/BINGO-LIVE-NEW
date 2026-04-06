@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NobleTier, NOBLE_LEVELS } from '../NobleTypes';
 import { NobleBadge } from './NobleBadge';
+import { NobleFrame } from './NobleFrame';
 
 /**
  * 👑 NOBLE ENTRANCE COMPONENT
@@ -15,6 +16,7 @@ interface NobleEntranceProps {
   user: {
     displayName: string;
     tier: NobleTier;
+    photoURL?: string;
   } | null;
   onComplete?: () => void;
 }
@@ -70,8 +72,15 @@ export const NobleEntrance: React.FC<NobleEntranceProps> = ({ user, onComplete }
               className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12"
             />
 
-            {/* Noble Badge */}
-            <NobleBadge tier={user.tier} size="md" />
+            {/* Noble Badge & Avatar */}
+            <div className="flex items-center gap-3 z-10">
+              <NobleBadge tier={user.tier} size="md" />
+              {user.photoURL && (
+                <NobleFrame tier={user.tier} size={48}>
+                  <img src={user.photoURL} alt="" className="w-full h-full object-cover rounded-full" />
+                </NobleFrame>
+              )}
+            </div>
 
             {/* Welcome Text */}
             <div className="flex flex-col z-10">

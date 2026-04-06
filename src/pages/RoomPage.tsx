@@ -14,10 +14,12 @@ import { generateSimulatedMessage } from '../simulationLogic';
 import { PRIVATE_CALL_FEE } from '../privateCallLogic';
 import { cn } from '../lib/utils';
 import { getDeviceType } from '../lib/device';
+import { AILiveAssistant, StreamStats } from '../components/AILiveAssistant';
+import { MiniGameCenter, MiniGame } from '../components/MiniGameCenter';
 import { 
   X, Plus, Coins, Users, Star, MessageSquare, List, Users2, Gift as GiftIcon, ShoppingBag, Settings,
   Smile, Menu, Maximize2, Ban, Bell, Heart, BarChart3, Sparkles, Type, Mail, SendHorizontal,
-  Phone, PhoneCall, Check, Video, Mic, MicOff, VideoOff, Share2, MoreHorizontal, ChevronDown
+  Phone, PhoneCall, Check, Video, Mic, MicOff, VideoOff, Share2, MoreHorizontal, ChevronDown, Gamepad2
 } from 'lucide-react';
 import { WingedHeart } from '../components/WingedHeart';
 import { GiftCombo } from '../components/GiftCombo';
@@ -37,6 +39,13 @@ import { VideoStream } from '../components/VideoStream';
 import { GiftingModal } from '../components/GiftingModal';
 import { RoomToolsModal } from '../components/RoomToolsModal';
 import { AICoach } from '../components/AICoach';
+import { PKShieldOverlay } from '../components/PKShieldOverlay';
+import { FanClubWelcome } from '../components/FanClubWelcome';
+import { NobleFrame } from '../components/NobleFrame';
+import { NobleBadge } from '../components/NobleBadge';
+import { FamilyBadge } from '../components/FamilyBadge';
+import { MiniGameOverlay, MiniGame as ActiveGame } from '../components/MiniGameOverlay';
+import { PK_SHIELDS } from '../pkShieldLogic';
 
 export default function RoomPage() {
   const { roomId } = useParams();
@@ -54,13 +63,21 @@ export default function RoomPage() {
   const [showTools, setShowTools] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showAICoach, setShowAICoach] = useState(false);
+  const [streamStats, setStreamStats] = useState<StreamStats>({
+    viewerCount: 0,
+    likeCount: 0,
+    giftCount: 0,
+    followCount: 0,
+    duration: 0
+  });
   const [isCleanMode, setIsCleanMode] = useState(false);
   const [quality, setQuality] = useState('HD');
   const [isMinimized, setIsMinimized] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showChatInput, setShowChatInput] = useState(false);
   const [localLikes, setLocalLikes] = useState(0);
-  const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any } | null>(null);
+  const [nobleEntranceUser, setNobleEntranceUser] = useState<{ displayName: string, tier: any, photoURL?: string } | null>(null);
+  const [fanClubWelcomeUser, setFanClubWelcomeUser] = useState<{ displayName: string, level: number, isSuperFan: boolean } | null>(null);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [isLowLatency, setIsLowLatency] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -75,6 +92,7 @@ export default function RoomPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [seats, setSeats] = useState<GuestSeat[]>([]);
   const [micQueue, setMicQueue] = useState<MicRequest[]>([]);
+  const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
 
   // 2. REFS
   const pendingLikesRef = React.useRef(0);
@@ -91,9 +109,14 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (room) {
-      setLocalLikes(room.likes || 0);
+      setStreamStats(prev => ({
+        ...prev,
+        viewerCount: room.viewerCount || 0,
+        likeCount: room.likes || 0,
+        duration: prev.duration + 1
+      }));
     }
-  }, [room?.likes]);
+  }, [room, currentTime]);
 
   useEffect(() => {
     const syncLikes = async () => {
@@ -514,7 +537,19 @@ export default function RoomPage() {
         const updated = [...prev, newMessage].slice(-30);
         
         if (newMessage.type === 'join' && newMessage.nobleTier && newMessage.nobleTier !== 'None') {
-          setNobleEntranceUser({ displayName: newMessage.displayName, tier: newMessage.nobleTier });
+          setNobleEntranceUser({ 
+            displayName: newMessage.displayName, 
+            tier: newMessage.nobleTier,
+            photoURL: (newMessage as any).photoURL
+          });
+        }
+
+        if (newMessage.type === 'join' && newMessage.isSuperFan) {
+          setFanClubWelcomeUser({ 
+            displayName: newMessage.displayName, 
+            level: newMessage.fanClubLevel || 1, 
+            isSuperFan: true 
+          });
         }
 
         if (newMessage.type === 'follow') {
@@ -655,13 +690,21 @@ export default function RoomPage() {
               {/* Left Group: Host Info & Secondary Pills */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full p-0.5 pr-0 border border-white/10 shadow-lg scale-90 origin-left">
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-white/20">
-                    <img src={hostProfile?.photoURL || 'https://i.pravatar.cc/150?u=host'} alt="Host" className="w-full h-full object-cover" />
-                  </div>
+                  <NobleFrame tier={hostProfile?.nobleTitle || 'None'} size={32}>
+                    <img src={hostProfile?.photoURL || 'https://i.pravatar.cc/150?u=host'} alt="Host" className="w-full h-full object-cover rounded-full" />
+                  </NobleFrame>
                   <div className="flex flex-col px-1.5 min-w-[60px]">
-                    <span className="text-white text-[10px] font-bold leading-tight truncate max-w-[80px]">
-                      {hostProfile?.displayName || 'keep it secret'}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-white text-[10px] font-bold leading-tight truncate max-w-[80px]">
+                        {hostProfile?.displayName || 'keep it secret'}
+                      </span>
+                      {hostProfile?.nobleTitle && hostProfile.nobleTitle !== 'None' && (
+                        <NobleBadge tier={hostProfile.nobleTitle as any} size="sm" />
+                      )}
+                      {hostProfile?.familyName && hostProfile?.familyLevel && (
+                        <FamilyBadge familyName={hostProfile.familyName} familyLevel={hostProfile.familyLevel} />
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
                       <Coins size={8} className="text-yellow-400" />
                       <span className="text-yellow-400 text-[8px] font-bold">
@@ -669,6 +712,12 @@ export default function RoomPage() {
                       </span>
                     </div>
                   </div>
+                  <button 
+                    onClick={() => navigate('/fan-club')}
+                    className="w-7 h-7 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500 ml-0.5 border border-pink-500/30"
+                  >
+                    <Star size={12} fill="currentColor" />
+                  </button>
                   {profile?.uid !== room.hostUid && (
                     <button 
                       onClick={toggleFollow}
@@ -730,7 +779,23 @@ export default function RoomPage() {
         )}
 
         {/* PK BATTLE OVERLAY */}
-        {room.pkStatus === 'battling' && <PKBattle room={room} />}
+        {room.pkStatus === 'battling' && (
+          <>
+            <PKBattle room={room} />
+            <PKShieldOverlay 
+              activeShield={room.pkShieldTier ? PK_SHIELDS[room.pkShieldTier] : null}
+              absorbedPoints={room.pkShieldAbsorbed || 0}
+              timeLeft={room.pkShieldEndTime ? Math.max(0, Math.floor((new Date(room.pkShieldEndTime).getTime() - Date.now()) / 1000)) : 0}
+              isHost={true}
+            />
+            <PKShieldOverlay 
+              activeShield={room.pkOpponentShieldTier ? PK_SHIELDS[room.pkOpponentShieldTier] : null}
+              absorbedPoints={room.pkOpponentShieldAbsorbed || 0}
+              timeLeft={room.pkOpponentShieldEndTime ? Math.max(0, Math.floor((new Date(room.pkOpponentShieldEndTime).getTime() - Date.now()) / 1000)) : 0}
+              isHost={false}
+            />
+          </>
+        )}
 
         {/* MIC QUEUE / GUEST SEATS */}
         {!isCleanMode && (
@@ -777,6 +842,59 @@ export default function RoomPage() {
               onClose={() => setShowAICoach(false)} 
             />
           </div>
+        )}
+
+        {/* AI Assistant (Only for Host) */}
+        {profile?.uid === room.hostUid && (
+          <AILiveAssistant 
+            stats={streamStats} 
+            onAction={(action) => {
+              if (action === 'pk') showToast("Starting PK... ⚔️", 'info');
+              if (action === 'share') showToast("Sharing stream... 🔗", 'info');
+            }} 
+          />
+        )}
+
+        {/* Mini-Games */}
+        <MiniGameCenter 
+          onStartGame={(game) => {
+            showToast(`Starting ${game.name}... ${game.icon}`, 'success');
+            // Simulate starting a game
+            const newGame: ActiveGame = {
+              id: 'game-' + Math.random().toString(36).substr(2, 9),
+              type: 'TapBattle',
+              status: 'active',
+              startTime: Date.now(),
+              endTime: Date.now() + 30000,
+              participants: [profile?.uid || ''],
+              scores: { [profile?.uid || '']: 0 },
+              config: {}
+            };
+            setActiveGame(newGame);
+            
+            // Auto-finish game after 30s
+            setTimeout(() => {
+              setActiveGame(prev => prev ? { ...prev, status: 'finished' } : null);
+              setTimeout(() => setActiveGame(null), 5000);
+            }, 30000);
+          }} 
+        />
+
+        {activeGame && (
+          <MiniGameOverlay 
+            game={activeGame} 
+            currentUserUid={profile?.uid || ''} 
+            onTap={() => {
+              if (profile?.uid) {
+                setActiveGame(prev => {
+                  if (!prev || prev.status !== 'active') return prev;
+                  const newScores = { ...prev.scores };
+                  newScores[profile.uid] = (newScores[profile.uid] || 0) + 1;
+                  return { ...prev, scores: newScores };
+                });
+              }
+            }}
+          />
         )}
 
         {/* CHAT & ACTION SECTION */}
@@ -886,6 +1004,15 @@ export default function RoomPage() {
                   <button onClick={() => setShowTools(true)} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
                     <List size={18} />
                   </button>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                      showToast('Room link copied! 🔗', 'success');
+                    }}
+                    className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform"
+                  >
+                    <Share2 size={18} />
+                  </button>
                   <button className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
                     <ShoppingBag size={18} />
                   </button>
@@ -899,6 +1026,12 @@ export default function RoomPage() {
                     )}
                   >
                     <Mic size={20} />
+                  </button>
+                  <button 
+                    onClick={() => showToast("Play Center coming soon! 🎮", 'info')}
+                    className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform"
+                  >
+                    <BarChart3 size={20} />
                   </button>
                   <button onClick={sendLike} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-pink-500 active:scale-90 transition-transform">
                     <Heart size={20} fill={localLikes > 0 ? "currentColor" : "none"} />
@@ -986,6 +1119,13 @@ export default function RoomPage() {
           nobleTier={activeAnimation.nobleTier}
         />
       )}
+
+      <FanClubWelcome 
+        userName={fanClubWelcomeUser?.displayName || ''} 
+        level={fanClubWelcomeUser?.level || 1} 
+        isSuperFan={fanClubWelcomeUser?.isSuperFan || false} 
+        onComplete={() => setFanClubWelcomeUser(null)} 
+      />
     </div>
   );
 }

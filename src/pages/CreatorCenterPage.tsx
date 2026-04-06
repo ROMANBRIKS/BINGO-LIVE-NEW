@@ -13,6 +13,7 @@ import {
 import { cn } from '../lib/utils';
 import { GoLiveModal } from '../components/GoLiveModal';
 import { AnimatePresence } from 'framer-motion';
+import { ARPreviewModal } from '../components/ARPreviewModal';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Agency, UserProfile } from '../types';
@@ -54,7 +55,7 @@ const ExampleImage = ({ src, label, status }: { src: string, label: string, stat
   </div>
 );
 
-const InteractiveToolsSection = ({ onOpenGoLive }: { onOpenGoLive: () => void }) => {
+const InteractiveToolsSection = ({ onOpenGoLive, onOpenARPreview }: { onOpenGoLive: () => void, onOpenARPreview: () => void }) => {
   const { showToast } = useToast();
   return (
     <div className="space-y-4 pt-8 border-t border-slate-50">
@@ -89,7 +90,15 @@ const InteractiveToolsSection = ({ onOpenGoLive }: { onOpenGoLive: () => void })
             ].map((tool, i) => (
               <div 
                 key={i} 
-                onClick={() => tool.label === 'Virtual Avatar' || tool.label === 'AI Coach' ? onOpenGoLive() : showToast(`${tool.label} feature coming soon! 🛠️`, 'info')}
+                onClick={() => {
+                  if (tool.label === 'Virtual Avatar' || tool.label === 'AI Coach') {
+                    onOpenGoLive();
+                  } else if (tool.label === 'Beauty' || tool.label === 'Mask' || tool.label === 'Camera') {
+                    onOpenARPreview();
+                  } else {
+                    showToast(`${tool.label} feature coming soon! 🛠️`, 'info');
+                  }
+                }}
                 className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
               >
                 <div className="relative w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-cyan-50 group-hover:text-cyan-500 transition-colors">
@@ -177,6 +186,7 @@ export default function CreatorCenterPage() {
   const [activeTab, setActiveTab] = useState('Live');
   const [tutorialTab, setTutorialTab] = useState('Live Skills');
   const [isGoLiveModalOpen, setIsGoLiveModalOpen] = useState(false);
+  const [isARPreviewOpen, setIsARPreviewOpen] = useState(false);
   const [agency, setAgency] = useState<Agency | null>(null);
   const [agencyHosts, setAgencyHosts] = useState<UserProfile[]>([]);
   const [isLoadingAgency, setIsLoadingAgency] = useState(false);
@@ -517,7 +527,10 @@ export default function CreatorCenterPage() {
                         </div>
                       </div>
                     </div>
-                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
+                    <InteractiveToolsSection 
+                      onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
+                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                    />
                   </>
                 )}
 
@@ -608,7 +621,10 @@ export default function CreatorCenterPage() {
                         </div>
                       </div>
                     </div>
-                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
+                    <InteractiveToolsSection 
+                      onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
+                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                    />
                   </>
                 )}
 
@@ -676,7 +692,10 @@ export default function CreatorCenterPage() {
                         ))}
                       </div>
                     </div>
-                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
+                    <InteractiveToolsSection 
+                      onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
+                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                    />
                   </>
                 )}
 
@@ -772,7 +791,10 @@ export default function CreatorCenterPage() {
                         </div>
                       </div>
                     </div>
-                    <InteractiveToolsSection onOpenGoLive={() => setIsGoLiveModalOpen(true)} />
+                    <InteractiveToolsSection 
+                      onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
+                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                    />
                   </>
                 )}
               </div>
@@ -894,7 +916,18 @@ export default function CreatorCenterPage() {
                       { icon: Megaphone, label: 'Agency Events', color: 'bg-orange-50 text-orange-500' },
                       { icon: Settings, label: 'Agency Settings', color: 'bg-slate-50 text-slate-500' }
                     ].map((tool, i) => (
-                      <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-95">
+                      <div key={i} 
+                        onClick={() => {
+                          if (tool.label === 'Recruit Hosts') {
+                            showToast("Recruitment link copied! 🔗", 'success');
+                          } else if (tool.label === 'Commission Reports') {
+                            showToast("Generating commission report... 📊", 'info');
+                          } else {
+                            showToast(`${tool.label} coming soon! 🛠️`, 'info');
+                          }
+                        }}
+                        className="bg-white p-5 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+                      >
                         <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", tool.color)}>
                           <tool.icon size={24} />
                         </div>
@@ -1023,6 +1056,12 @@ export default function CreatorCenterPage() {
       <AnimatePresence>
         {isGoLiveModalOpen && (
           <GoLiveModal onClose={() => setIsGoLiveModalOpen(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isARPreviewOpen && (
+          <ARPreviewModal isOpen={isARPreviewOpen} onClose={() => setIsARPreviewOpen(false)} />
         )}
       </AnimatePresence>
     </div>

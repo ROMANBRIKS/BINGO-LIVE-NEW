@@ -14,7 +14,10 @@ export const SIMULATED_USERS: { name: string; level?: number; nobleTier?: NobleT
   { name: 'Sherryluv', level: 12, nobleTier: 'Emperor' },
   { name: 'CoolCat', level: 5, nobleTier: 'None' },
   { name: 'StreamFan', level: 2, nobleTier: 'None' },
-  { name: 'Global God 1', level: 50, nobleTier: 'Global God' }
+  { name: 'Global God 1', level: 50, nobleTier: 'Global God' },
+  { name: 'Duke John', level: 20, nobleTier: 'Duke' },
+  { name: 'Grand Duke Mike', level: 35, nobleTier: 'Grand Duke' },
+  { name: 'Archduke Sarah', level: 45, nobleTier: 'Archduke' }
 ];
 
 export const SIMULATED_CHAT_MESSAGES = [
@@ -66,6 +69,12 @@ export const generateSimulatedMessage = (hostProfile: UserProfile | null) => {
     timestamp: Date.now(),
     hostPhoto: hostProfile?.photoURL,
     hostName: hostProfile?.displayName,
-    isNew: type === 'join' && Math.random() > 0.7
+    isNew: type === 'join' && Math.random() > 0.7,
+    photoURL: `https://i.pravatar.cc/150?u=${user}`,
+    fanClubLevel: Math.random() > 0.8 ? Math.floor(Math.random() * 20) + 1 : undefined,
+    fanClubHostName: hostProfile?.displayName || 'Anchor',
+    isSuperFan: Math.random() > 0.95,
+    familyName: Math.random() > 0.7 ? ['LEGENDS', 'ROYALS', 'ELITE', 'VIBES'][Math.floor(Math.random() * 4)] : undefined,
+    familyLevel: Math.random() > 0.7 ? Math.floor(Math.random() * 15) + 1 : undefined
   };
 };

@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GiftCombo } from '../components/GiftCombo';
 import { GiftAnimation } from '../components/GiftAnimation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle, Smile, SendHorizontal } from 'lucide-react';
+import { mediaPipeService, ARSettings } from '../services/MediaPipeService';
+import { cn } from '../lib/utils';
+import { AILiveAssistant, StreamStats } from '../components/AILiveAssistant';
+import { MiniGameCenter, MiniGame } from '../components/MiniGameCenter';
+import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle, Smile, SendHorizontal, Crown, Glasses, Gamepad2, UserCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -21,13 +25,14 @@ import { getSnipeMultiplier, calculateFinalPKResult } from '../pkEnhancedLogic';
 import { PK_SHIELDS, calculateShieldedScore } from '../pkShieldLogic';
 import { ShieldTier } from '../types';
 
-const MODES = ['Multi-guest LIVE', 'LIVE', 'Audio Live', 'Game LIVE'];
+const MODES = ['Multi-Guest-Live', 'LIVE', 'Audio Live', 'Game LIVE'];
 
 export default function GoLivePage() {
   const { profile } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -36,6 +41,26 @@ export default function GoLivePage() {
   const [status, setStatus] = useState<'setup' | 'preparing' | 'countdown' | 'live'>('setup');
   const [countdown, setCountdown] = useState(3);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  
+  // AR & Beauty State
+  const [arSettings, setArSettings] = useState<ARSettings>({
+    beautyLevel: 0,
+    brightness: 0,
+    activeMask: null,
+    virtualBackground: null,
+    virtualAvatar: null
+  });
+  const [showBeautyModal, setShowBeautyModal] = useState(false);
+  const [showMagicModal, setShowMagicModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showMiniGames, setShowMiniGames] = useState(false);
+  const [streamStats, setStreamStats] = useState<StreamStats>({
+    viewerCount: 0,
+    likeCount: 0,
+    giftCount: 0,
+    followCount: 0,
+    duration: 0
+  });
   const [messages, setMessages] = useState<{ 
     id: string; 
     displayName?: string; 
@@ -53,9 +78,18 @@ export default function GoLivePage() {
   const [input, setInput] = useState('');
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (status === 'live') {
+      const interval = setInterval(() => {
+        setStreamStats(prev => ({
+          ...prev,
+          duration: prev.duration + 1,
+          viewerCount: Math.floor(Math.random() * 100), // Mock data
+          likeCount: prev.likeCount + Math.floor(Math.random() * 5)
+        }));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [status]);
 
   const visibleMessages = React.useMemo(() => {
     const fiveMinutesAgo = currentTime - 5 * 60 * 1000;
@@ -354,29 +388,80 @@ export default function GoLivePage() {
     if (roundTimeoutRef.current) clearTimeout(roundTimeoutRef.current);
   };
 
-  useEffect(() => {
-    async function setupCamera() {
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const setupCamera = async () => {
+    setCameraError(null);
+    try {
+      // Try with audio first
+      let mediaStream: MediaStream;
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'user' },
           audio: true 
         });
-        setStream(mediaStream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-      } catch (err) {
-        console.error("Error accessing camera:", err);
+      } catch (audioErr) {
+        console.warn("Audio access failed, falling back to video-only:", audioErr);
+        mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'user' },
+          audio: false 
+        });
       }
+
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        
+        // Explicitly call play to handle some browser restrictions
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn("Video play failed, might need user interaction:", playErr);
+        }
+        
+        const initMediaPipe = () => {
+          if (canvasRef.current && videoRef.current) {
+            // Ensure we have valid dimensions
+            const width = videoRef.current.videoWidth || 640;
+            const height = videoRef.current.videoHeight || 480;
+            canvasRef.current.width = width;
+            canvasRef.current.height = height;
+            
+            mediaPipeService.initialize(videoRef.current, canvasRef.current).then(() => {
+              mediaPipeService.startProcessing();
+            });
+          }
+        };
+
+        // Wait for video to be ready
+        if (videoRef.current.readyState >= 2) {
+          initMediaPipe();
+        } else {
+          videoRef.current.onloadeddata = initMediaPipe;
+        }
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setCameraError(errorMsg);
+      showToast("Could not access camera. Please check permissions.", 'error');
     }
+  };
+
+  useEffect(() => {
     setupCamera();
 
     return () => {
+      mediaPipeService.stopProcessing();
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
+
+  useEffect(() => {
+    mediaPipeService.updateSettings(arSettings);
+  }, [arSettings]);
 
   const handleStartBroadcast = async () => {
     if (!profile || status !== 'setup') return;
@@ -479,9 +564,32 @@ export default function GoLivePage() {
           autoPlay 
           playsInline 
           muted 
+          className="hidden"
+        />
+        <canvas 
+          ref={canvasRef}
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
+        
+        {/* Camera Error State */}
+        {cameraError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
+              <Camera size={32} className="text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Camera Access Denied</h3>
+            <p className="text-white/60 text-sm mb-6 max-w-xs">
+              We need camera access to start your live stream. Please check your browser settings and try again.
+            </p>
+            <button 
+              onClick={setupCamera}
+              className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-gray-200 transition-colors"
+            >
+              Retry Access
+            </button>
+          </div>
+        )}
       </div>
 
       {status === 'setup' || status === 'preparing' ? (
@@ -555,15 +663,39 @@ export default function GoLivePage() {
                   </div>
                   <span className="text-[10px] font-bold text-white uppercase tracking-wider">Flip</span>
                 </button>
-                <button className="flex flex-col items-center gap-1 group">
-                  <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center group-active:scale-95 transition-transform">
-                    <Sparkles size={24} className="text-white" />
+                <button 
+                  onClick={() => setShowBeautyModal(true)}
+                  className="flex flex-col items-center gap-1 group"
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border flex items-center justify-center group-active:scale-95 transition-transform",
+                    (arSettings.beautyLevel > 0 || arSettings.brightness > 0) ? "border-cyan-400 text-cyan-400" : "border-white/10 text-white"
+                  )}>
+                    <Sparkles size={24} />
                   </div>
                   <span className="text-[10px] font-bold text-white uppercase tracking-wider">Beauty</span>
                 </button>
-                <button className="flex flex-col items-center gap-1 group">
-                  <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center group-active:scale-95 transition-transform">
-                    <Wand2 size={24} className="text-white" />
+                <button 
+                  onClick={() => setShowAvatarModal(true)}
+                  className="flex flex-col items-center gap-1 group"
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border flex items-center justify-center group-active:scale-95 transition-transform",
+                    arSettings.virtualAvatar ? "border-purple-400 text-purple-400" : "border-white/10 text-white"
+                  )}>
+                    <UserCircle size={24} />
+                  </div>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wider">Avatar</span>
+                </button>
+                <button 
+                  onClick={() => setShowMagicModal(true)}
+                  className="flex flex-col items-center gap-1 group"
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border flex items-center justify-center group-active:scale-95 transition-transform",
+                    (arSettings.activeMask || arSettings.virtualBackground) ? "border-pink-400 text-pink-400" : "border-white/10 text-white"
+                  )}>
+                    <Wand2 size={24} />
                   </div>
                   <span className="text-[10px] font-bold text-white uppercase tracking-wider">Magic</span>
                 </button>
@@ -591,22 +723,23 @@ export default function GoLivePage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-center gap-6 overflow-x-auto scrollbar-hide px-4">
+              <div className="flex items-center gap-10 overflow-x-auto scrollbar-hide px-10 snap-x snap-mandatory mask-fade-edges">
                 {MODES.map(mode => (
                   <button
                     key={mode}
                     onClick={() => setActiveMode(mode)}
-                    className={`whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all ${
+                    className={cn(
+                      "whitespace-nowrap text-xs font-black uppercase tracking-widest transition-all snap-center relative py-2",
                       activeMode === mode 
                         ? 'text-white scale-110' 
                         : 'text-white/40 hover:text-white/60'
-                    }`}
+                    )}
                   >
                     {mode}
                     {activeMode === mode && (
                       <motion.div 
                         layoutId="activeMode"
-                        className="w-1 h-1 bg-white rounded-full mx-auto mt-1"
+                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-white rounded-full"
                       />
                     )}
                   </button>
@@ -782,8 +915,14 @@ export default function GoLivePage() {
                 <button onClick={() => setShowChatInput(true)} className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
                   <MessageCircle size={20} className="text-white" />
                 </button>
-                <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
-                  <Sparkles size={20} className="text-white" />
+                <button 
+                  onClick={() => setShowBeautyModal(true)}
+                  className={cn(
+                    "w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border flex items-center justify-center",
+                    (arSettings.beautyLevel > 0 || arSettings.brightness > 0) ? "border-cyan-400 text-cyan-400" : "border-white/10 text-white"
+                  )}
+                >
+                  <Sparkles size={20} />
                 </button>
                 <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
                   <Menu size={20} className="text-white" />
@@ -899,7 +1038,25 @@ export default function GoLivePage() {
         </div>
       )}
 
-      {/* Gift Combo Overlay */}
+      {/* AI Assistant */}
+      {status === 'live' && (
+        <AILiveAssistant 
+          stats={streamStats} 
+          onAction={(action) => {
+            if (action === 'pk') setIsPkActive(true);
+            if (action === 'share') showToast("Sharing stream... 📢", 'info');
+          }} 
+        />
+      )}
+
+      {/* Mini-Games */}
+      {status === 'live' && (
+        <MiniGameCenter 
+          onStartGame={(game) => {
+            showToast(`Starting ${game.name}... ${game.icon}`, 'success');
+          }} 
+        />
+      )}
       <div className="fixed top-1/3 left-4 z-[200] flex flex-col gap-4 pointer-events-none">
         <AnimatePresence>
           {activeGift && (
@@ -924,6 +1081,192 @@ export default function GoLivePage() {
           nobleTier={activeGift.nobleTier}
         />
       )}
+      {/* Beauty Modal */}
+      <AnimatePresence>
+        {showBeautyModal && (
+          <div className="absolute inset-0 z-[110] flex items-end">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowBeautyModal(false)}
+              className="absolute inset-0 bg-black/40"
+            />
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative w-full bg-[#1a1a1a] rounded-t-[2.5rem] p-6 pb-12 border-t border-white/10 space-y-8"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-white font-black italic uppercase tracking-tight">Beauty Settings</h3>
+                <button onClick={() => setShowBeautyModal(false)} className="text-white/40"><X size={24} /></button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
+                    <span>Skin Smoothing</span>
+                    <span className="text-cyan-400">{arSettings.beautyLevel}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={arSettings.beautyLevel}
+                    onChange={(e) => setArSettings(prev => ({ ...prev, beautyLevel: parseInt(e.target.value) }))}
+                    className="w-full accent-cyan-400"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
+                    <span>Brightness</span>
+                    <span className="text-cyan-400">{arSettings.brightness}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={arSettings.brightness}
+                    onChange={(e) => setArSettings(prev => ({ ...prev, brightness: parseInt(e.target.value) }))}
+                    className="w-full accent-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  setArSettings(prev => ({ ...prev, beautyLevel: 0, brightness: 0 }));
+                }}
+                className="w-full py-3 bg-white/5 rounded-2xl text-white/40 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+              >
+                Reset Beauty
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Avatar Modal */}
+      <AnimatePresence>
+        {showAvatarModal && (
+          <div className="absolute inset-0 z-[110] flex items-end">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAvatarModal(false)}
+              className="absolute inset-0 bg-black/40"
+            />
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative w-full bg-[#1a1a1a] rounded-t-[2.5rem] p-6 pb-12 border-t border-white/10 space-y-8"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-white font-black italic uppercase tracking-tight">Virtual Avatar</h3>
+                <button onClick={() => setShowAvatarModal(false)} className="text-white/40"><X size={24} /></button>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { id: null, name: 'None', icon: '🚫' },
+                  { id: 'robot', name: 'Robot', icon: '🤖' },
+                  { id: 'cat', name: 'Cat', icon: '🐱' },
+                ].map(avatar => (
+                  <button 
+                    key={avatar.id || 'none'}
+                    onClick={() => {
+                      setArSettings(prev => ({ ...prev, virtualAvatar: avatar.id }));
+                    }}
+                    className={cn(
+                      "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
+                      arSettings.virtualAvatar === avatar.id ? "bg-cyan-400 border-cyan-400 text-black" : "bg-white/5 border-white/5 text-white"
+                    )}
+                  >
+                    <span className="text-2xl">{avatar.icon}</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest">{avatar.name}</span>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showMagicModal && (
+          <div className="absolute inset-0 z-[110] flex items-end">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMagicModal(false)}
+              className="absolute inset-0 bg-black/40"
+            />
+            <motion.div 
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative w-full bg-[#1a1a1a] rounded-t-[2.5rem] p-6 pb-12 border-t border-white/10 space-y-8"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-white font-black italic uppercase tracking-tight">Magic Effects</h3>
+                <button onClick={() => setShowMagicModal(false)} className="text-white/40"><X size={24} /></button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Face Masks</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { id: null, label: 'None', icon: X },
+                      { id: 'crown', label: 'Crown', icon: Crown },
+                      { id: 'glasses', label: 'Glasses', icon: Glasses },
+                    ].map((mask) => (
+                      <button
+                        key={String(mask.id)}
+                        onClick={() => setArSettings(prev => ({ ...prev, activeMask: mask.id as any }))}
+                        className={cn(
+                          "aspect-square rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all",
+                          arSettings.activeMask === mask.id ? "bg-pink-500 border-pink-400 text-white" : "bg-white/5 border-white/10 text-white/40"
+                        )}
+                      >
+                        <mask.icon size={20} />
+                        <span className="text-[8px] font-black uppercase tracking-tighter">{mask.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Virtual Background</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    {[
+                      { id: null, label: 'None', icon: X },
+                      { id: 'blur', label: 'Blur', icon: Maximize2 },
+                      { id: 'cyan', label: 'Cyan', icon: Sparkles },
+                    ].map((bg) => (
+                      <button
+                        key={String(bg.id)}
+                        onClick={() => setArSettings(prev => ({ ...prev, virtualBackground: bg.id as any }))}
+                        className={cn(
+                          "aspect-square rounded-2xl border flex flex-col items-center justify-center gap-2 transition-all",
+                          arSettings.virtualBackground === bg.id ? "bg-cyan-500 border-cyan-400 text-white" : "bg-white/5 border-white/10 text-white/40"
+                        )}
+                      >
+                        <bg.icon size={20} />
+                        <span className="text-[8px] font-black uppercase tracking-tighter">{bg.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -14,6 +14,9 @@ interface Toast {
 
 interface ToastContextType {
   showToast: (message: string, type?: ToastType, duration?: number) => void;
+  toastHistory: Toast[];
+  unreadCount: number;
+  clearUnread: () => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -28,16 +31,26 @@ export const useToast = () => {
 
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toastHistory, setToastHistory] = useState<Toast[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const showToast = useCallback((message: string, type: ToastType = 'info', duration: number = 3000) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
+    const newToast = { id, message, type, duration };
+    
+    setToasts((prev) => [...prev, newToast]);
+    setToastHistory((prev) => [newToast, ...prev].slice(0, 50)); // Keep last 50
+    setUnreadCount((prev) => prev + 1);
 
     if (duration !== Infinity) {
       setTimeout(() => {
         setToasts((prev) => prev.filter((toast) => toast.id !== id));
       }, duration);
     }
+  }, []);
+
+  const clearUnread = useCallback(() => {
+    setUnreadCount(0);
   }, []);
 
   const removeToast = (id: string) => {
@@ -63,7 +76,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, toastHistory, unreadCount, clearUnread }}>
       {children}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3 w-full max-w-md px-4 pointer-events-none">
         <AnimatePresence mode="popLayout">

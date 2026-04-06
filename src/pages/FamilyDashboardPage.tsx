@@ -11,6 +11,7 @@ import {
 import { cn } from '../lib/utils';
 import { Family, FamilyMember, UserProfile } from '../types';
 import { auth, db } from '../firebase';
+import { checkFamilyDailyCheckIn } from '../FamilyLogic';
 import { doc, getDoc, collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 
 export default function FamilyDashboardPage() {
@@ -157,6 +158,20 @@ export default function FamilyDashboardPage() {
                 <Trophy size={12} className="text-yellow-400" />
                 <span className="text-[10px] font-black text-white uppercase tracking-widest">Rank #{family.ranking || '---'}</span>
               </div>
+              <button 
+                onClick={async () => {
+                  if (!auth.currentUser || !family) return;
+                  const result = await checkFamilyDailyCheckIn(auth.currentUser.uid, family.id);
+                  if (result.success) {
+                    showToast(`Checked in! +${result.reward} points 🎁`, 'success');
+                  } else {
+                    showToast(result.message || "Check-in failed", 'error');
+                  }
+                }}
+                className="ml-auto px-4 py-1 bg-white/10 hover:bg-white/20 rounded-full text-[9px] font-black uppercase italic tracking-widest text-white transition-all active:scale-95 border border-white/5"
+              >
+                Check-in
+              </button>
             </div>
           </div>
         </div>
