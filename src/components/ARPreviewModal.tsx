@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Wand2, Crown, Glasses, Maximize2 } from 'lucide-react';
+import { X, Sparkles, Wand2, Crown, Glasses, Maximize2, Columns2, RotateCw } from 'lucide-react';
 import { mediaPipeService, ARSettings } from '../services/MediaPipeService';
 import { cn } from '../lib/utils';
 import { useToast } from '../context/ToastContext';
@@ -8,9 +8,10 @@ import { useToast } from '../context/ToastContext';
 interface ARPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: 'beauty' | 'magic' | 'transform';
 }
 
-export const ARPreviewModal: React.FC<ARPreviewModalProps> = ({ isOpen, onClose }) => {
+export const ARPreviewModal: React.FC<ARPreviewModalProps> = ({ isOpen, onClose, initialTab = 'beauty' }) => {
   const { showToast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,9 +21,18 @@ export const ARPreviewModal: React.FC<ARPreviewModalProps> = ({ isOpen, onClose 
     brightness: 20,
     activeMask: null,
     virtualBackground: null,
-    virtualAvatar: null
+    virtualAvatar: null,
+    isMirrored: false,
+    isFlipped: false,
+    zoomLevel: 1.0
   });
-  const [activeTab, setActiveTab] = useState<'beauty' | 'magic'>('beauty');
+  const [activeTab, setActiveTab] = useState<'beauty' | 'magic' | 'transform'>(initialTab);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -145,6 +155,15 @@ export const ARPreviewModal: React.FC<ARPreviewModalProps> = ({ isOpen, onClose 
             >
               Magic
             </button>
+            <button 
+              onClick={() => setActiveTab('transform')}
+              className={cn(
+                "px-6 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest transition-all",
+                activeTab === 'transform' ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "bg-black/40 text-white/40 backdrop-blur-md"
+              )}
+            >
+              Transform
+            </button>
           </div>
         </div>
 
@@ -180,6 +199,47 @@ export const ARPreviewModal: React.FC<ARPreviewModalProps> = ({ isOpen, onClose 
                   onChange={(e) => setArSettings(prev => ({ ...prev, brightness: parseInt(e.target.value) }))}
                   className="w-full accent-cyan-400"
                 />
+              </div>
+            </div>
+          ) : activeTab === 'transform' ? (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
+                  <span>Zoom</span>
+                  <span className="text-orange-400">{arSettings.zoomLevel?.toFixed(1)}x</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="3" 
+                  step="0.1"
+                  value={arSettings.zoomLevel}
+                  onChange={(e) => setArSettings(prev => ({ ...prev, zoomLevel: parseFloat(e.target.value) }))}
+                  className="w-full accent-orange-400"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setArSettings(prev => ({ ...prev, isMirrored: !prev.isMirrored }))}
+                  className={cn(
+                    "py-3 rounded-xl border flex items-center justify-center gap-2 transition-all font-black uppercase italic tracking-widest text-[10px]",
+                    arSettings.isMirrored ? "bg-orange-500 border-orange-400 text-white" : "bg-white/5 border-white/10 text-white/40"
+                  )}
+                >
+                  <Columns2 size={16} />
+                  Mirror
+                </button>
+                <button
+                  onClick={() => setArSettings(prev => ({ ...prev, isFlipped: !prev.isFlipped }))}
+                  className={cn(
+                    "py-3 rounded-xl border flex items-center justify-center gap-2 transition-all font-black uppercase italic tracking-widest text-[10px]",
+                    arSettings.isFlipped ? "bg-orange-500 border-orange-400 text-white" : "bg-white/5 border-white/10 text-white/40"
+                  )}
+                >
+                  <RotateCw size={16} />
+                  Flip
+                </button>
               </div>
             </div>
           ) : (

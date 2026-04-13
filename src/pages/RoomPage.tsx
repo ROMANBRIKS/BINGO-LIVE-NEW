@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   doc, onSnapshot, collection, query, orderBy, limit, addDoc, 
   serverTimestamp, updateDoc, increment, deleteField, setDoc, deleteDoc,
@@ -11,7 +11,7 @@ import { Room, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { createThankYouMessage, createInitialFollowPrompt } from '../followLogic';
 import { generateSimulatedMessage } from '../simulationLogic';
-import { PRIVATE_CALL_FEE } from '../privateCallLogic';
+import { PRIVATE_CALL_FEE_AUDIO, PRIVATE_CALL_FEE_VIDEO } from '../privateCallLogic';
 import { cn } from '../lib/utils';
 import { getDeviceType } from '../lib/device';
 import { AILiveAssistant, StreamStats } from '../components/AILiveAssistant';
@@ -23,9 +23,12 @@ import {
 } from 'lucide-react';
 import { WingedHeart } from '../components/WingedHeart';
 import { GiftCombo } from '../components/GiftCombo';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { PrivateCallManager } from '../components/PrivateCallManager';
+import { PredictionSystem } from '../components/PredictionSystem';
 import { PKBattle } from '../components/PKBattle';
+import { YoutubePlayer } from '../components/YoutubePlayer';
+import { MusicPlayer } from '../components/MusicPlayer';
 import { GiftAnimation } from '../components/GiftAnimation';
 import { NobleEntrance } from '../components/NobleEntrance';
 import { MicQueue } from '../components/MicQueue';
@@ -44,11 +47,23 @@ import { FanClubWelcome } from '../components/FanClubWelcome';
 import { NobleFrame } from '../components/NobleFrame';
 import { NobleBadge } from '../components/NobleBadge';
 import { FamilyBadge } from '../components/FamilyBadge';
+import { TreasureChestDisplay } from '../components/TreasureChestDisplay';
+import { EnhancedGuestSeat } from '../components/EnhancedGuestSeat';
+import { SeatRequestManager } from '../components/SeatRequestManager';
+import { PollSystem } from '../components/PollSystem';
+import { ChaosEvents } from '../components/ChaosEvents';
+import { EasterEggDrops } from '../components/EasterEggDrops';
+import { FeatureAutoManager } from '../components/FeatureAutoManager';
+import { initializeTreasureChest } from '../treasureChestLogic';
+import { initializeEnhancedSeats } from '../seatManagementLogic';
+import { SVIPManager } from '../lib/svipLogic';
 import { MiniGameOverlay, MiniGame as ActiveGame } from '../components/MiniGameOverlay';
 import { PK_SHIELDS } from '../pkShieldLogic';
 
 export default function RoomPage() {
   const { roomId } = useParams();
+  const [searchParams] = useSearchParams();
+  const isGhost = searchParams.get('ghost') === 'true';
   const { profile } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -93,6 +108,10 @@ export default function RoomPage() {
   const [seats, setSeats] = useState<GuestSeat[]>([]);
   const [micQueue, setMicQueue] = useState<MicRequest[]>([]);
   const [activeGame, setActiveGame] = useState<ActiveGame | null>(null);
+  const [treasureInitialized, setTreasureInitialized] = useState(false);
+  const [seatRequestCount, setSeatRequestCount] = useState(0);
+  const [fluctuatedViewerCount, setFluctuatedViewerCount] = useState(0);
+  const [activePrivateCall, setActivePrivateCall] = useState<any | null>(null);
 
   // 2. REFS
   const pendingLikesRef = React.useRef(0);
@@ -115,8 +134,33 @@ export default function RoomPage() {
         likeCount: room.likes || 0,
         duration: prev.duration + 1
       }));
+      if (fluctuatedViewerCount === 0) {
+        setFluctuatedViewerCount(room.viewerCount || 411);
+      }
     }
-  }, [room, currentTime]);
+  }, [room]);
+
+  // Viewer count fluctuation logic
+  useEffect(() => {
+    if (!room) return;
+    
+    const interval = setInterval(() => {
+      setFluctuatedViewerCount(prev => {
+        const drift = Math.random() > 0.5 ? 1 : -1;
+        // Keep it within a reasonable range of the actual count (+/- 10%)
+        const base = room.viewerCount || 411;
+        const min = Math.max(1, Math.floor(base * 0.9));
+        const max = Math.ceil(base * 1.1);
+        
+        let next = prev + drift;
+        if (next < min) next = min + 1;
+        if (next > max) next = max - 1;
+        return next;
+      });
+    }, 3000); // Update every 3 seconds for a natural feel
+
+    return () => clearInterval(interval);
+  }, [room?.viewerCount]);
 
   useEffect(() => {
     const syncLikes = async () => {
@@ -251,9 +295,36 @@ export default function RoomPage() {
     setMicQueue(room.micQueue || []);
   }, [room?.seats, room?.micQueue]);
 
+  useEffect(() => {
+    if (room && !treasureInitialized && profile?.uid === room.hostUid) {
+      const initializeFeatures = async () => {
+        try {
+          await initializeTreasureChest(room.id);
+          if (room.type === 'multi-guest-live') {
+            await initializeEnhancedSeats(room.id, 4);
+          }
+          setTreasureInitialized(true);
+        } catch (error) {
+          console.error('Error initializing features:', error);
+        }
+      };
+      initializeFeatures();
+    }
+  }, [room?.id, room?.hostUid, room?.type, profile?.uid, treasureInitialized]);
+
   const handleJoinMicRequest = async (type: 'audio' | 'video') => {
     if (!profile || !room) return;
-    const updatedQueue = handleMicRequest(micQueue, profile, type);
+    
+    let displayName = profile.displayName;
+    let photoURL = profile.photoURL;
+    
+    const isMysteryMan = await SVIPManager.hasPrivilege(profile.uid, 'mystery_man_mode');
+    if (isMysteryMan) {
+      displayName = "Mystery Man";
+      photoURL = "https://i.pravatar.cc/150?u=mystery";
+    }
+
+    const updatedQueue = handleMicRequest(micQueue, { ...profile, displayName, photoURL }, type);
     await updateDoc(doc(db, 'rooms', roomId), {
       micQueue: updatedQueue
     });
@@ -271,6 +342,14 @@ export default function RoomPage() {
 
   const handleRemoveGuest = async (seatId: number) => {
     if (!room) return;
+    const seat = seats.find(s => s.seatId === seatId);
+    if (seat?.uid) {
+      const hasAntiKick = await SVIPManager.hasPrivilege(seat.uid, 'anti_kick');
+      if (hasAntiKick) {
+        showToast("This user has Anti-Kick protection! 🛡️", 'error');
+        return;
+      }
+    }
     const updatedSeats = removeGuest(seats, seatId);
     await updateDoc(doc(db, 'rooms', roomId), {
       seats: updatedSeats
@@ -279,6 +358,14 @@ export default function RoomPage() {
 
   const handleToggleMute = async (seatId: number) => {
     if (!room) return;
+    const seat = seats.find(s => s.seatId === seatId);
+    if (seat?.uid && !seat.isMuted) { // Only check when trying to mute
+      const hasAntiMute = await SVIPManager.hasPrivilege(seat.uid, 'anti_mute');
+      if (hasAntiMute) {
+        showToast("This user has Anti-Mute protection! 🛡️", 'error');
+        return;
+      }
+    }
     const updatedSeats = toggleMute(seats, seatId);
     await updateDoc(doc(db, 'rooms', roomId), {
       seats: updatedSeats
@@ -435,6 +522,14 @@ export default function RoomPage() {
     if (!roomId || !profile?.uid) return;
     const roomRef = doc(db, 'rooms', roomId);
     
+    // Ghost Mode: Admins can join without being noticed
+    const shouldBeGhost = isGhost && profile.role === 'admin';
+    
+    if (shouldBeGhost) {
+      console.log("[Admin] Joining in Ghost Mode...");
+      return;
+    }
+
     // Add join message
     const addJoinMessage = async () => {
       try {
@@ -443,94 +538,104 @@ export default function RoomPage() {
           uid: profile.uid,
           displayName: profile.displayName,
           photoURL: profile.photoURL || '',
+          svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
           level: profile.level || 1,
           timestamp: serverTimestamp()
         });
       } catch (error) {
-        console.error('Error adding join message', error);
+        handleFirestoreError(error, OperationType.CREATE, `rooms/${roomId}/messages`);
       }
     };
     addJoinMessage();
 
-    updateDoc(roomRef, { viewerCount: increment(1) }).catch(err => console.error('Error incrementing viewer count', err));
+    updateDoc(roomRef, { viewerCount: increment(1) }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `rooms/${roomId}`));
     return () => {
-      updateDoc(roomRef, { viewerCount: increment(-1) }).catch(err => console.error('Error decrementing viewer count', err));
+      updateDoc(roomRef, { viewerCount: increment(-1) }).catch(err => handleFirestoreError(err, OperationType.UPDATE, `rooms/${roomId}`));
     };
   }, [roomId, profile?.uid]);
 
+  // 4. LISTENERS
   useEffect(() => {
     if (!roomId) return;
+
+    // Listen to Room Data
     const unsubRoom = onSnapshot(doc(db, 'rooms', roomId), (snap) => {
       if (snap.exists()) {
         const roomData = { id: snap.id, ...snap.data() } as Room;
         setRoom(roomData);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `rooms/${roomId}`);
     });
 
-    let unsubHost: (() => void) | undefined;
-    const fetchHostProfile = async () => {
-      const roomSnap = await getDoc(doc(db, 'rooms', roomId));
-      if (roomSnap.exists()) {
-        const hostUid = roomSnap.data().hostUid;
-        unsubHost = onSnapshot(doc(db, 'users', hostUid), (userSnap) => {
-          if (userSnap.exists()) setHostProfile(userSnap.data() as UserProfile);
-        });
-      }
-    };
-    fetchHostProfile();
-    
-    const q = query(collection(db, `rooms/${roomId}/messages`), orderBy('timestamp', 'desc'), limit(50));
+    // Listen to Messages
+    const q = query(
+      collection(db, 'rooms', roomId, 'messages'), 
+      orderBy('timestamp', 'desc'), 
+      limit(50)
+    );
     const unsubMsgs = onSnapshot(q, (snap) => {
       setMessages(snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) })).reverse());
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `rooms/${roomId}/messages`);
     });
-    
-    return () => { 
-      unsubRoom(); 
-      unsubMsgs(); 
-      if (unsubHost) unsubHost();
+
+    return () => {
+      unsubRoom();
+      unsubMsgs();
     };
   }, [roomId]);
+
+  // Listen to Host Profile
+  useEffect(() => {
+    if (!room?.hostUid) return;
+    const hostUid = room.hostUid;
+
+    const unsubHost = onSnapshot(doc(db, 'users', hostUid), (userSnap) => {
+      if (userSnap.exists()) {
+        setHostProfile({ uid: userSnap.id, ...userSnap.data() } as UserProfile);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${hostUid}`);
+    });
+
+    return () => unsubHost();
+  }, [room?.hostUid]);
+
+  // Listen for active private calls in this room
+  useEffect(() => {
+    if (!roomId) return;
+    const q = query(collection(db, `rooms/${roomId}/private_calls`), where('status', '==', 'active'), limit(1));
+    const unsub = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        setActivePrivateCall({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() });
+      } else {
+        setActivePrivateCall(null);
+      }
+    });
+    return () => unsub();
+  }, [roomId]);
+
+  // Check Following Status
+  useEffect(() => {
+    if (!profile || !room?.hostUid) return;
+    const hostUid = room.hostUid;
+    const followId = `${profile.uid}_${hostUid}`;
+
+    const unsub = onSnapshot(doc(db, 'follows', followId), (doc) => {
+      setIsFollowing(doc.exists());
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `follows/${followId}`);
+    });
+
+    return () => unsub();
+  }, [profile?.uid, room?.hostUid]);
 
   // Chat Simulation for Viewer (to make the room feel alive)
   useEffect(() => {
     if (!room || !profile) return;
 
     const interval = setInterval(() => {
-      const users = [
-        { name: 'Dark Matters2.o', level: undefined },
-        { name: 'hanafi', level: 4 },
-        { name: 'DD', level: undefined },
-        { name: 'Deji', level: 8 },
-        { name: 'Sherryluv', level: 12 },
-        { name: 'CoolCat', level: 5 },
-        { name: 'StreamFan', level: 2 }
-      ];
-      const texts = ['Go go go!', 'You got this!', 'Amazing stream!', 'PK King!', 'Let\'s win this!', 'Love the energy!', 'Best anchor ever!'];
-      
-      const rand = Math.random();
-      let type: 'chat' | 'gift' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' | 'mic-request' = 'chat';
-      const userObj = users[Math.floor(Math.random() * users.length)];
-      const user = userObj.name;
-      const level = userObj.level;
-      let text = texts[Math.floor(Math.random() * texts.length)];
-
-      if (rand > 0.98) {
-        type = 'guest-live-prompt';
-        text = 'Wanna meet with the broadcaster? Click to join the Guest Live!';
-      } else if (rand > 0.95) {
-        type = 'like-prompt';
-        text = 'Tap like to give the host a little energy!';
-      } else if (rand > 0.85) {
-        type = 'gift';
-        text = 'sent a Rose 🌹';
-      } else if (rand > 0.75) {
-        type = 'follow';
-        text = 'followed the anchor';
-      } else if (rand > 0.5) {
-        type = 'join';
-        text = 'joined';
-      }
-
       const newMessage = generateSimulatedMessage(hostProfile);
 
       setSimulatedMessages(prev => {
@@ -584,13 +689,6 @@ export default function RoomPage() {
     return () => {};
   }, [room?.id, room?.hostUid, profile?.uid, isFollowing, hostProfile]);
 
-  useEffect(() => {
-    if (!profile || !room) return;
-    const followId = `${profile.uid}_${room.hostUid}`;
-    const followRef = doc(db, 'follows', followId);
-    const unsub = onSnapshot(followRef, (doc) => setIsFollowing(doc.exists()));
-    return () => unsub();
-  }, [profile?.uid, room?.hostUid]);
 
   const toggleFollow = async () => {
     if (!profile || !room) return;
@@ -607,6 +705,7 @@ export default function RoomPage() {
           uid: profile.uid, 
           displayName: profile.displayName, 
           photoURL: profile.photoURL || '', 
+          svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
           level: profile.level || 1, 
           timestamp: serverTimestamp() 
         });
@@ -626,6 +725,7 @@ export default function RoomPage() {
           uid: profile.uid,
           displayName: profile.displayName,
           photoURL: profile.photoURL || '',
+          svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
           hostName: hostProfile?.displayName || 'Anchor',
           hostLevel: hostProfile?.level || 1,
           text: randomThankYou,
@@ -639,7 +739,16 @@ export default function RoomPage() {
     e.preventDefault();
     if (!input.trim() || !profile || !roomId) return;
     try {
-      await addDoc(collection(db, `rooms/${roomId}/messages`), { text: input, uid: profile.uid, displayName: profile.displayName, photoURL: profile.photoURL || '', level: profile.level || 1, type: 'chat', timestamp: serverTimestamp() });
+      await addDoc(collection(db, `rooms/${roomId}/messages`), { 
+        text: input, 
+        uid: profile.uid, 
+        displayName: profile.displayName, 
+        photoURL: profile.photoURL || '', 
+        svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
+        level: profile.level || 1, 
+        type: 'chat', 
+        timestamp: serverTimestamp() 
+      });
       setInput('');
       setShowChatInput(false);
     } catch (error) { console.error('Send message error', error); }
@@ -650,7 +759,14 @@ export default function RoomPage() {
     handleTapLike();
     likeParticlesRef.current?.triggerLike();
     try {
-      await addDoc(collection(db, `rooms/${roomId}/messages`), { type: 'like', uid: profile.uid, displayName: profile.displayName, photoURL: profile.photoURL, timestamp: serverTimestamp() });
+      await addDoc(collection(db, `rooms/${roomId}/messages`), { 
+        type: 'like', 
+        uid: profile.uid, 
+        displayName: profile.displayName, 
+        photoURL: profile.photoURL, 
+        svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
+        timestamp: serverTimestamp() 
+      });
     } catch (error) { console.error('Send like error', error); }
   };
 
@@ -664,6 +780,15 @@ export default function RoomPage() {
       case 'Minimize': setIsMinimized(!isMinimized); break;
       case 'Quality': setQuality(prev => prev === 'HD' ? 'SD' : 'HD'); break;
       case 'Watching Optimization': setIsLowLatency(!isLowLatency); break;
+      case 'Simulate Noble':
+        const nobleTiers: any[] = ['Baron', 'Duke', 'Grand Duke', 'Archduke', 'King', 'Emperor', 'Global God'];
+        const randomTier = nobleTiers[Math.floor(Math.random() * nobleTiers.length)];
+        setNobleEntranceUser({
+          displayName: 'Simulated Noble',
+          tier: randomTier,
+          photoURL: 'https://i.pravatar.cc/150?u=noble'
+        });
+        break;
     }
   };
 
@@ -678,8 +803,15 @@ export default function RoomPage() {
           hostUid={room.hostUid}
           pkStatus={room.pkStatus}
           opponentUid={room.pkOpponentUid}
-          isVirtual={room.type === 'virtual'}
+          isVirtual={room.type === 'virtual-live'}
+          type={room.type}
         />
+        {room && !isCleanMode && (
+          <TreasureChestDisplay 
+            roomId={room.id} 
+            isHost={profile?.uid === room.hostUid} 
+          />
+        )}
       </div>
 
       <div className="relative z-10 h-full flex flex-col pointer-events-none">
@@ -698,6 +830,9 @@ export default function RoomPage() {
                       <span className="text-white text-[10px] font-bold leading-tight truncate max-w-[80px]">
                         {hostProfile?.displayName || 'keep it secret'}
                       </span>
+                      {activePrivateCall && (
+                        <span className="text-[6px] bg-pink-500 text-white px-1 rounded-full font-black uppercase">Private</span>
+                      )}
                       {hostProfile?.nobleTitle && hostProfile.nobleTitle !== 'None' && (
                         <NobleBadge tier={hostProfile.nobleTitle as any} size="sm" />
                       )}
@@ -762,7 +897,7 @@ export default function RoomPage() {
                 </div>
                 
                 <div className="bg-black/20 backdrop-blur-md rounded-full px-2 py-1 border border-white/5 scale-90 origin-right">
-                  <span className="text-white text-[11px] font-medium opacity-80">{room.viewerCount || 411}</span>
+                  <span className="text-white text-[11px] font-medium opacity-80">{fluctuatedViewerCount}</span>
                 </div>
                 
                 <button onClick={() => navigate('/')} className="w-7 h-7 flex items-center justify-center text-white/80 hover:text-white active:scale-90 transition-all scale-90 origin-right">
@@ -797,9 +932,66 @@ export default function RoomPage() {
           </>
         )}
 
+        {/* Youtube Player Overlay */}
+        <AnimatePresence>
+          {room.youtubeVideoId && (
+            <YoutubePlayer 
+              videoId={room.youtubeVideoId} 
+              isHost={profile?.uid === room.hostUid}
+              onClose={async () => {
+                const roomRef = doc(db, 'rooms', room.id);
+                await updateDoc(roomRef, { youtubeVideoId: null });
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Music Player Overlay */}
+        <AnimatePresence>
+          {room.currentSong && (
+            <MusicPlayer 
+              song={room.currentSong}
+              isHost={profile?.uid === room.hostUid}
+              onClose={async () => {
+                const roomRef = doc(db, 'rooms', room.id);
+                await updateDoc(roomRef, { currentSong: null });
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Singing Mode Indicator */}
+        <AnimatePresence>
+          {room.isSingingMode && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              className="absolute top-24 right-4 z-30"
+            >
+              <div className="bg-pink-500 text-white p-2 rounded-full shadow-lg shadow-pink-500/40 animate-bounce">
+                <Mic size={20} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* MIC QUEUE / GUEST SEATS */}
-        {!isCleanMode && (
+        {!isCleanMode && room.type === 'multi-guest-live' && (
           <div className="absolute left-4 right-4 top-[120px] z-30 pointer-events-auto">
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {seats && seats.map((seat, idx) => (
+                <EnhancedGuestSeat
+                  key={`seat_${idx}`}
+                  seat={seat}
+                  seatId={idx}
+                  roomId={room.id}
+                  isHost={profile?.uid === room.hostUid}
+                  coinContribution={seat.coinContribution || 0}
+                  onSeatChange={() => setSeats([...seats])}
+                />
+              ))}
+            </div>
             <MicQueue 
               isHost={profile?.uid === room.hostUid}
               seats={seats}
@@ -816,12 +1008,35 @@ export default function RoomPage() {
         {/* PRIVATE CALL MANAGER */}
         {!isCleanMode && room && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2 z-50 pointer-events-auto flex flex-col gap-4">
+            {room && room.type === 'multi-guest-live' && profile?.uid === room.hostUid && (
+              <SeatRequestManager
+                roomId={room.id}
+                isHost={true}
+                onRequestsChange={setSeatRequestCount}
+              />
+            )}
+            <PollSystem 
+              roomId={room.id} 
+              isHost={profile?.uid === room.hostUid} 
+            />
+            <ChaosEvents roomId={room.id} />
+            <EasterEggDrops roomId={room.id} />
+            <FeatureAutoManager roomId={room.id} isHost={profile?.uid === room.hostUid} />
             <PrivateCallManager 
               roomId={roomId || ''} 
               hostUid={room.hostUid} 
               isHost={profile?.uid === room.hostUid}
               userProfile={profile}
+              hostProfile={hostProfile}
             />
+
+            {/* Prediction System */}
+            <PredictionSystem 
+              roomId={roomId || ''} 
+              isHost={profile?.uid === room.hostUid} 
+              userProfile={profile} 
+            />
+
             {profile?.uid === room.hostUid && (
               <button 
                 onClick={() => setShowAICoach(!showAICoach)}
@@ -998,46 +1213,46 @@ export default function RoomPage() {
               {/* Bottom Interaction Bar */}
               <div className="flex items-center justify-between pointer-events-auto pb-0 w-full">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setShowChatInput(true)} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
-                    <MessageSquare size={18} />
+                  <button onClick={() => setShowChatInput(true)} className="w-9 h-9 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
+                    <MessageSquare size={16} />
                   </button>
-                  <button onClick={() => setShowTools(true)} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
-                    <List size={18} />
+                  <button onClick={() => setShowTools(true)} className="w-9 h-9 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
+                    <List size={16} />
                   </button>
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText(window.location.href);
                       showToast('Room link copied! 🔗', 'success');
                     }}
-                    className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform"
+                    className="w-9 h-9 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform"
                   >
-                    <Share2 size={18} />
+                    <Share2 size={16} />
                   </button>
-                  <button className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
-                    <ShoppingBag size={18} />
+                  <button className="w-9 h-9 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform">
+                    <ShoppingBag size={16} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => handleJoinMicRequest('audio')} 
                     className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center border border-white/10 active:scale-90 transition-transform",
+                      "w-9 h-9 rounded-full flex items-center justify-center border border-white/10 active:scale-90 transition-transform",
                       micQueue.some(r => r.uid === profile?.uid) ? "bg-orange-500 text-white" : "bg-black/40 backdrop-blur-3xl text-white"
                     )}
                   >
-                    <Mic size={20} />
+                    <Mic size={18} />
                   </button>
                   <button 
                     onClick={() => showToast("Play Center coming soon! 🎮", 'info')}
-                    className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform"
+                    className="w-9 h-9 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-white/80 active:scale-90 transition-transform"
                   >
-                    <BarChart3 size={20} />
+                    <BarChart3 size={18} />
                   </button>
-                  <button onClick={sendLike} className="w-10 h-10 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-pink-500 active:scale-90 transition-transform">
-                    <Heart size={20} fill={localLikes > 0 ? "currentColor" : "none"} />
+                  <button onClick={sendLike} className="w-9 h-9 bg-black/40 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/10 text-pink-500 active:scale-90 transition-transform">
+                    <Heart size={18} fill={localLikes > 0 ? "currentColor" : "none"} />
                   </button>
-                  <button onClick={() => setShowGifts(true)} className="w-12 h-12 bg-gradient-to-br from-[#ff0099] to-[#ff6600] rounded-full flex items-center justify-center text-white shadow-2xl active:scale-90 transition-transform">
-                    <GiftIcon size={24} fill="currentColor" />
+                  <button onClick={() => setShowGifts(true)} className="w-11 h-11 bg-gradient-to-br from-[#ff0099] to-[#ff6600] rounded-full flex items-center justify-center text-white shadow-2xl active:scale-90 transition-transform">
+                    <GiftIcon size={22} fill="currentColor" />
                   </button>
                 </div>
               </div>
@@ -1056,13 +1271,14 @@ export default function RoomPage() {
               <div className="flex items-center justify-around py-4 border-b border-slate-100 mb-4">
                 {['🤡', '😍', '😂', '🌹', '🔥', '😡', '😱'].map((sticker, idx) => (
                   <button
-                    key={idx}
+                    key={sticker}
                     onClick={() => {
                       addDoc(collection(db, `rooms/${roomId}/messages`), { 
                         text: sticker, 
                         uid: profile?.uid, 
                         displayName: profile?.displayName, 
                         photoURL: profile?.photoURL || '', 
+                        svipTier: profile?.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
                         level: profile?.level || 1, 
                         type: 'chat', 
                         timestamp: serverTimestamp() 
@@ -1110,6 +1326,8 @@ export default function RoomPage() {
         user={nobleEntranceUser} 
         onComplete={() => setNobleEntranceUser(null)} 
       />
+
+      {room && <EasterEggDrops roomId={room.id} />}
 
       {activeAnimation && (
         <GiftAnimation 

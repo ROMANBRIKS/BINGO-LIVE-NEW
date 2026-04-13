@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Video, Mic, Shield, Zap, CheckCircle, HelpCircle, Sparkles } from 'lucide-react';
+import { Video, Mic, Shield, Zap, CheckCircle, HelpCircle, Sparkles, Radio } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getDeviceType, getBrowserName, isIOS, isAndroid } from '../lib/device';
 import { VirtualAvatar } from './VirtualAvatar';
+import { webRTCService } from '../services/WebRTCService';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { useAuth } from '../context/AuthContext';
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from 'firebase/firestore';
 
 const PermissionGuide = ({ onClose, onGrant }: { onClose: () => void, onGrant: () => void }) => {
   const deviceType = getDeviceType();
@@ -81,11 +85,72 @@ const PermissionGuide = ({ onClose, onGrant }: { onClose: () => void, onGrant: (
   );
 };
 
-export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, opponentUid, isVirtual }: { isHost: boolean, roomId: string, hostUid: string, pkStatus?: string, opponentUid?: string, isVirtual?: boolean }) => {
+export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, opponentUid, isVirtual, type }: { isHost: boolean, roomId: string, hostUid: string, pkStatus?: string, opponentUid?: string, isVirtual?: boolean, type?: string }) => {
+  const { profile } = useAuth();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = React.useRef<HTMLVideoElement>(null);
+
+  // WebRTC Signaling for Viewer
+  useEffect(() => {
+    if (isHost || !profile || !roomId || type === 'audio') return;
+
+    console.log(`[WebRTC] Viewer ${profile.uid} requesting stream from host ${hostUid}`);
+    
+    // 1. Send request-stream signal
+    const sendRequest = async () => {
+      await addDoc(collection(db, `rooms/${roomId}/signals`), {
+        type: 'request-stream',
+        from: profile.uid,
+        to: hostUid,
+        timestamp: new Date()
+      });
+    };
+    sendRequest();
+
+    // 2. Listen for signals from host
+    const signalsRef = collection(db, `rooms/${roomId}/signals`);
+    const q = query(signalsRef, where('to', '==', profile.uid));
+
+    const unsub = onSnapshot(q, async (snapshot) => {
+      for (const change of snapshot.docChanges()) {
+        if (change.type === 'added') {
+          const signal = change.doc.data();
+          const signalId = change.doc.id;
+
+          if (signal.type === 'offer') {
+            console.log('[WebRTC] Received offer from host');
+            await webRTCService.createAnswer(roomId, hostUid, profile.uid, signal.data, (stream) => {
+              setRemoteStream(stream);
+            });
+            await deleteDoc(doc(db, `rooms/${roomId}/signals`, signalId));
+          } else if (signal.type === 'candidate') {
+            console.log('[WebRTC] Received ICE candidate from host');
+            await webRTCService.addIceCandidate(hostUid, signal.data);
+            await deleteDoc(doc(db, `rooms/${roomId}/signals`, signalId));
+          }
+        }
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, `rooms/${roomId}/signals`);
+    });
+
+    return () => {
+      unsub();
+      webRTCService.stop(hostUid);
+      setRemoteStream(null);
+    };
+  }, [isHost, profile, roomId, hostUid, type]);
+
+  // Attach remote stream to video element
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
 
   useEffect(() => {
     if (isHost) {
@@ -118,9 +183,12 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
 
   const startStream = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: type !== 'audio', 
+        audio: true 
+      });
       setStream(mediaStream);
-      if (videoRef.current) {
+      if (videoRef.current && type !== 'audio') {
         videoRef.current.srcObject = mediaStream;
       }
       setHasPermission(true);
@@ -133,12 +201,55 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
 
   const isPK = pkStatus === 'battling';
 
+  if (type === 'audio') {
+    return (
+      <div className="w-full h-full bg-gradient-to-br from-slate-900 via-emerald-900/20 to-black relative overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
+        <div className="relative z-10 flex flex-col items-center gap-6">
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.1, 1],
+              rotate: [0, 5, -5, 0]
+            }}
+            transition={{ duration: 4, repeat: Infinity }}
+            className="w-32 h-32 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.2)]"
+          >
+            <Radio size={64} className="text-emerald-400" />
+          </motion.div>
+          <div className="text-center">
+            <h3 className="text-2xl font-black uppercase italic text-white tracking-tight">AUDIO LIVE</h3>
+            <p className="text-emerald-400/60 text-[10px] font-black uppercase tracking-[0.3em]">Live Voice Only</p>
+          </div>
+          
+          {/* Audio Visualizer Simulation */}
+          <div className="flex items-end gap-1 h-8">
+            {[...Array(12)].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{ height: [4, Math.random() * 24 + 8, 4] }}
+                transition={{ duration: 0.5 + Math.random(), repeat: Infinity }}
+                className="w-1 bg-emerald-400/40 rounded-full"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isHost) {
     return (
       <div className="w-full h-full bg-slate-900 relative overflow-hidden flex">
         <div className={cn("relative h-full overflow-hidden", isPK ? "w-1/2 border-r border-white/10" : "w-full")}>
           {isVirtual ? (
             <VirtualAvatar seed={hostUid} />
+          ) : remoteStream ? (
+            <video 
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
           ) : (
             <img 
               src={`https://picsum.photos/seed/${hostUid}/1920/1080`} 

@@ -5,13 +5,16 @@ import { UserProfile } from './types';
  * Handles private call requests and status.
  */
 
-export const PRIVATE_CALL_FEE = 100; // Diamonds per minute
+export const PRIVATE_CALL_FEE_AUDIO = 100; // Diamonds per minute for audio
+export const PRIVATE_CALL_FEE_VIDEO = 250; // Diamonds per minute for video
 
-export const calculatePrivateCallCost = (durationInMinutes: number) => {
-  return durationInMinutes * PRIVATE_CALL_FEE;
+export const calculatePrivateCallCost = (durationInMinutes: number, type: 'audio' | 'video' = 'audio') => {
+  const fee = type === 'video' ? PRIVATE_CALL_FEE_VIDEO : PRIVATE_CALL_FEE_AUDIO;
+  return durationInMinutes * fee;
 };
 
-export const createPrivateCallRequest = (roomId: string, hostUid: string, viewer: UserProfile) => {
+export const createPrivateCallRequest = (roomId: string, hostUid: string, viewer: UserProfile, type: 'audio' | 'video' = 'audio') => {
+  const fee = type === 'video' ? PRIVATE_CALL_FEE_VIDEO : PRIVATE_CALL_FEE_AUDIO;
   return {
     roomId,
     hostUid,
@@ -19,7 +22,8 @@ export const createPrivateCallRequest = (roomId: string, hostUid: string, viewer
     viewerName: viewer.displayName,
     viewerPhoto: viewer.photoURL,
     status: 'pending' as const,
-    fee: PRIVATE_CALL_FEE,
+    type,
+    fee,
     createdAt: new Date()
   };
 };

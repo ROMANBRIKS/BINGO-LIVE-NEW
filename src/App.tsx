@@ -22,11 +22,21 @@ const RealmatchPage = lazy(() => import('./pages/RealmatchPage'));
 const ChatDetailPage = lazy(() => import('./pages/ChatDetailPage'));
 const ComingSoonPage = lazy(() => import('./pages/ComingSoonPage'));
 const GoLivePage = lazy(() => import('./pages/GoLivePage'));
+const TaskCenterPage = lazy(() => import('./pages/TaskCenterPage'));
+const FansGroupPage = lazy(() => import('./pages/FansGroupPage'));
+const PostsPage = lazy(() => import('./pages/PostsPage'));
+const PropsStorePage = lazy(() => import('./pages/PropsStorePage'));
 const PointsRedemptionPage = lazy(() => import('./pages/PointsRedemptionPage'));
+const WalletPage = lazy(() => import('./pages/WalletPage'));
 const FamilyDashboardPage = lazy(() => import('./pages/FamilyDashboardPage'));
 const FanClubCenterPage = lazy(() => import('./pages/FanClubCenterPage'));
 const NobleCenterPage = lazy(() => import('./pages/NobleCenterPage'));
+const HonorHallPage = lazy(() => import('./pages/HonorHallPage'));
+const VisitorsPage = lazy(() => import('./pages/VisitorsPage'));
+const FamilyLeaderboardPage = lazy(() => import('./pages/FamilyLeaderboardPage'));
+const VIPCenterPage = lazy(() => import('./pages/VIPCenterPage'));
 const EarningsDashboardPage = lazy(() => import('./pages/EarningsDashboardPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -70,13 +80,23 @@ const AppContent = () => {
               <Route path="/messages" element={<ChatsPage />} />
               <Route path="/chats/:chatId" element={<ChatDetailPage />} />
               <Route path="/go-live" element={<GoLivePage />} />
+              <Route path="/tasks" element={<TaskCenterPage />} />
+              <Route path="/fans" element={<FansGroupPage />} />
+              <Route path="/posts" element={<PostsPage />} />
+              <Route path="/store" element={<PropsStorePage />} />
+              <Route path="/svip" element={<PointsRedemptionPage />} />
+              <Route path="/wallet" element={<WalletPage />} />
               <Route path="/points-redemption" element={<PointsRedemptionPage />} />
               <Route path="/family-dashboard" element={<FamilyDashboardPage />} />
               <Route path="/fan-club-center" element={<FanClubCenterPage />} />
               <Route path="/noble-center" element={<NobleCenterPage />} />
+              <Route path="/honor-hall" element={<HonorHallPage />} />
+              <Route path="/visitors" element={<VisitorsPage />} />
+              <Route path="/family-leaderboard" element={<FamilyLeaderboardPage />} />
               <Route path="/earnings-dashboard" element={<EarningsDashboardPage />} />
+              <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/following" element={<ComingSoonPage title="Following" />} />
-              <Route path="/vip" element={<ComingSoonPage title="VIP Center" />} />
+              <Route path="/vip" element={<VIPCenterPage />} />
               <Route path="/pk" element={<ComingSoonPage title="PK Battles" />} />
               <Route path="/hot" element={<ComingSoonPage title="Hot Content" />} />
               <Route path="*" element={<Navigate to="/" />} />

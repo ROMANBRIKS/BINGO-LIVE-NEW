@@ -21,8 +21,10 @@ const MINI_GAMES: MiniGame[] = [
   { id: 'race', name: 'Star Race', icon: '🏎️', description: 'Compete to reach the goal!', minPlayers: 2, maxPlayers: 8, reward: 'Level XP', color: 'bg-cyan-500' },
 ];
 
-export const MiniGameCenter = ({ onStartGame }: { onStartGame: (game: MiniGame) => void }) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const MiniGameCenter = ({ onStartGame, isOpen: externalIsOpen, onToggle }: { onStartGame: (game: MiniGame) => void, isOpen?: boolean, onToggle?: () => void }) => {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = onToggle || setInternalIsOpen;
   const [activeTab, setActiveTab] = useState<'Games' | 'Leaderboard' | 'History'>('Games');
 
   return (
@@ -123,17 +125,19 @@ export const MiniGameCenter = ({ onStartGame }: { onStartGame: (game: MiniGame) 
         )}
       </AnimatePresence>
 
-      <motion.button 
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl transition-all relative",
-          isOpen ? "bg-white text-black" : "bg-purple-500 text-white"
-        )}
-      >
-        <Gamepad2 size={24} />
-      </motion.button>
+      {externalIsOpen === undefined && (
+        <motion.button 
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsOpen(!isOpen)}
+          className={cn(
+            "w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl transition-all relative",
+            isOpen ? "bg-white text-black" : "bg-purple-500 text-white"
+          )}
+        >
+          <Gamepad2 size={24} />
+        </motion.button>
+      )}
     </div>
   );
 };

@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Phone, X, Check, Clock, Shield, Zap, 
   MessageSquare, User, Heart, Star, AlertCircle,
-  PhoneCall, PhoneOff, PhoneIncoming, PhoneOutgoing
+  PhoneCall, PhoneOff, PhoneIncoming, PhoneOutgoing,
+  Video, Mic
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { UserProfile, PrivateCallRequest } from '../types';
 import { useToast } from '../context/ToastContext';
-import { PRIVATE_CALL_FEE, calculatePrivateCallCost } from '../privateCallLogic';
-import { auth, db } from '../firebase';
+import { PRIVATE_CALL_FEE_AUDIO, PRIVATE_CALL_FEE_VIDEO, calculatePrivateCallCost } from '../privateCallLogic';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, query, where } from 'firebase/firestore';
 
 interface PrivateCallManagerProps {
@@ -17,19 +18,23 @@ interface PrivateCallManagerProps {
   hostUid: string;
   isHost: boolean;
   userProfile: UserProfile | null;
+  hostProfile: UserProfile | null;
 }
 
 export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({ 
   roomId, 
   hostUid, 
   isHost, 
-  userProfile 
+  userProfile,
+  hostProfile
 }) => {
   const { showToast } = useToast();
   const [requests, setRequests] = useState<any[]>([]);
   const [activeCall, setActiveCall] = useState<any | null>(null);
+  const [showSelector, setShowSelector] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [duration, setDuration] = useState(5); // Default 5 mins
+  const [selectedType, setSelectedType] = useState<'audio' | 'video' | null>(null);
 
   useEffect(() => {
     if (!roomId || !auth.currentUser) return;
@@ -47,30 +52,36 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
       setRequests(callData.filter(c => c.status === 'pending'));
       setActiveCall(callData.find(c => c.status === 'active'));
     }, (error) => {
-      console.error("PrivateCall snapshot error:", error);
+      handleFirestoreError(error, OperationType.LIST, `rooms/${roomId}/private_calls`);
     });
 
     return () => unsubscribe();
   }, [roomId, isHost]);
 
-  const handleRequestCall = async () => {
+  const handleRequestCall = async (type: 'audio' | 'video') => {
     if (!userProfile || !auth.currentUser) return;
     
     setIsRequesting(true);
+    const fee = type === 'video' ? PRIVATE_CALL_FEE_VIDEO : PRIVATE_CALL_FEE_AUDIO;
     try {
       await addDoc(collection(db, `rooms/${roomId}/private_calls`), {
         roomId,
         hostUid,
+        hostName: hostProfile?.displayName || 'Host',
+        hostPhoto: hostProfile?.photoURL || '',
         viewerUid: auth.currentUser.uid,
         viewerName: userProfile.displayName,
         viewerPhoto: userProfile.photoURL,
         status: 'pending',
         duration,
-        fee: PRIVATE_CALL_FEE,
-        totalCost: calculatePrivateCallCost(duration),
+        type,
+        fee,
+        totalCost: calculatePrivateCallCost(duration, type),
         createdAt: serverTimestamp()
       });
-      showToast("Private call request sent! 📞", 'success');
+      showToast(`Private ${type} call request sent! 📞`, 'success');
+      setShowSelector(false);
+      setSelectedType(null);
     } catch (error) {
       console.error("Error requesting private call:", error);
     } finally {
@@ -111,95 +122,98 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
   };
 
   return (
-    <div className="relative">
+    <div className="relative flex flex-col items-end">
       {/* Viewer Side: Request Button */}
       {!isHost && !activeCall && (
-        <button 
-          onClick={() => setIsRequesting(true)}
-          className="flex flex-col items-center gap-1 group"
-        >
-          <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
-            <Phone size={20} fill="currentColor" />
-          </div>
-          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Private</span>
-        </button>
-      )}
+        <div className="relative flex flex-col items-center">
+          <AnimatePresence>
+            {showSelector && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                className="absolute bottom-16 right-0 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-3 flex flex-col gap-3 min-w-[140px] shadow-2xl z-50"
+              >
+                <div className="flex items-center justify-between px-2 mb-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Private Call</span>
+                  <button onClick={() => setShowSelector(false)} className="text-white/20 hover:text-white">
+                    <X size={12} />
+                  </button>
+                </div>
 
-      {/* Viewer Side: Request Modal */}
-      <AnimatePresence>
-        {isRequesting && !isHost && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
-          >
-            <div className="w-full max-w-sm bg-slate-900 rounded-[2.5rem] p-8 border border-white/10 shadow-2xl space-y-8">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-20 h-20 bg-emerald-500/20 rounded-[2rem] flex items-center justify-center text-emerald-400">
-                  <PhoneCall size={40} />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-black italic uppercase tracking-tight text-white">Private Call</h3>
-                  <p className="text-xs text-white/40 leading-relaxed">
-                    Request a one-on-one private session with the host.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between px-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Duration</span>
-                  <span className="text-sm font-black italic text-emerald-400">{duration} Minutes</span>
-                </div>
                 <div className="flex gap-2">
-                  {[5, 10, 20, 30].map(d => (
-                    <button 
-                      key={d}
-                      onClick={() => setDuration(d)}
-                      className={cn(
-                        "flex-1 py-3 rounded-xl font-black italic text-xs transition-all",
-                        duration === d ? "bg-emerald-500 text-black" : "bg-white/5 text-white/40 border border-white/5"
-                      )}
-                    >
-                      {d}m
-                    </button>
-                  ))}
-                </div>
-              </div>
+                  {/* Video Option */}
+                  <button 
+                    onClick={() => {
+                      setSelectedType('video');
+                      handleRequestCall('video');
+                    }}
+                    disabled={isRequesting}
+                    className="flex-1 flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group/btn"
+                  >
+                    <div className="w-10 h-10 bg-pink-500/20 rounded-xl flex items-center justify-center text-pink-500 group-hover/btn:scale-110 transition-transform">
+                      <Video size={18} fill="currentColor" />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-black uppercase text-white/60">Video</span>
+                      <span className="text-[9px] font-black italic text-pink-500">{PRIVATE_CALL_FEE_VIDEO}/m</span>
+                    </div>
+                  </button>
 
-              <div className="bg-white/5 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Total Cost</span>
-                  <div className="flex items-center gap-2">
-                    <Zap size={14} className="text-yellow-400" />
-                    <span className="text-xl font-black italic text-white">{calculatePrivateCallCost(duration)}</span>
+                  {/* Audio Option */}
+                  <button 
+                    onClick={() => {
+                      setSelectedType('audio');
+                      handleRequestCall('audio');
+                    }}
+                    disabled={isRequesting}
+                    className="flex-1 flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group/btn"
+                  >
+                    <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 group-hover/btn:scale-110 transition-transform">
+                      <Mic size={18} fill="currentColor" />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-black uppercase text-white/60">Audio</span>
+                      <span className="text-[9px] font-black italic text-emerald-400">{PRIVATE_CALL_FEE_AUDIO}/m</span>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="px-2 pt-1">
+                  <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-white/20 mb-2">
+                    <span>Duration</span>
+                    <span className="text-white/60">{duration}m</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {[5, 10, 20].map(d => (
+                      <button 
+                        key={d}
+                        onClick={() => setDuration(d)}
+                        className={cn(
+                          "flex-1 py-1 rounded-lg text-[8px] font-black transition-all",
+                          duration === d ? "bg-white/20 text-white" : "bg-white/5 text-white/20"
+                        )}
+                      >
+                        {d}m
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/20">Rate</span>
-                  <div className="text-xs font-bold text-white/60">{PRIVATE_CALL_FEE}/min</div>
-                </div>
-              </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-              <div className="grid grid-cols-2 gap-4 pt-4">
-                <button 
-                  onClick={() => setIsRequesting(false)}
-                  className="py-4 bg-white/5 text-white rounded-2xl font-black uppercase italic tracking-widest text-xs hover:bg-white/10 active:scale-95 transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleRequestCall}
-                  className="py-4 bg-emerald-500 text-black rounded-2xl font-black uppercase italic tracking-widest text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
-                >
-                  Send Request
-                </button>
-              </div>
+          <button 
+            onClick={() => setShowSelector(!showSelector)}
+            className="flex flex-col items-center gap-1 group"
+          >
+            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
+              <Phone size={20} fill="currentColor" />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Private</span>
+          </button>
+        </div>
+      )}
 
       {/* Host Side: Incoming Requests */}
       <AnimatePresence>
@@ -220,7 +234,9 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-black italic uppercase tracking-tight text-white text-sm">{requests[0].viewerName}</span>
-                  <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-black uppercase">Private Call</span>
+                  <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-black uppercase">
+                    Private {requests[0].type || 'Call'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-3 mt-1">
                   <div className="flex items-center gap-1">

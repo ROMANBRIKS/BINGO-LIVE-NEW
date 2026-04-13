@@ -1,6 +1,37 @@
-import { doc, getDoc, updateDoc, increment, collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
-import { Family, FamilyMember } from './types';
+import { Family, Room } from './types';
+
+/**
+ * Calculates the family contribution multiplier based on the current room state.
+ * @param room The current room object, which may contain PK status.
+ * @returns A multiplier (1.2x base, 1.5x during PK battles).
+ */
+export const getFamilyMultiplier = (room: Room | null): number => {
+  if (!room) return 1.2;
+  
+  // PK Battle Multiplier: 1.5x
+  if (room.pkStatus === 'battling' && room.pkEndTime) {
+    const endTime = new Date(room.pkEndTime).getTime();
+    if (endTime > Date.now()) {
+      return 1.5;
+    }
+  }
+  
+  // Base Multiplier: 1.2x
+  return 1.2;
+};
+
+/**
+ * Calculates the final points to be contributed to the family pool.
+ * @param basePoints The original points (usually diamond cost).
+ * @param room The current room object.
+ * @returns The multiplied points.
+ */
+export const calculateFamilyContribution = (basePoints: number, room: Room | null): number => {
+  const multiplier = getFamilyMultiplier(room);
+  return Math.floor(basePoints * multiplier);
+};
 
 export async function calculateFamilyBonuses(familyId: string, pkScore: number) {
   try {
@@ -21,7 +52,7 @@ export async function contributeToFamily(uid: string, familyId: string, amount: 
   try {
     // Update family total points
     await updateDoc(doc(db, 'families', familyId), {
-      totalPoints: increment(amount)
+      totalDiamondsSpent: increment(amount)
     });
 
     // Update member contribution
@@ -44,7 +75,7 @@ export async function checkFamilyDailyCheckIn(uid: string, familyId: string) {
     
     if (memberDoc.exists()) {
       const data = memberDoc.data();
-      const lastCheckIn = data.lastCheckIn?.toDate();
+      const lastCheckIn = data.lastCheckIn?.toDate ? data.lastCheckIn.toDate() : (data.lastCheckIn ? new Date(data.lastCheckIn) : null);
       const today = new Date();
       
       if (!lastCheckIn || lastCheckIn.toDateString() !== today.toDateString()) {

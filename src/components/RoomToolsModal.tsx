@@ -48,6 +48,7 @@ export const RoomToolsModal: React.FC<RoomToolsModalProps> = ({
     { icon: Flag, label: 'REPORT' },
     { icon: Ban, label: 'Block' },
     { icon: Ghost, label: isCleanMode ? 'Exit Clean' : 'Clean Mode' },
+    { icon: Sparkles, label: 'Simulate Noble', color: 'text-yellow-500' },
   ];
 
   return (
@@ -91,20 +92,20 @@ export const RoomToolsModal: React.FC<RoomToolsModalProps> = ({
                   }
                   onClose();
                 }}
-                className="flex flex-col items-center gap-3 group active:scale-95 transition-transform"
+                className="flex flex-col items-center gap-2 group active:scale-95 transition-transform"
               >
                 <div className={cn(
-                  "relative w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-sm",
+                  "relative w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-sm",
                   "bg-slate-50 text-slate-600 border border-slate-100/50 group-active:bg-slate-100"
                 )}>
-                  <tool.icon size={28} strokeWidth={1.5} className={tool.color} />
+                  <tool.icon size={25} strokeWidth={1.5} className={tool.color} />
                   {tool.badge && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-pink-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-white">
                       {tool.badge}
                     </div>
                   )}
                 </div>
-                <span className="text-[11px] font-semibold text-slate-400 text-center leading-tight group-active:text-slate-900 transition-colors h-8 flex items-start justify-center px-1">
+                <span className="text-[10px] font-semibold text-slate-400 text-center leading-tight group-active:text-slate-900 transition-colors h-7 flex items-start justify-center px-1">
                   {tool.label}
                 </span>
               </button>

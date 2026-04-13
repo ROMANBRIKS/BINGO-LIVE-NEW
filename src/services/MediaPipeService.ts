@@ -8,6 +8,9 @@ export interface ARSettings {
   activeMask: string | null; // 'crown', 'glasses', etc.
   virtualBackground: string | null; // 'blur', 'office', 'beach', etc.
   virtualAvatar: string | null; // 'cat', 'robot', 'anime', etc.
+  isMirrored?: boolean;
+  isFlipped?: boolean;
+  zoomLevel?: number; // 1.0 to 3.0
 }
 
 class MediaPipeService {
@@ -24,7 +27,10 @@ class MediaPipeService {
     brightness: 0,
     activeMask: null,
     virtualBackground: null,
-    virtualAvatar: null
+    virtualAvatar: null,
+    isMirrored: false,
+    isFlipped: false,
+    zoomLevel: 1.0
   };
 
   private isProcessing = false;
@@ -37,7 +43,14 @@ class MediaPipeService {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      console.log("MediaPipe already initialized, updated canvas/video references.");
+      // Ensure video is playing if we're re-initializing
+      if (this.videoElement.paused) {
+        this.videoElement.play().catch(e => console.warn("Failed to play video during re-init:", e));
+      }
+      return;
+    }
 
     // Set a timeout for initialization
     const initTimeout = setTimeout(() => {
@@ -112,6 +125,9 @@ class MediaPipeService {
     // Normal flow: Draw everything
     this.ctx.save();
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Apply Mirror/Flip/Zoom at the start
+    this.applyTransformations();
 
     // 1. Draw Video Base
     this.ctx.drawImage(results.image, 0, 0, this.canvas.width, this.canvas.height);
@@ -284,6 +300,32 @@ class MediaPipeService {
     ctx.restore();
   }
 
+  private applyTransformations() {
+    if (!this.ctx || !this.canvas) return;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    // 1. Zoom
+    if (this.settings.zoomLevel && this.settings.zoomLevel > 1.0) {
+      const z = this.settings.zoomLevel;
+      this.ctx.translate(w / 2, h / 2);
+      this.ctx.scale(z, z);
+      this.ctx.translate(-w / 2, -h / 2);
+    }
+
+    // 2. Mirror (Horizontal Flip)
+    if (this.settings.isMirrored) {
+      this.ctx.translate(w, 0);
+      this.ctx.scale(-1, 1);
+    }
+
+    // 3. Flip (Vertical Flip)
+    if (this.settings.isFlipped) {
+      this.ctx.translate(0, h);
+      this.ctx.scale(1, -1);
+    }
+  }
+
   private applyBeautyEffects() {
     if (!this.ctx || !this.canvas) return;
     this.applyBeautyEffectsToCanvas(this.ctx, this.canvas);
@@ -321,7 +363,7 @@ class MediaPipeService {
 
     this.isProcessing = true;
     const process = async () => {
-      if (!this.isProcessing || !this.videoElement || this.videoElement.paused || this.videoElement.ended) {
+      if (!this.isProcessing || !this.videoElement || this.videoElement.ended) {
         this.isProcessing = false;
         return;
       }
@@ -329,10 +371,19 @@ class MediaPipeService {
       try {
         // Ensure video is actually playing and has data
         if (this.videoElement.readyState < 2 || this.videoElement.paused) {
-          if (this.isProcessing) {
-            requestAnimationFrame(process);
+          if (this.videoElement.paused) {
+            this.videoElement.play().catch(() => {});
           }
+          requestAnimationFrame(process);
           return;
+        }
+
+        // Ensure canvas size matches video size
+        if (this.canvas && (this.canvas.width !== this.videoElement.videoWidth || this.canvas.height !== this.videoElement.videoHeight)) {
+          if (this.videoElement.videoWidth > 0 && this.videoElement.videoHeight > 0) {
+            this.canvas.width = this.videoElement.videoWidth;
+            this.canvas.height = this.videoElement.videoHeight;
+          }
         }
 
         // If raw fallback is active or no effects, just draw the raw frame
@@ -343,11 +394,6 @@ class MediaPipeService {
 
         if (this.useRawFallback || !hasEffects) {
           if (this.ctx && this.canvas && this.videoElement) {
-            // Ensure canvas size matches video size if they changed
-            if (this.canvas.width !== this.videoElement.videoWidth || this.canvas.height !== this.videoElement.videoHeight) {
-              this.canvas.width = this.videoElement.videoWidth;
-              this.canvas.height = this.videoElement.videoHeight;
-            }
             this.ctx.drawImage(this.videoElement, 0, 0, this.canvas.width, this.canvas.height);
           }
         } else {

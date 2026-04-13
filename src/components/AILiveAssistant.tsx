@@ -96,7 +96,7 @@ export const AILiveAssistant = ({ stats, onAction }: { stats: StreamStats, onAct
                   {advice.length > 0 ? (
                     advice.map((item, i) => (
                       <motion.div 
-                        key={i}
+                        key={item}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.1 }}

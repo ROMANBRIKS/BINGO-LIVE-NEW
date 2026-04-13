@@ -67,9 +67,13 @@
         "id": { "type": "string", "description": "Gift ID" },
         "name": { "type": "string", "description": "Gift name" },
         "cost": { "type": "number", "description": "Cost in diamonds" },
-        "animationType": { "type": "string", "description": "Type of animation to play" }
+        "image": { "type": "string", "description": "URL or emoji for the gift" },
+        "animationType": { "type": "string", "description": "Type of animation to play" },
+        "category": { "type": "string", "description": "Gift category (e.g., Popular, Noble)" },
+        "isFlash": { "type": "boolean", "description": "Whether it's a limited-time gift" },
+        "expiresAt": { "type": "string", "format": "date-time", "description": "Expiration time for flash gifts" }
       },
-      "required": ["id", "name", "cost"]
+      "required": ["id", "name", "cost", "image", "animationType"]
     },
     "Transaction": {
       "title": "Transaction",
@@ -80,10 +84,61 @@
         "fromUid": { "type": "string", "description": "Sender UID" },
         "toUid": { "type": "string", "description": "Receiver UID" },
         "amount": { "type": "number", "description": "Amount of diamonds/beans" },
-        "type": { "type": "string", "enum": ["purchase", "gift", "salary", "rebate"], "description": "Transaction type" },
+        "type": { "type": "string", "enum": ["purchase", "gift", "salary", "rebate", "prediction_bet", "prediction_payout"], "description": "Transaction type" },
+        "referenceId": { "type": "string", "description": "ID of the related entity (e.g., giftId, predictionId)" },
         "timestamp": { "type": "string", "format": "date-time", "description": "Transaction time" }
       },
       "required": ["id", "fromUid", "toUid", "amount", "type", "timestamp"]
+    },
+    "Prediction": {
+      "title": "Prediction",
+      "description": "Represents a prediction event (poll/bet) in a stream.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "roomId": { "type": "string" },
+        "hostUid": { "type": "string" },
+        "question": { "type": "string" },
+        "sideYes": { "type": "string" },
+        "sideNo": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed", "settled", "cancelled"] },
+        "winningSide": { "type": "string", "enum": ["yes", "no", null] },
+        "totalYes": { "type": "number" },
+        "totalNo": { "type": "number" },
+        "model": { "type": "number", "enum": [1, 2] },
+        "targetMultiplier": { "type": "number" },
+        "actualMultiplier": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "roomId", "hostUid", "question", "status", "model"]
+    },
+    "Bet": {
+      "title": "Bet",
+      "description": "Represents a user's bet on a prediction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "predictionId": { "type": "string" },
+        "side": { "type": "string", "enum": ["yes", "no"] },
+        "amount": { "type": "number" },
+        "settled": { "type": "boolean" },
+        "payout": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "predictionId", "side", "amount", "timestamp"]
+    },
+    "Bank": {
+      "title": "Bank",
+      "description": "Represents the house reserve for Model 2 payouts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "balance": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "balance", "lastUpdated"]
     },
     "Message": {
       "title": "Message",
@@ -117,6 +172,38 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["followerUid", "followingUid", "timestamp"]
+    },
+    "EasterEgg": {
+      "title": "EasterEgg",
+      "description": "Definition of an Easter Egg drop.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "image": { "type": "string" },
+        "rewardType": { "type": "string", "enum": ["beans", "diamonds"] },
+        "rewardValue": { "type": "number" },
+        "rarity": { "type": "string", "enum": ["common", "rare", "legendary"] },
+        "isEnabled": { "type": "boolean", "description": "Whether this egg is active for drops" }
+      },
+      "required": ["id", "name", "image", "rewardType", "rewardValue"]
+    },
+    "EggDrop": {
+      "title": "EggDrop",
+      "description": "An active Easter Egg drop in a room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eggId": { "type": "string" },
+        "eggImage": { "type": "string" },
+        "rewardType": { "type": "string" },
+        "rewardValue": { "type": "number" },
+        "x": { "type": "number", "description": "Horizontal position %" },
+        "y": { "type": "number", "description": "Vertical position %" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "collected", "expired"] }
+      },
+      "required": ["id", "eggId", "x", "y", "status"]
     }
   },
   "firestore": {
@@ -136,6 +223,14 @@
       "schema": "Gift",
       "description": "Available gift items."
     },
+    "/easter_eggs/{eggId}": {
+      "schema": "EasterEgg",
+      "description": "Definitions of platform Easter Eggs."
+    },
+    "/rooms/{roomId}/egg_drops/{dropId}": {
+      "schema": "EggDrop",
+      "description": "Active drops in a room."
+    },
     "/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "History of all financial movements."
@@ -147,6 +242,18 @@
     "/follows/{followId}": {
       "schema": "Follow",
       "description": "User follow relationships."
+    },
+    "/predictions/{predictionId}": {
+      "schema": "Prediction",
+      "description": "Prediction events."
+    },
+    "/bets/{betId}": {
+      "schema": "Bet",
+      "description": "User bets on predictions."
+    },
+    "/bank/{bankId}": {
+      "schema": "Bank",
+      "description": "House reserve for Model 2."
     }
   }
 }

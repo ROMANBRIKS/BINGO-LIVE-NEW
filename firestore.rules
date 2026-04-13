@@ -1,51 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: uid
-    // Fields:
-    //   - uid: string (required, immutable)
-    //   - displayName: string (required, size 1-50)
-    //   - photoURL: string (optional, URL)
-    //   - diamonds: number (required, >= 0)
-    //   - beans: number (required, >= 0)
-    //   - role: string (required, enum: user, host, agency, admin)
-    //   - nobleTitle: string (required, enum: None, Baron, Duke, Grand Duke, Archduke, King, Emperor, Global God)
-    //   - totalDiamondsSpent: number (required, >= 0)
-    //   - totalBeansEarned: number (required, >= 0)
-    //   - referralCode: string (required)
-    //
-    // Collection: agencies
-    // Document ID: agencyId
-    // Fields:
-    //   - id: string (required, immutable)
-    //   - name: string (required, size 1-100)
-    //   - ownerUid: string (required, immutable)
-    //   - tier: number (required, 1-5)
-    //   - commissionRate: number (required, 0-100)
-    //   - rebateRate: number (required, 0-100)
-    //
-    // Collection: rooms
-    // Document ID: roomId (hostUid)
-    // Fields:
-    //   - id: string (required, immutable)
-    //   - hostUid: string (required, immutable)
-    //   - title: string (required, size 1-100)
-    //   - status: string (required, enum: live, ended)
-    //   - type: string (required, enum: video, audio)
-    //   - currentBeans: number (required, >= 0)
-    //   - viewerCount: number (required, >= 0)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
     
     function isAuthenticated() {
       return request.auth != null;
@@ -57,24 +12,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        (request.auth.token.email == "rogershep101@gmail.com") ||
-        (request.auth.uid == "YDnNAkdp5sYRs8YNN8K22576UO33") ||
+        request.auth.token.email == "rogershep101@gmail.com" ||
+        request.auth.uid == "YDnNAkdp5sYRs8YNN8K22576UO33" ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
-    }
-
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    function isValidEmail(email) {
-      return email is string &&
-        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
 
     function isRecent(ts) {
@@ -83,139 +25,106 @@ service cloud.firestore {
              ts < request.time + duration.value(300, 's');
     }
 
-    // ===============================================================
-    // Domain Validators
-    // ===============================================================
-
-    function isValidUser(data) {
-      // Relaxed validation: only core fields are strictly required
-      return hasRequiredFields(['uid', 'displayName', 'role']) &&
-             data.uid is string &&
-             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 50 &&
-             (!('diamonds' in data) || (data.diamonds is number && data.diamonds >= 0)) &&
-             (!('beans' in data) || (data.beans is number && data.beans >= 0)) &&
-             (!('role' in data) || data.role in ['user', 'host', 'agency', 'admin']) &&
-             (!('nobleTitle' in data) || data.nobleTitle in ['None', 'Baron', 'Duke', 'Grand Duke', 'Archduke', 'King', 'Emperor', 'Global God']) &&
-             (!('totalDiamondsSpent' in data) || (data.totalDiamondsSpent is number && data.totalDiamondsSpent >= 0)) &&
-             (!('totalBeansEarned' in data) || (data.totalBeansEarned is number && data.totalBeansEarned >= 0));
-    }
-
-    function isValidRoom(data) {
-      return hasRequiredFields(['hostUid', 'status', 'type', 'title']) &&
-             data.hostUid is string &&
-             data.status in ['live', 'ended'] &&
-             data.type in ['video', 'audio'] &&
-             data.title is string && data.title.size() <= 100 &&
-             (!('currentBeans' in data) || data.currentBeans is number) &&
-             (!('viewerCount' in data) || data.viewerCount is number) &&
-             (!('guests' in data) || data.guests is list) &&
-             (!('isPrivate' in data) || data.isPrivate is bool) &&
-             (!('createdAt' in data) || data.createdAt is timestamp);
-    }
-
-    function isValidMessage(data) {
-      return hasRequiredFields(['uid', 'displayName', 'photoURL', 'timestamp']) &&
-             data.uid is string && data.displayName is string &&
-             data.photoURL is string &&
-             isRecent(data.timestamp) &&
-             (!('type' in data) || data.type in ['chat', 'join', 'like', 'system', 'follow', 'welcome', 'follow-prompt', 'guest-live-prompt', 'like-prompt']) &&
-             ((!('type' in data) || data.type == 'chat') ? (hasRequiredFields(['text']) && data.text is string && data.text.size() > 0) : true) &&
-             (!('text' in data) || (data.text is string && data.text.size() < 500)) &&
-             (!('level' in data) || (data.level is number && data.level >= 1)) &&
-             (!('nobleTitle' in data) || data.nobleTitle is string) &&
-             (!('hostName' in data) || data.hostName is string) &&
-             (!('hostPhoto' in data) || data.hostPhoto is string) &&
-             (!('hostLevel' in data) || data.hostLevel is number) &&
-             (!('isGift' in data) || data.isGift is bool) &&
-             (!('isNew' in data) || data.isNew is bool);
-    }
-
-    function isValidPrivateCall(data) {
-      return hasRequiredFields(['roomId', 'hostUid', 'viewerUid', 'viewerName', 'viewerPhoto', 'status', 'fee', 'createdAt']) &&
-             data.roomId is string &&
-             data.hostUid is string &&
-             data.viewerUid is string &&
-             data.viewerName is string &&
-             data.viewerPhoto is string &&
-             data.status in ['pending', 'accepted', 'declined', 'ended'] &&
-             data.fee is number &&
-             isRecent(data.createdAt) &&
-             (!('startedAt' in data) || data.startedAt is timestamp || data.startedAt == null) &&
-             (!('endedAt' in data) || data.endedAt is timestamp || data.endedAt == null);
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (
-                      isAdmin() ||
-                      (isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin())) ||
-                      // Allow creation of minimal profile during gifting if it doesn't exist
-                      (request.resource.data.keys().hasAll(['beans', 'totalBeansEarned']))
-                    );
-      allow update: if isAuthenticated() && (
-                      isAdmin() ||
-                      (isOwner(userId) && isValidUser(request.resource.data) && 
-                       request.resource.data.role == resource.data.role) ||
-                      // Allow anyone to update host's beans/totalBeansEarned (gifting)
-                      (request.resource.data.diff(resource.data).affectedKeys().hasAny(['beans', 'totalBeansEarned']))
-                    );
-
-      match /transactions/{txId} {
-        allow read: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) && request.resource.data.fromUid == userId;
-      }
-    }
-
-    match /agencies/{agencyId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /families/{familyId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-
-      match /members/{memberId} {
+      allow write: if isOwner(userId) || isAdmin();
+      
+      match /following/{followingId} {
         allow read: if isAuthenticated();
-        allow write: if isAdmin();
+        allow write: if isOwner(userId);
+      }
+
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow write: if isAuthenticated();
       }
     }
 
-    match /fan_club_members/{memberId} {
+    match /easter_eggs/{eggId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.uid || request.auth.uid == resource.data.hostUid || isAdmin());
+      allow write: if isAdmin();
     }
 
     match /rooms/{roomId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isAdmin() || (request.auth.uid == request.resource.data.hostUid && isValidRoom(request.resource.data)));
-      allow update: if isAuthenticated() && (
-                      isAdmin() ||
-                      request.auth.uid == resource.data.hostUid || 
-                      // Allow viewers to update currentBeans (gifting), viewerCount, or PK scores
-                      request.resource.data.diff(resource.data).affectedKeys().hasAny(['currentBeans', 'viewerCount', 'pkScore', 'pkOpponentScore'])
-                    );
-      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.hostUid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.hostUid == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.hostUid == request.auth.uid || isAdmin() || request.resource.data.diff(resource.data).affectedKeys().hasAny(['currentBeans', 'viewerCount', 'pkScore', 'pkOpponentScore', 'seats']));
+      allow delete: if isAuthenticated() && (resource.data.hostUid == request.auth.uid || isAdmin());
 
       match /messages/{msgId} {
         allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && isValidMessage(request.resource.data) && request.resource.data.uid == request.auth.uid;
+        allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid;
+      }
+
+      match /seatRequests/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
       }
 
       match /private_calls/{callId} {
-        allow read: if isAuthenticated() && (request.auth.uid == resource.data.hostUid || request.auth.uid == resource.data.viewerUid || isAdmin());
-        allow create: if isAuthenticated() && request.auth.uid == request.resource.data.viewerUid && isValidPrivateCall(request.resource.data);
-        allow update: if isAuthenticated() && (
-                        (request.auth.uid == resource.data.hostUid && isValidPrivateCall(request.resource.data)) ||
-                        (request.auth.uid == resource.data.viewerUid && isValidPrivateCall(request.resource.data)) ||
-                        isAdmin()
-                      );
+        allow read: if isAuthenticated() && (request.auth.uid == roomId || request.auth.uid == resource.data.viewerUid || isAdmin());
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && (request.auth.uid == roomId || request.auth.uid == resource.data.viewerUid || isAdmin());
       }
+
+      match /signals/{signalId} {
+        allow read: if isAuthenticated() && (request.auth.uid == resource.data.to || request.auth.uid == resource.data.from || isAdmin());
+        allow create: if isAuthenticated() && request.auth.uid == request.resource.data.from;
+        allow delete: if isAuthenticated() && (request.auth.uid == resource.data.to || request.auth.uid == resource.data.from || isAdmin());
+      }
+
+      match /polls/{pollId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && (request.auth.uid == roomId || isAdmin());
+
+        match /votes/{userId} {
+          allow read: if isAuthenticated();
+          allow write: if isOwner(userId);
+        }
+      }
+
+      match /chaos_events/{eventId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && (request.auth.uid == roomId || isAdmin());
+      }
+
+      match /egg_drops/{dropId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && (request.auth.uid == roomId || isAdmin());
+        allow update: if isAuthenticated() && (request.auth.uid == roomId || isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) && resource.data.status == 'active'));
+        allow delete: if isAuthenticated() && (request.auth.uid == roomId || isAdmin());
+      }
+
+      match /features/{featureId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && (featureId == 'treasureChest' || request.auth.uid == roomId || isAdmin());
+      }
+    }
+
+    match /predictions/{predictionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.hostUid == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.hostUid == request.auth.uid || 
+        isAdmin() || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['totalYes', 'totalNo'])
+      );
+    }
+
+    match /bets/{betId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+    }
+
+    match /bank/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /features/{featureId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     match /gifts/{giftId} {
@@ -225,25 +134,17 @@ service cloud.firestore {
 
     match /transactions/{txId} {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.fromUid || request.auth.uid == resource.data.toUid || isAdmin());
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.fromUid &&
-                      request.resource.data.amount is number && request.resource.data.amount > 0 &&
-                      isRecent(request.resource.data.timestamp);
+      allow create: if isAuthenticated();
     }
 
     match /follows/{followId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.followerUid == request.auth.uid &&
-                      request.resource.data.followingUid != request.auth.uid &&
-                      isRecent(request.resource.data.timestamp);
+      allow create: if isAuthenticated();
       allow delete: if isAuthenticated() && resource.data.followerUid == request.auth.uid;
     }
-    
-    match /test/connection {
-      allow read: if true;
-    }
-    
-    match /{path=**} {
-      allow read, write: if false;
+
+    match /{path=**}/private_calls/{callId} {
+      allow read: if isAdmin();
     }
   }
 }

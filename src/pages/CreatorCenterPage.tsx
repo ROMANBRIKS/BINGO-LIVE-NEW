@@ -8,7 +8,7 @@ import {
   Users, RotateCw, Gamepad2, PartyPopper, Gift, Phone, Music,
   Dog, CalendarHeart, Zap, Hand, Ticket, Settings, Briefcase,
   Camera, Smile, Columns2, ZoomIn, Key, Mic2, Youtube, MonitorUp,
-  Newspaper, UserPlus
+  Newspaper, UserPlus, ChevronRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { GoLiveModal } from '../components/GoLiveModal';
@@ -55,7 +55,7 @@ const ExampleImage = ({ src, label, status }: { src: string, label: string, stat
   </div>
 );
 
-const InteractiveToolsSection = ({ onOpenGoLive, onOpenARPreview }: { onOpenGoLive: () => void, onOpenARPreview: () => void }) => {
+const InteractiveToolsSection = ({ onOpenGoLive, onOpenARPreview, onOpenTransform }: { onOpenGoLive: () => void, onOpenARPreview: () => void, onOpenTransform: () => void }) => {
   const { showToast } = useToast();
   return (
     <div className="space-y-4 pt-8 border-t border-slate-50">
@@ -87,14 +87,16 @@ const InteractiveToolsSection = ({ onOpenGoLive, onOpenARPreview }: { onOpenGoLi
               { icon: Phone, label: 'Line' },
               { icon: Dog, label: 'Pet' },
               { icon: CalendarHeart, label: 'Date' },
-            ].map((tool, i) => (
+            ].map((tool) => (
               <div 
-                key={i} 
+                key={tool.label} 
                 onClick={() => {
                   if (tool.label === 'Virtual Avatar' || tool.label === 'AI Coach') {
                     onOpenGoLive();
                   } else if (tool.label === 'Beauty' || tool.label === 'Mask' || tool.label === 'Camera') {
                     onOpenARPreview();
+                  } else if (tool.label === 'Mirror' || tool.label === 'Flip' || tool.label === 'Zoom in') {
+                    onOpenTransform();
                   } else {
                     showToast(`${tool.label} feature coming soon! 🛠️`, 'info');
                   }
@@ -129,9 +131,9 @@ const InteractiveToolsSection = ({ onOpenGoLive, onOpenARPreview }: { onOpenGoLi
               { icon: Gift, label: 'Gift Sound' },
               { icon: Heart, label: 'Wish lists' },
               { icon: Ticket, label: 'Fan Lottery' },
-            ].map((tool, i) => (
+            ].map((tool) => (
               <div 
-                key={i} 
+                key={tool.label} 
                 onClick={() => showToast(`${tool.label} feature coming soon! 🛠️`, 'info')}
                 className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
               >
@@ -160,9 +162,9 @@ const InteractiveToolsSection = ({ onOpenGoLive, onOpenARPreview }: { onOpenGoLi
               { icon: '🎁', label: 'Gift Wall', color: 'bg-violet-100' },
               { icon: '🤝', label: 'Match', color: 'bg-cyan-100' },
               { icon: '🦀', label: 'Craw', color: 'bg-blue-100' },
-            ].map((game, i) => (
+            ].map((game) => (
               <div 
-                key={i} 
+                key={game.label} 
                 onClick={() => showToast(`${game.label} feature coming soon! 🎮`, 'info')}
                 className="flex flex-col items-center gap-2 group cursor-pointer active:scale-90 transition-transform"
               >
@@ -187,6 +189,8 @@ export default function CreatorCenterPage() {
   const [tutorialTab, setTutorialTab] = useState('Live Skills');
   const [isGoLiveModalOpen, setIsGoLiveModalOpen] = useState(false);
   const [isARPreviewOpen, setIsARPreviewOpen] = useState(false);
+  const [isTransformOpen, setIsTransformOpen] = useState(false);
+  const [arInitialTab, setArInitialTab] = useState<'beauty' | 'magic' | 'transform'>('beauty');
   const [agency, setAgency] = useState<Agency | null>(null);
   const [agencyHosts, setAgencyHosts] = useState<UserProfile[]>([]);
   const [isLoadingAgency, setIsLoadingAgency] = useState(false);
@@ -216,6 +220,41 @@ export default function CreatorCenterPage() {
       fetchAgencyData();
     }
   }, [activeTab, profile]);
+
+  const [showAR, setShowAR] = useState(false);
+  const [showTransform, setShowTransform] = useState(false);
+  const [showGoLive, setShowGoLive] = useState(false);
+
+  const handleToolAction = (label: string) => {
+    switch (label) {
+      case 'Beauty':
+      case 'Mask':
+      case 'Camera':
+      case 'Flash':
+        setShowAR(true);
+        break;
+      case 'Mirror':
+      case 'Flip':
+      case 'Zoom':
+        setShowTransform(true);
+        break;
+      case 'Virtual Avatar':
+      case 'AI Coach':
+        setShowGoLive(true);
+        break;
+      case 'Singing Mode':
+        showToast("Singing Mode Toggled! 🎤", 'success');
+        break;
+      case 'Youtube':
+        showToast("Youtube Watching Together feature coming soon! 📺", 'info');
+        break;
+      case 'Music':
+        showToast("Music Player feature coming soon! 🎵", 'info');
+        break;
+      default:
+        showToast(`${label} feature coming soon! 🛠️`, 'info');
+    }
+  };
 
   const services = [
     { icon: Megaphone, label: 'Check my events', color: 'bg-cyan-50 text-cyan-500' },
@@ -280,40 +319,89 @@ export default function CreatorCenterPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-16 sm:pb-8">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-16 sm:pb-8 bg-[#F8F9FA]">
         {activeTab === 'Live' ? (
           <>
+            {/* April Data Card */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-black text-slate-800">April data</h2>
+                <button className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                  Live Data <ChevronRight size={12} />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-black text-slate-900">0</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Live minutes</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-black text-slate-900">7</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">New Fans</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-xl font-black text-slate-900">0</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">New Beans</span>
+                </div>
+              </div>
+            </div>
+
             {/* Live Tools */}
             <section className="space-y-3">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Live Tools</h2>
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between">
-                <div className="flex flex-col">
-                  <span className="font-black italic uppercase tracking-tight text-slate-900">Live Preview</span>
-                  <span className="text-xs text-slate-400">Fans can reserve your next Live</span>
+              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Live Tools</h2>
+              <div className="space-y-2">
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-pink-50 rounded-full flex items-center justify-center text-pink-500">
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-slate-800">Cover Adjustment</span>
+                      <span className="text-[10px] text-slate-400">Adjust your cover to get more exposure</span>
+                    </div>
+                  </div>
+                  <button className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all">
+                    Change
+                  </button>
                 </div>
-                <button 
-                  onClick={() => showToast("Create Live Preview coming soon! 📅", 'info')}
-                  className="px-6 py-2 bg-slate-50 border border-slate-100 rounded-full text-xs font-black uppercase italic tracking-widest hover:bg-slate-100 active:scale-95 transition-all"
-                >
-                  Create
-                </button>
+                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-50 rounded-full flex items-center justify-center text-teal-500">
+                      <Video size={20} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-black text-slate-800">Live Preview</span>
+                      <span className="text-[10px] text-slate-400">Fans can reserve your next Live</span>
+                    </div>
+                  </div>
+                  <button className="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all">
+                    Create
+                  </button>
+                </div>
               </div>
             </section>
 
             {/* Live Services */}
             <section className="space-y-3">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Live Services</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {services.map((service, i) => (
+              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Live Services</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { icon: Megaphone, label: 'Check my events', color: 'bg-cyan-50 text-cyan-500' },
+                  { icon: Crown, label: 'Host level', color: 'bg-teal-50 text-teal-500' },
+                  { icon: ShieldCheck, label: 'Apply for official hosts', color: 'bg-blue-50 text-blue-500' },
+                  { icon: AlertTriangle, label: 'Account Violations', color: 'bg-pink-50 text-pink-500' },
+                  { icon: GraduationCap, label: 'Host Academy', color: 'bg-indigo-50 text-indigo-500' },
+                  { icon: Headset, label: 'Customer Services', color: 'bg-sky-50 text-sky-500' },
+                ].map((service) => (
                   <div 
-                    key={i}
-                    onClick={() => service.path ? navigate(service.path) : showToast(`${service.label} feature coming soon! 🛠️`, 'info')}
-                    className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
+                    key={service.label}
+                    onClick={() => showToast(`${service.label} feature coming soon! 🛠️`, 'info')}
+                    className="bg-white p-3 rounded-2xl border border-slate-100 flex flex-col items-center gap-2 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
                   >
-                    <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", service.color)}>
-                      <service.icon size={24} />
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", service.color)}>
+                      <service.icon size={20} />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-700 text-center leading-tight uppercase tracking-tight">{service.label}</span>
+                    <span className="text-[8px] font-bold text-slate-700 text-center leading-tight uppercase tracking-tight">{service.label}</span>
                   </div>
                 ))}
               </div>
@@ -323,13 +411,13 @@ export default function CreatorCenterPage() {
             <section className="space-y-4">
               <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Live Tutorial</h2>
               
-              <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
+              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 snap-x">
                 {tutorialTabs.map(tab => (
                   <button 
                     key={tab}
                     onClick={() => setTutorialTab(tab)}
                     className={cn(
-                      "px-6 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest transition-all whitespace-nowrap",
+                      "px-6 py-2 rounded-full text-[10px] font-black uppercase italic tracking-widest transition-all whitespace-nowrap snap-center",
                       tutorialTab === tab ? "bg-slate-900 text-white shadow-lg" : "bg-white text-slate-400 border border-slate-100"
                     )}
                   >
@@ -377,7 +465,7 @@ export default function CreatorCenterPage() {
                           "Black & white, bruel or low quality photos",
                           "Any other content that against Bingo Live Community Regulation, such as naked, inappropriate dressing, smoking, violance or gambling"
                         ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs text-slate-400 leading-tight">
+                          <li key={text} className="flex gap-3 text-xs text-slate-400 leading-tight">
                             <span className="font-bold text-slate-900">{i + 1})</span>
                             {text}
                           </li>
@@ -395,7 +483,7 @@ export default function CreatorCenterPage() {
                           "Use Live tools to your advantage, and always stay interactive with your audiences;",
                           "Stay connected with those who are active, and chat them through messages."
                         ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs text-slate-400 leading-tight">
+                          <li key={text} className="flex gap-3 text-xs text-slate-400 leading-tight">
                             <span className="font-bold text-slate-900">{i + 1})</span>
                             {text}
                           </li>
@@ -410,7 +498,7 @@ export default function CreatorCenterPage() {
                           "Invite audiences to follow your account during Live. Followers will be notified by Broadcast Reminder when you go live;",
                           "Post frequently in Bar or Communities so that users are able to follow you through your posts."
                         ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs text-slate-400 leading-tight">
+                          <li key={text} className="flex gap-3 text-xs text-slate-400 leading-tight">
                             <span className="font-bold text-slate-900">{i + 1})</span>
                             {text}
                           </li>
@@ -427,7 +515,7 @@ export default function CreatorCenterPage() {
                           "Highlight yourself by setting up some lightings;",
                           "Get everything, i.e., costumes, makeups, topics and yourself ready before going Live."
                         ].map((text, i) => (
-                          <li key={i} className="flex gap-3 text-xs text-slate-400 leading-tight">
+                          <li key={text} className="flex gap-3 text-xs text-slate-400 leading-tight">
                             <span className="font-bold text-slate-900">{i + 1})</span>
                             {text}
                           </li>
@@ -529,7 +617,14 @@ export default function CreatorCenterPage() {
                     </div>
                     <InteractiveToolsSection 
                       onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
-                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                      onOpenARPreview={() => {
+                        setArInitialTab('beauty');
+                        setIsARPreviewOpen(true);
+                      }}
+                      onOpenTransform={() => {
+                        setArInitialTab('transform');
+                        setIsARPreviewOpen(true);
+                      }}
                     />
                   </>
                 )}
@@ -623,7 +718,14 @@ export default function CreatorCenterPage() {
                     </div>
                     <InteractiveToolsSection 
                       onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
-                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                      onOpenARPreview={() => {
+                        setArInitialTab('beauty');
+                        setIsARPreviewOpen(true);
+                      }}
+                      onOpenTransform={() => {
+                        setArInitialTab('transform');
+                        setIsARPreviewOpen(true);
+                      }}
                     />
                   </>
                 )}
@@ -694,7 +796,14 @@ export default function CreatorCenterPage() {
                     </div>
                     <InteractiveToolsSection 
                       onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
-                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                      onOpenARPreview={() => {
+                        setArInitialTab('beauty');
+                        setIsARPreviewOpen(true);
+                      }}
+                      onOpenTransform={() => {
+                        setArInitialTab('transform');
+                        setIsARPreviewOpen(true);
+                      }}
                     />
                   </>
                 )}
@@ -793,7 +902,14 @@ export default function CreatorCenterPage() {
                     </div>
                     <InteractiveToolsSection 
                       onOpenGoLive={() => setIsGoLiveModalOpen(true)} 
-                      onOpenARPreview={() => setIsARPreviewOpen(true)}
+                      onOpenARPreview={() => {
+                        setArInitialTab('beauty');
+                        setIsARPreviewOpen(true);
+                      }}
+                      onOpenTransform={() => {
+                        setArInitialTab('transform');
+                        setIsARPreviewOpen(true);
+                      }}
                     />
                   </>
                 )}
@@ -828,217 +944,26 @@ export default function CreatorCenterPage() {
             </section>
           </>
         ) : (
-          <div className="space-y-6">
-            {profile?.role === 'agency' && agency ? (
-              <div className="space-y-6">
-                {/* Agency Dashboard Header */}
-                <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                  <div className="relative z-10 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                          <Briefcase size={24} className="text-cyan-400" />
-                        </div>
-                        <div className="flex flex-col">
-                          <h3 className="font-black italic uppercase tracking-tight text-xl">{agency.name}</h3>
-                          <span className="text-[10px] text-cyan-400 font-black uppercase tracking-widest">Agency ID: {agency.id}</span>
-                        </div>
-                      </div>
-                      <div className="bg-white/10 px-4 py-2 rounded-xl text-center">
-                        <div className="text-[8px] text-white/40 uppercase font-black tracking-widest">Tier</div>
-                        <div className="text-sm font-black italic">LV.{agency.tier}</div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
-                      <div className="flex flex-col">
-                        <span className="text-[8px] text-white/40 uppercase font-black tracking-widest mb-1">Total Hosts</span>
-                        <span className="text-xl font-black italic">{agency.totalHosts}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[8px] text-white/40 uppercase font-black tracking-widest mb-1">Commission</span>
-                        <span className="text-xl font-black italic">{agency.commissionRate}%</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[8px] text-white/40 uppercase font-black tracking-widest mb-1">Rebate</span>
-                        <span className="text-xl font-black italic">{agency.rebateRate}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Host Performance */}
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between ml-2">
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Host Performance</h2>
-                    <button className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">View Reports</button>
-                  </div>
-                  <div className="bg-white rounded-[2.5rem] p-2 border border-slate-100 shadow-sm">
-                    {agencyHosts.length > 0 ? agencyHosts.map((host, i) => (
-                      <div key={host.uid} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-[2rem] transition-all">
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <img src={host.photoURL} className="w-12 h-12 rounded-2xl object-cover" />
-                            <div className="absolute -top-1 -left-1 w-5 h-5 bg-slate-900 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-white">
-                              {i + 1}
-                            </div>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-black italic uppercase text-slate-900">{host.displayName}</span>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Beans: {host.totalBeansEarned}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <div className="text-[10px] font-black text-slate-900 italic">{(host.totalBeansEarned * (agency.commissionRate / 100)).toFixed(0)}</div>
-                          <span className="text-[8px] text-slate-300 font-bold uppercase tracking-tighter">Earnings</span>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="p-12 text-center space-y-4">
-                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
-                          <Users size={32} />
-                        </div>
-                        <p className="text-xs text-slate-400 font-medium">No hosts recruited yet.</p>
-                        <button className="px-6 py-2 bg-slate-900 text-white rounded-full text-[10px] font-black uppercase italic tracking-widest">Recruit Hosts</button>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
-                {/* Agency Tools */}
-                <section className="space-y-3">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Agency Tools</h2>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { icon: UserPlus, label: 'Recruit Hosts', color: 'bg-cyan-50 text-cyan-500' },
-                      { icon: Newspaper, label: 'Commission Reports', color: 'bg-indigo-50 text-indigo-500' },
-                      { icon: Megaphone, label: 'Agency Events', color: 'bg-orange-50 text-orange-500' },
-                      { icon: Settings, label: 'Agency Settings', color: 'bg-slate-50 text-slate-500' }
-                    ].map((tool, i) => (
-                      <div key={i} 
-                        onClick={() => {
-                          if (tool.label === 'Recruit Hosts') {
-                            showToast("Recruitment link copied! 🔗", 'success');
-                          } else if (tool.label === 'Commission Reports') {
-                            showToast("Generating commission report... 📊", 'info');
-                          } else {
-                            showToast(`${tool.label} coming soon! 🛠️`, 'info');
-                          }
-                        }}
-                        className="bg-white p-5 rounded-[2rem] border border-slate-100 flex flex-col items-center gap-3 hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
-                      >
-                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", tool.color)}>
-                          <tool.icon size={24} />
-                        </div>
-                        <span className="text-[10px] font-black uppercase italic tracking-widest text-slate-900">{tool.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Agency Banner */}
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-                  <div className="relative z-10 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
-                        <Briefcase size={24} className="text-cyan-400" />
-                      </div>
-                      <h3 className="font-black italic uppercase tracking-tight text-xl">Agency Center</h3>
-                    </div>
-                    <p className="text-sm text-slate-300 leading-relaxed max-w-[240px]">
-                      Join an agency to unlock professional support, higher commissions, and exclusive growth opportunities.
-                    </p>
-                    <button 
-                      onClick={() => showToast("Agency application coming soon! 📝", 'info')}
-                      className="px-8 py-3 bg-cyan-400 text-white rounded-full font-black uppercase italic tracking-widest text-xs shadow-lg shadow-cyan-400/20 active:scale-95 transition-all"
-                    >
-                      Join Now
-                    </button>
-                  </div>
-                </div>
-
-                {/* Agency Benefits */}
-                <section className="space-y-3">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Agency Benefits</h2>
-                  <div className="grid grid-cols-1 gap-3">
-                    {[
-                      { icon: Star, title: 'Higher Commission', desc: 'Get up to 20% more earnings from your live streams.', color: 'text-yellow-400' },
-                      { icon: ShieldCheck, title: 'Official Support', desc: 'Direct access to official support and account protection.', color: 'text-blue-400' },
-                      { icon: Trophy, title: 'Exclusive Events', desc: 'Participate in agency-only tournaments and challenges.', color: 'text-orange-400' },
-                      { icon: Zap, title: 'Fast Growth', desc: 'Professional training and promotion from experienced agents.', color: 'text-cyan-400' }
-                    ].map((benefit, i) => (
-                      <div key={i} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex items-center gap-4">
-                        <div className={cn("w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center", benefit.color)}>
-                          <benefit.icon size={24} />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-black italic uppercase tracking-tight text-slate-900">{benefit.title}</span>
-                          <span className="text-[10px] text-slate-400 leading-tight">{benefit.desc}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                {/* Find Agency */}
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between ml-2">
-                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Find Agency</h2>
-                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Search by ID</span>
-                  </div>
-                  <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        placeholder="ENTER AGENCY ID OR NAME"
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-xs font-bold uppercase tracking-widest placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-                      />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
-                        <Users size={18} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-900">Recommended Agencies</h4>
-                      <div className="space-y-3">
-                        {[
-                          { name: 'Global Stars', id: 'AG8829', rating: 4.9, members: '1.2k' },
-                          { name: 'Elite Streamers', id: 'AG1102', rating: 4.8, members: '850' },
-                          { name: 'Vibe Agency', id: 'AG4453', rating: 4.7, members: '2.1k' }
-                        ].map((agency, i) => (
-                          <div 
-                            key={i} 
-                            onClick={() => showToast(`Viewing agency ${agency.name} details...`, 'info')}
-                            className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 active:scale-[0.98] transition-all"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 font-black italic text-xs">
-                                {agency.name[0]}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[11px] font-black italic uppercase text-slate-900">{agency.name}</span>
-                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">ID: {agency.id}</span>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <div className="flex items-center gap-1 text-yellow-400">
-                                <Star size={10} fill="currentColor" />
-                                <span className="text-[10px] font-black">{agency.rating}</span>
-                              </div>
-                              <span className="text-[8px] text-slate-300 font-bold uppercase">{agency.members} members</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            )}
+          <div className="flex flex-col items-center justify-center py-20 px-8 text-center space-y-8">
+            <div className="w-48 h-48 bg-white rounded-3xl shadow-xl flex items-center justify-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 to-blue-50 opacity-50" />
+              <img src="https://picsum.photos/seed/agent/400/400" className="w-32 h-32 object-contain relative z-10" referrerPolicy="no-referrer" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black text-slate-900">Be a BINGO LIVE agent</h2>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Share the platform profits<br/>
+                Get host recruitment and management tools
+              </p>
+            </div>
+            <div className="w-full space-y-3">
+              <button className="w-full py-4 bg-cyan-400 text-white rounded-2xl font-black uppercase italic tracking-widest text-sm shadow-lg shadow-cyan-400/20 active:scale-[0.98] transition-all">
+                Apply to become an agent
+              </button>
+              <button className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase italic tracking-widest text-sm active:scale-[0.98] transition-all">
+                Apply to be an administrator/agent
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1061,7 +986,11 @@ export default function CreatorCenterPage() {
 
       <AnimatePresence>
         {isARPreviewOpen && (
-          <ARPreviewModal isOpen={isARPreviewOpen} onClose={() => setIsARPreviewOpen(false)} />
+          <ARPreviewModal 
+            isOpen={isARPreviewOpen} 
+            onClose={() => setIsARPreviewOpen(false)} 
+            initialTab={arInitialTab}
+          />
         )}
       </AnimatePresence>
     </div>

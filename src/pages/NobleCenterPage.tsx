@@ -178,6 +178,7 @@ export default function NobleCenterPage() {
               { icon: Zap, title: 'Entrance Animation', desc: 'Special welcome effect when you enter any room.', color: 'text-cyan-400' },
               { icon: Shield, title: 'Premium Frame', desc: 'Exclusive golden frame for your profile picture.', color: 'text-yellow-400' },
               { icon: TrendingUp, title: 'Gifting Boost', desc: 'Earn 1.5x more intimacy points when gifting.', color: 'text-green-400' },
+              { icon: Zap, title: 'Boosted Predictions', desc: 'Exclusive access to high-multiplier prediction events.', color: 'text-orange-400' },
               { icon: Star, title: 'Exclusive Badges', desc: 'Unique Noble badge displayed on your profile.', color: 'text-purple-400' }
             ].map((benefit, i) => (
               <div key={i} className="bg-white/5 p-5 rounded-[2rem] border border-white/10 flex items-center gap-4">

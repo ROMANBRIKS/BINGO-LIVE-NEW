@@ -17,7 +17,10 @@ export const SIMULATED_USERS: { name: string; level?: number; nobleTier?: NobleT
   { name: 'Global God 1', level: 50, nobleTier: 'Global God' },
   { name: 'Duke John', level: 20, nobleTier: 'Duke' },
   { name: 'Grand Duke Mike', level: 35, nobleTier: 'Grand Duke' },
-  { name: 'Archduke Sarah', level: 45, nobleTier: 'Archduke' }
+  { name: 'Archduke Sarah', level: 45, nobleTier: 'Archduke' },
+  { name: 'King Arthur', level: 60, nobleTier: 'King' },
+  { name: 'Emperor Nero', level: 70, nobleTier: 'Emperor' },
+  { name: 'Baroness', level: 15, nobleTier: 'Baron' }
 ];
 
 export const SIMULATED_CHAT_MESSAGES = [
@@ -39,7 +42,7 @@ export const generateSimulatedMessage = (hostProfile: UserProfile | null) => {
   const level = userObj.level || Math.floor(Math.random() * 10) + 1;
 
   const rand = Math.random();
-  let type: 'chat' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' | 'mic-request' = 'chat';
+  let type: 'chat' | 'join' | 'follow' | 'like-prompt' | 'guest-live-prompt' | 'mic-request' | 'gift' = 'chat';
   let text = SIMULATED_CHAT_MESSAGES[Math.floor(Math.random() * SIMULATED_CHAT_MESSAGES.length)];
 
   if (rand > 0.99) {
@@ -51,12 +54,65 @@ export const generateSimulatedMessage = (hostProfile: UserProfile | null) => {
   } else if (rand > 0.95) {
     type = 'like-prompt';
     text = 'Tap like to give the host a little energy!';
-  } else if (rand > 0.8) {
+  } else if (rand > 0.85) {
+    type = 'gift';
+    const gifts = [
+      { name: 'Rose', icon: '🌹' },
+      { name: 'Finger Heart', icon: '🫰' },
+      { name: 'Diamond', icon: '💎' },
+      { name: 'Crown', icon: '👑' },
+      { name: 'Gift Box', icon: '🎁' }
+    ];
+    const gift = gifts[Math.floor(Math.random() * gifts.length)];
+    const quantities = [1, 1, 1, 10, 10, 99];
+    const qty = quantities[Math.floor(Math.random() * quantities.length)];
+    text = `sent ${qty}x ${gift.name}! ${gift.icon}`;
+    
+    return {
+      id: 'sim-' + Math.random().toString(36).substr(2, 9),
+      displayName: user,
+      text,
+      type,
+      level,
+      nobleTier: userObj.nobleTier || 'None',
+      timestamp: Date.now(),
+      isGift: true,
+      giftName: gift.name,
+      giftImage: gift.icon,
+      quantity: qty,
+      photoURL: `https://i.pravatar.cc/150?u=${user}`
+    };
+  } else if (rand > 0.7) {
     type = 'follow';
     text = 'followed the anchor';
   } else if (rand > 0.5) {
     type = 'join';
     text = 'joined';
+    // If it's a join, 50% chance to pick a noble user specifically
+    if (Math.random() > 0.5) {
+      const nobleUsers = SIMULATED_USERS.filter(u => u.nobleTier && u.nobleTier !== 'None');
+      if (nobleUsers.length > 0) {
+        const pickedNoble = nobleUsers[Math.floor(Math.random() * nobleUsers.length)];
+        return {
+          id: 'sim-' + Math.random().toString(36).substr(2, 9),
+          displayName: pickedNoble.name,
+          text,
+          type,
+          level: pickedNoble.level || Math.floor(Math.random() * 30) + 10,
+          nobleTier: pickedNoble.nobleTier,
+          timestamp: Date.now(),
+          hostPhoto: hostProfile?.photoURL,
+          hostName: hostProfile?.displayName,
+          isNew: Math.random() > 0.7,
+          photoURL: `https://i.pravatar.cc/150?u=${pickedNoble.name}`,
+          fanClubLevel: Math.random() > 0.8 ? Math.floor(Math.random() * 20) + 1 : undefined,
+          fanClubHostName: hostProfile?.displayName || 'Anchor',
+          isSuperFan: Math.random() > 0.95,
+          familyName: Math.random() > 0.7 ? ['LEGENDS', 'ROYALS', 'ELITE', 'VIBES'][Math.floor(Math.random() * 4)] : undefined,
+          familyLevel: Math.random() > 0.7 ? Math.floor(Math.random() * 15) + 1 : undefined
+        };
+      }
+    }
   }
 
   return {

@@ -61,7 +61,7 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
     <motion.div
       initial={{ x: -200, opacity: 0, scale: 0.8 }}
       animate={{ x: 0, opacity: 1, scale: 1 }}
-      exit={{ x: -300, opacity: 0, scale: 0.5, transition: { duration: 0.3, ease: "easeIn" } }}
+      exit={{ x: -500, opacity: 0, scale: 0.5, transition: { duration: 0.25, ease: "backIn" } }}
       transition={{ type: "spring", damping: 15, stiffness: 120 }}
       className="flex items-center gap-3 pointer-events-none mb-2"
     >
@@ -124,17 +124,17 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
         key={displayCombo}
         animate={
           displayCombo === combo 
-            ? { scale: [1.2, 1.8, 1.4], rotate: [0, 15, 0] } // Final "Bomb" pop
+            ? { scale: [1.5, 2.2, 1.8], rotate: [0, 20, 0] } // Final "Bomb" pop
             : isPulsing 
-              ? { scale: [1, 1.4, 1.2], rotate: [0, -5, 0] } 
-              : { scale: 1.2 }
+              ? { scale: [1.2, 1.6, 1.4], rotate: [0, -10, 0] } 
+              : { scale: 1.4 }
         }
-        transition={{ duration: 0.2 }}
-        className="flex items-center ml-4"
+        transition={{ duration: 0.15 }}
+        className="flex items-center ml-6"
       >
-        <span className="text-3xl font-black italic text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] select-none flex items-baseline">
-          <span className="text-yellow-400 text-xl mr-0.5 font-black not-italic">X</span>
-          <span className="bg-gradient-to-b from-white to-yellow-400 bg-clip-text text-transparent">
+        <span className="text-4xl font-black italic text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] select-none flex items-baseline">
+          <span className="text-yellow-400 text-2xl mr-1 font-black not-italic drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">X</span>
+          <span className="bg-gradient-to-b from-white via-yellow-200 to-yellow-500 bg-clip-text text-transparent filter drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]">
             {displayCombo}
           </span>
         </span>

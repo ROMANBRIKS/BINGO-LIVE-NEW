@@ -1,8 +1,9 @@
 import { NobleTier } from './NobleTypes';
+import { UserSVIPStatus } from './SVIPTypes';
 
 export type UserRole = 'user' | 'host' | 'agency' | 'admin';
 export type StreamStatus = 'live' | 'ended';
-export type StreamType = 'video' | 'audio' | 'virtual';
+export type StreamType = 'multi-guest-live' | 'live' | 'audio-live' | 'game-live' | 'virtual-live';
 export type TransactionType = 'purchase' | 'gift' | 'salary' | 'rebate';
 
 export interface UserProfile {
@@ -11,6 +12,8 @@ export interface UserProfile {
   photoURL: string;
   diamonds: number;
   beans: number;
+  coins: number;
+  points: number;
   role: UserRole;
   nobleTitle: NobleTier;
   level: number;
@@ -24,6 +27,9 @@ export interface UserProfile {
   lastNoblePurchaseDate?: any;
   referralCode: string;
   invitedBy?: string;
+  svipStatus?: UserSVIPStatus;
+  familyName?: string;
+  familyLevel?: number;
 }
 
 export interface Agency {
@@ -64,6 +70,7 @@ export interface GuestSeat {
   status: 'empty' | 'occupied' | 'locked';
   type: 'audio' | 'video';
   isMuted: boolean;
+  coinContribution?: number;
 }
 
 export interface MicRequest {
@@ -120,6 +127,9 @@ export interface Room {
   pkOpponentShieldTier?: ShieldTier;
   pkOpponentShieldAbsorbed?: number;
   pkOpponentShieldEndTime?: string;
+  youtubeVideoId?: string | null;
+  currentSong?: { title: string, artist: string, url: string } | null;
+  isSingingMode?: boolean;
   latitude?: number;
   longitude?: number;
 }
@@ -128,8 +138,11 @@ export interface Gift {
   id: string;
   name: string;
   cost: number;
-  image?: string;
+  image: string;
   animationType: string;
+  category?: string;
+  isFlash?: boolean;
+  expiresAt?: string;
 }
 
 export interface Transaction {

@@ -11,7 +11,7 @@ import {
 import { cn } from '../lib/utils';
 import { Family, FamilyMember, UserProfile } from '../types';
 import { auth, db } from '../firebase';
-import { checkFamilyDailyCheckIn } from '../FamilyLogic';
+import { checkFamilyDailyCheckIn } from '../familyLogic';
 import { doc, getDoc, collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
 
 export default function FamilyDashboardPage() {

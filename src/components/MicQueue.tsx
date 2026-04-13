@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Video, MicOff, UserPlus, X, Lock, Unlock, MoreVertical, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Mic, Video, MicOff, UserPlus, X, Lock, Unlock, MoreVertical, Trash2, Youtube, Music, Mic2, RotateCw, Sparkles, Gamepad2, Link2 } from 'lucide-react';
 import { GuestSeat, MicRequest, UserProfile } from '../types';
 import { useToast } from '../context/ToastContext';
 import { GuestSeat as GuestSeatComponent } from './GuestSeat';
@@ -15,6 +15,20 @@ interface MicQueueProps {
   onRemoveGuest: (seatId: number) => void;
   onToggleMute: (seatId: number) => void;
   onToggleLock: (seatId: number) => void;
+  // Toolbar Props
+  onYoutubeClick?: () => void;
+  onMusicClick?: () => void;
+  onSingingModeClick?: () => void;
+  onTransformClick?: () => void;
+  isYoutubeActive?: boolean;
+  isMusicActive?: boolean;
+  isSingingModeActive?: boolean;
+  isTransformActive?: boolean;
+  onBeautyClick?: () => void;
+  onGamesClick?: () => void;
+  isBeautyActive?: boolean;
+  isGamesActive?: boolean;
+  onJoinClick?: () => void;
 }
 
 export const MicQueue: React.FC<MicQueueProps> = ({
@@ -26,6 +40,19 @@ export const MicQueue: React.FC<MicQueueProps> = ({
   onRemoveGuest,
   onToggleMute,
   onToggleLock,
+  onYoutubeClick,
+  onMusicClick,
+  onSingingModeClick,
+  onTransformClick,
+  isYoutubeActive,
+  isMusicActive,
+  isSingingModeActive,
+  isTransformActive,
+  onBeautyClick,
+  onGamesClick,
+  isBeautyActive,
+  isGamesActive,
+  onJoinClick,
 }) => {
   const { showToast } = useToast();
   const [showQueue, setShowQueue] = React.useState(false);
@@ -124,6 +151,41 @@ export const MicQueue: React.FC<MicQueueProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Toolbar Icons inside Multi-Guest Section */}
+      {isHost && (
+        <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between gap-2">
+          <button 
+            onClick={onGamesClick}
+            className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg",
+              isGamesActive ? "bg-white text-purple-600" : "bg-purple-600 text-white"
+            )}
+          >
+            <Gamepad2 size={20} />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={onJoinClick}
+              className="w-10 h-10 rounded-full bg-cyan-400/20 backdrop-blur-md border border-cyan-400/30 flex items-center justify-center transition-all"
+            >
+              <Link2 size={20} className="text-cyan-400" />
+            </button>
+          </div>
+
+          <button 
+            onClick={onBeautyClick}
+            className={cn(
+              "relative w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg",
+              isBeautyActive ? "bg-cyan-400 text-white" : "bg-white/5 text-white/40 border border-white/10"
+            )}
+          >
+            <Sparkles size={20} />
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] flex items-center justify-center border border-black font-black">1</span>
+          </button>
+        </div>
+      )}
 
       {/* Request Queue Modal */}
       <AnimatePresence>

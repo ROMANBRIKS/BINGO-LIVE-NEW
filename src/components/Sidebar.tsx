@@ -2,15 +2,21 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useToast } from '../context/ToastContext';
-import { Home as HomeIcon, Trophy, Users, Star, Flame, TrendingUp, Search, Plus } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Home as HomeIcon, Trophy, Users, Star, Flame, TrendingUp, Search, Plus, Shield } from 'lucide-react';
 import { GoLiveModal } from './GoLiveModal';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'motion/react';
 
 export const Sidebar = React.memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showToast } = useToast();
+  const { profile, user } = useAuth();
   const [showGoLive, setShowGoLive] = useState(false);
+
+  const isAdmin = (profile?.role === 'admin') || 
+                  (user?.uid === 'YDnNAkdp5sYRs8YNN8K22576UO33') || 
+                  (user?.email === 'rogershep101@gmail.com');
 
   const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
   if (isStreamPage) return null;
@@ -24,13 +30,17 @@ export const Sidebar = React.memo(() => {
     { icon: TrendingUp, label: 'Hot', path: '/hot' },
   ];
 
+  if (isAdmin) {
+    menuItems.push({ icon: Shield, label: 'Admin', path: '/admin' });
+  }
+
   return (
     <>
       <aside className="hidden sm:flex sticky top-0 h-screen w-20 md:w-64 bg-black/40 backdrop-blur-xl border-r border-white/5 flex-col p-4 z-40 shrink-0">
         <div className="space-y-2">
-          {menuItems.map((item, i) => (
+          {menuItems.map((item) => (
             <button 
-              key={i}
+              key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
                 "w-full flex items-center gap-4 p-3 rounded-2xl transition-all group",
@@ -51,7 +61,7 @@ export const Sidebar = React.memo(() => {
             <div className="space-y-4">
               {[1, 2, 3].map(i => (
                 <div 
-                  key={i} 
+                  key={`top-host-${i}`} 
                   onClick={() => showToast(`Viewing Top Host ${i}'s profile...`, 'info')}
                   className="flex items-center gap-3 px-3 group cursor-pointer active:scale-95 transition-all"
                 >

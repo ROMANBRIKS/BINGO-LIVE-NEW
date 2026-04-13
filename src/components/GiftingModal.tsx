@@ -1,41 +1,23 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { doc, collection, addDoc, serverTimestamp, increment, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, addDoc, serverTimestamp, increment, setDoc, updateDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Gift, UserProfile } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Diamond, ChevronRight, User, Zap } from 'lucide-react';
+import { Diamond, ChevronRight, User, Zap, Users } from 'lucide-react';
 import { calculateGiftingPower, formatPowerDisplay } from '../nobleGiftingLogic';
+import { SVIPManager } from '../lib/svipLogic';
 import { getSnipeMultiplier, isSnipeWindow } from '../pkEnhancedLogic';
 import { PK_SHIELDS, ShieldTier, calculateShieldedScore } from '../pkShieldLogic';
 
 // Combined gift data from screenshots for the "Popular" tab
-const POPULAR_GIFTS: Gift[] = [
-  // Special Animated Gifts
-  { id: 'kiss', name: 'Kiss', cost: 99, image: '💋', animationType: 'kiss' },
-  { id: 'flower_special', name: 'Rose', cost: 10, image: '🌹', animationType: 'flower' },
-  // First set of gifts
-  { id: 'dino_gift_box', name: 'Dino Gift Box', cost: 1, image: '/assets/dino_gift_box.png', animationType: 'standard' },
-  { id: 'crystal_ball', name: 'Crystal Ball', cost: 100, image: '🔮', animationType: 'standard' },
-  { id: 'time_shards', name: 'Time Shards', cost: 1000, image: '💎', animationType: 'standard' },
-  { id: 'red_carpet_dinner', name: 'Red Carpet Dinner', cost: 3000, image: '💃', animationType: 'standard' },
-  { id: 'thunder_bike', name: 'Thunder Bike', cost: 10000, image: '🏍️', animationType: 'standard' },
-  { id: 'curly_blast', name: 'Curly Blast', cost: 1, image: '🎉', animationType: 'standard' },
-  { id: 'hat_trick', name: 'Hat Trick', cost: 100, image: '🎩', animationType: 'standard' },
-  { id: 'firework', name: 'Firework', cost: 1000, image: '🎆', animationType: 'standard' },
-  // Second set of gifts
-  { id: 'sky_copter', name: 'Sky Copter', cost: 100, image: '🚁', animationType: 'standard' },
-  { id: 'hot_gifts', name: 'HOT gifts', cost: 100, image: '🎁', animationType: 'standard' },
-  { id: 'golden_rose', name: 'Golden Rose', cost: 100, image: '🌹', animationType: 'standard' },
-  { id: 'flower', name: 'Flower', cost: 1, image: '🌷', animationType: 'standard' },
-  { id: 'ghost_rider', name: 'GHOST RIDER by...', cost: 39999, image: '💀', animationType: 'standard' },
-  { id: 'golden_pop', name: 'Golden Pop', cost: 100, image: '🍾', animationType: 'standard' },
-  { id: 'gold', name: 'Gold', cost: 10, image: '💰', animationType: 'standard' },
-  { id: 'pink_diamond', name: 'Pink Diamond', cost: 100, image: '💖', animationType: 'standard' },
-];
+// Moved to src/constants/gifts.ts
 
 const TABS = ['Popular', 'Activity', 'Local', 'Fun', 'Treasure', 'Shields'];
+
+import { DEFAULT_POPULAR_GIFTS } from '../constants/gifts';
+import { calculateFamilyContribution, getFamilyMultiplier } from '../familyLogic';
 
 export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose: () => void, onGiftSent?: (gift: Gift, quantity: number) => void }) => {
   const { profile } = useAuth();
@@ -44,6 +26,32 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [sending, setSending] = useState(false);
+  const [svipDiscount, setSvipDiscount] = useState(0);
+  const [dynamicGifts, setDynamicGifts] = useState<Gift[]>([]);
+
+  // Fetch Dynamic Gifts
+  React.useEffect(() => {
+    const q = query(collection(db, 'gifts'), orderBy('cost', 'asc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const giftList = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Gift))
+        .filter(g => (g as any).status !== 'deleted'); // Handle soft delete
+      
+      // If no gifts in DB, we could use POPULAR_GIFTS as fallback or just show empty
+      setDynamicGifts(giftList);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'gifts');
+    });
+    return () => unsub();
+  }, []);
+
+  const familyMultiplier = getFamilyMultiplier(room);
+
+  React.useEffect(() => {
+    if (profile) {
+      SVIPManager.getDiamondDiscount(profile.uid).then(setSvipDiscount);
+    }
+  }, [profile]);
 
   const pkEndTime = room.pkEndTime;
   const isSnipe = pkEndTime ? isSnipeWindow(pkEndTime) : false;
@@ -71,8 +79,11 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
       const userRef = doc(db, 'users', profile.uid);
       const hostRef = doc(db, 'users', room.hostUid);
       const roomRef = doc(db, 'rooms', room.id);
-      const totalCost = selectedGift.cost * quantity;
-      let giftingPower = Math.floor(calculateGiftingPower(totalCost, profile) * snipeMultiplier);
+      const totalCost = Math.floor(selectedGift.cost * quantity * (1 - svipDiscount / 100));
+      let giftingPower = Math.floor(calculateGiftingPower(selectedGift.cost * quantity, profile) * snipeMultiplier);
+
+      // Family Contribution Logic
+      const familyPoints = calculateFamilyContribution(selectedGift.cost * quantity, room);
 
       // Apply Opponent Shield to Current Gift
       const oShield = room.pkOpponentShieldTier ? PK_SHIELDS[room.pkOpponentShieldTier] : null;
@@ -103,6 +114,20 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
         pkScore: increment(giftingPower)
       });
 
+      // Update Family Contribution if user is in a family
+      if (profile.familyId) {
+        const familyRef = doc(db, 'families', profile.familyId);
+        const memberRef = doc(db, `families/${profile.familyId}/members`, profile.uid);
+        
+        await updateDoc(familyRef, {
+          totalDiamondsSpent: increment(familyPoints)
+        }).catch(err => console.error("Family update error:", err));
+
+        await updateDoc(memberRef, {
+          contributionPoints: increment(familyPoints)
+        }).catch(err => console.error("Family member update error:", err));
+      }
+
       // Handle Shield Activation (Buying a shield for the current host)
       if (activeTab === 'Shields' && selectedGift) {
         const tier = selectedGift.id as ShieldTier;
@@ -120,11 +145,31 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
         onGiftSent(selectedGift, quantity);
       }
 
+      // Update Treasure Chest Progress
+      try {
+        const { updateTreasureProgress } = await import('../treasureChestLogic');
+        const treasureResult = await updateTreasureProgress(
+          room.id,
+          selectedGift.cost,
+          quantity
+        );
+
+        if (treasureResult.goalCompleted && treasureResult.completedGoal) {
+          showToast(
+            `🎁 ${treasureResult.completedGoal.rewardName} Unlocked!`,
+            'success'
+          );
+        }
+      } catch (error) {
+        console.error("Treasure chest update error:", error);
+      }
+
       await addDoc(collection(db, `rooms/${room.id}/messages`), {
         text: `sent ${quantity}x ${selectedGift.name}! 🎁`,
         uid: profile.uid,
         displayName: profile.displayName,
         photoURL: profile.photoURL,
+        svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
         timestamp: serverTimestamp(),
         isGift: true,
         giftId: selectedGift.id,
@@ -200,25 +245,67 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
           </div>
         </div>
 
-        {/* Gift Grid - Horizontal Scroll to the Right */}
         <div className="flex overflow-x-auto scrollbar-hide p-3 gap-x-3 min-h-[150px]">
-          {activeTab === 'Popular' && POPULAR_GIFTS.map(gift => (
+          {/* Dynamic Gifts from DB */}
+          {dynamicGifts.filter(g => g.category === activeTab).map(gift => (
             <button 
               key={gift.id}
               onClick={() => setSelectedGift(gift)}
-              className={`flex-none w-[56px] flex flex-col items-center relative group ${
+              className={`flex-none w-[50px] flex flex-col items-center relative group ${
                 selectedGift?.id === gift.id ? 'scale-105' : ''
               }`}
             >
               {selectedGift?.id === gift.id && (
-                <div className="absolute inset-0 bg-white/10 rounded-lg -m-1.5" />
+                <div className="absolute inset-0 bg-white/10 rounded-lg -m-1" />
               )}
               <div className="relative">
-                <div className="w-12 h-12 flex items-center justify-center mb-0.5">
+                <div className="w-11 h-11 flex items-center justify-center mb-0.5">
                   {gift.image.startsWith('/') || gift.image.startsWith('http') ? (
                     <img 
                       src={gift.image} 
-                      className="w-10 h-10 object-contain group-hover:scale-110 transition-transform" 
+                      className="w-9 h-9 object-contain group-hover:scale-110 transition-transform" 
+                      alt={gift.name} 
+                      referrerPolicy="no-referrer" 
+                    />
+                  ) : (
+                    <span className="text-xl group-hover:scale-110 transition-transform inline-block">{gift.image}</span>
+                  )}
+                </div>
+                {gift.isFlash && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-[6px] font-bold px-0.5 rounded uppercase">Flash</div>
+                )}
+              </div>
+              <span className="text-[8px] text-white/90 text-center line-clamp-1 mb-0.5">{gift.name}</span>
+              <div className="flex items-center gap-0.5 text-white/40 text-[7px]">
+                <Diamond size={6} />
+                {svipDiscount > 0 ? (
+                  <span className="flex items-center gap-1">
+                    <span className="line-through opacity-50">{gift.cost}</span>
+                    <span className="text-cyan-400 font-bold">{Math.floor(gift.cost * (1 - svipDiscount / 100))}</span>
+                  </span>
+                ) : gift.cost}
+              </div>
+            </button>
+          ))}
+
+          {/* Fallback to hardcoded Popular gifts if DB is empty for Popular tab */}
+          {activeTab === 'Popular' && dynamicGifts.filter(g => g.category === 'Popular').length === 0 && DEFAULT_POPULAR_GIFTS.map(gift => (
+            <button 
+              key={gift.id}
+              onClick={() => setSelectedGift(gift)}
+              className={`flex-none w-[50px] flex flex-col items-center relative group ${
+                selectedGift?.id === gift.id ? 'scale-105' : ''
+              }`}
+            >
+              {selectedGift?.id === gift.id && (
+                <div className="absolute inset-0 bg-white/10 rounded-lg -m-1" />
+              )}
+              <div className="relative">
+                <div className="w-11 h-11 flex items-center justify-center mb-0.5">
+                  {gift.image.startsWith('/') || gift.image.startsWith('http') ? (
+                    <img 
+                      src={gift.image} 
+                      className="w-9 h-9 object-contain group-hover:scale-110 transition-transform" 
                       alt={gift.name} 
                       referrerPolicy="no-referrer" 
                       onError={(e) => {
@@ -227,24 +314,29 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
                         const parent = (e.target as HTMLImageElement).parentElement;
                         if (parent) {
                           const span = document.createElement('span');
-                          span.className = "text-2xl group-hover:scale-110 transition-transform inline-block";
+                          span.className = "text-xl group-hover:scale-110 transition-transform inline-block";
                           span.innerText = "🎁";
                           parent.appendChild(span);
                         }
                       }}
                     />
                   ) : (
-                    <span className="text-2xl group-hover:scale-110 transition-transform inline-block">{gift.image}</span>
+                    <span className="text-xl group-hover:scale-110 transition-transform inline-block">{gift.image}</span>
                   )}
                 </div>
                 {['dino_gift_box', 'crystal_ball', 'time_shards', 'red_carpet_dinner', 'thunder_bike', 'sky_copter', 'ghost_rider'].includes(gift.id) && (
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-[7px] font-bold px-0.5 rounded uppercase">New</div>
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-[6px] font-bold px-0.5 rounded uppercase">New</div>
                 )}
               </div>
-              <span className="text-[9px] text-white/90 text-center line-clamp-1 mb-0.5">{gift.name}</span>
-              <div className="flex items-center gap-0.5 text-white/40 text-[8px]">
-                <Diamond size={7} />
-                {gift.cost}
+              <span className="text-[8px] text-white/90 text-center line-clamp-1 mb-0.5">{gift.name}</span>
+              <div className="flex items-center gap-0.5 text-white/40 text-[7px]">
+                <Diamond size={6} />
+                {svipDiscount > 0 ? (
+                  <span className="flex items-center gap-1">
+                    <span className="line-through opacity-50">{gift.cost}</span>
+                    <span className="text-cyan-400 font-bold">{Math.floor(gift.cost * (1 - svipDiscount / 100))}</span>
+                  </span>
+                ) : gift.cost}
               </div>
             </button>
           ))}
@@ -297,10 +389,18 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
                 <span className="text-base font-bold text-white">{profile?.diamonds || 0}</span>
               </div>
               {profile && formatPowerDisplay(profile) && (
-                <div className="flex items-center gap-0.5 text-[8px] font-black text-cyan-400 uppercase tracking-tighter">
-                  <Zap size={8} fill="currentColor" />
-                  {formatPowerDisplay(profile)}
-                  {isSnipe && <span className="text-red-500 ml-1">x1.5 Snipe!</span>}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-0.5 text-[8px] font-black text-cyan-400 uppercase tracking-tighter">
+                    <Zap size={8} fill="currentColor" />
+                    {formatPowerDisplay(profile)}
+                    {isSnipe && <span className="text-red-500 ml-1">x1.5 Snipe!</span>}
+                  </div>
+                  {profile.familyId && (
+                    <div className="flex items-center gap-0.5 text-[8px] font-black text-yellow-500 uppercase tracking-tighter">
+                      <Users size={8} fill="currentColor" />
+                      Family Multiplier: x{familyMultiplier}
+                    </div>
+                  )}
                 </div>
               )}
               {!formatPowerDisplay(profile) && isSnipe && (

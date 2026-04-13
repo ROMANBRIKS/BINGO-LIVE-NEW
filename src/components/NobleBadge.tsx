@@ -10,14 +10,17 @@ import { NOBLE_LEVELS, NobleTier } from '../NobleTypes';
 
 interface NobleBadgeProps {
   tier: NobleTier;
+  gender?: 'male' | 'female';
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
 }
 
-export const NobleBadge: React.FC<NobleBadgeProps> = ({ tier, size = 'md', showLabel = false }) => {
+export const NobleBadge: React.FC<NobleBadgeProps> = ({ tier, gender = 'male', size = 'md', showLabel = false }) => {
   const level = NOBLE_LEVELS[tier] || NOBLE_LEVELS['None'];
   
   if (tier === 'None' || !level) return null;
+
+  const displayTitle = gender === 'female' && level.femaleTitle ? level.femaleTitle : tier;
 
   const sizeMap = {
     sm: { width: 'w-6', height: 'h-6', fontSize: 'text-[10px]', iconSize: 'text-xs' },
@@ -30,13 +33,28 @@ export const NobleBadge: React.FC<NobleBadgeProps> = ({ tier, size = 'md', showL
   // Custom Metallic Gradients for each tier
   const gradients: Record<NobleTier, string> = {
     'None': 'from-gray-400 to-gray-500',
-    'Baron': 'from-[#cd7f32] via-[#e59e5a] to-[#8b4513]', // Bronze
-    'Duke': 'from-[#c0c0c0] via-[#ffffff] to-[#708090]', // Silver
-    'Grand Duke': 'from-[#ffd700] via-[#fff3b0] to-[#b8860b]', // Gold
-    'Archduke': 'from-[#e5e4e2] via-[#ffffff] to-[#a9a9a9]', // Platinum
-    'King': 'from-[#ff4d4f] via-[#ff7875] to-[#a8071a]', // Royal Red
-    'Emperor': 'from-[#722ed1] via-[#b37feb] to-[#391085]', // Imperial Purple
-    'Global God': 'from-[#00d8ff] via-[#b7f4ff] to-[#0050b3]', // Celestial Blue
+    'Knight': 'from-[#cd7f32] via-[#e59e5a] to-[#8b4513]',
+    'Viscount': 'from-[#b87333] via-[#d2691e] to-[#8b4513]',
+    'Earl': 'from-[#a0522d] via-[#d2691e] to-[#8b4513]',
+    'Marquis': 'from-[#3b82f6] via-[#60a5fa] to-[#1d4ed8]',
+    'Baron': 'from-[#2563eb] via-[#3b82f6] to-[#1e40af]',
+    'Viscount Elite': 'from-[#1d4ed8] via-[#3b82f6] to-[#1e3a8a]',
+    'Earl Elite': 'from-[#1e40af] via-[#3b82f6] to-[#172554]',
+    'Duke': 'from-[#ffd700] via-[#fff3b0] to-[#b8860b]',
+    'Grand Duke': 'from-[#ffcc00] via-[#fff3b0] to-[#b8860b]',
+    'Archduke': 'from-[#ffb700] via-[#fff3b0] to-[#b8860b]',
+    'Prince': 'from-[#a855f7] via-[#c084fc] to-[#7e22ce]',
+    'Crown Prince': 'from-[#9333ea] via-[#c084fc] to-[#6b21a8]',
+    'King': 'from-[#7e22ce] via-[#a855f7] to-[#581c87]',
+    'Emperor': 'from-[#ec4899] via-[#f472b6] to-[#be185d]',
+    'Great Emperor': 'from-[#db2777] via-[#f472b6] to-[#9d174d]',
+    'Legendary Emperor': 'from-[#be185d] via-[#f472b6] to-[#831843]',
+    'Supreme Emperor': 'from-[#9d174d] via-[#f472b6] to-[#500724]',
+    'Overlord': 'from-[#831843] via-[#be185d] to-[#500724]',
+    'Demi-God': 'from-[#a855f7] via-[#c084fc] to-[#7e22ce]',
+    'God of War': 'from-[#9333ea] via-[#c084fc] to-[#6b21a8]',
+    'Celestial God': 'from-[#7e22ce] via-[#a855f7] to-[#581c87]',
+    'Global God': 'from-[#ffffff] via-[#f3f4f6] to-[#9ca3af]',
   };
 
   return (
@@ -70,7 +88,7 @@ export const NobleBadge: React.FC<NobleBadgeProps> = ({ tier, size = 'md', showL
 
       {showLabel && (
         <span className={`${fontSize} font-black uppercase tracking-widest bg-clip-text text-transparent bg-gradient-to-r ${gradients[tier]} drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]`}>
-          {tier}
+          {displayTitle}
         </span>
       )}
     </div>

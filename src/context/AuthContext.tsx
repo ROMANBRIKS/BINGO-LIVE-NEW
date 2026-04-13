@@ -46,6 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               photoURL: u.photoURL || '',
               diamonds: 100,
               beans: 0,
+              coins: 0,
+              points: 0,
               role: u.email === 'rogershep101@gmail.com' ? 'admin' : 'user',
               nobleTitle: 'None',
               level: 1,
