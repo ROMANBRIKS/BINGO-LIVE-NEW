@@ -37,6 +37,7 @@ const FamilyLeaderboardPage = lazy(() => import('./pages/FamilyLeaderboardPage')
 const VIPCenterPage = lazy(() => import('./pages/VIPCenterPage'));
 const EarningsDashboardPage = lazy(() => import('./pages/EarningsDashboardPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -95,6 +96,7 @@ const AppContent = () => {
               <Route path="/family-leaderboard" element={<FamilyLeaderboardPage />} />
               <Route path="/earnings-dashboard" element={<EarningsDashboardPage />} />
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/agency-dashboard" element={<AgencyDashboardPage />} />
               <Route path="/following" element={<ComingSoonPage title="Following" />} />
               <Route path="/vip" element={<VIPCenterPage />} />
               <Route path="/pk" element={<ComingSoonPage title="PK Battles" />} />

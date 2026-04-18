@@ -8,9 +8,14 @@ import { Users, MapPin, Signal, Search, User as UserIcon, Bell, BarChart2 } from
 import { motion } from 'motion/react';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
-import { Shield } from 'lucide-react';
+import { Shield, Sparkles, BrainCircuit } from 'lucide-react';
+import { WeeklyKing } from '../components/WeeklyKing';
+import { getAIStreamRecommendations, RecommendationResponse } from '../services/aiRecommendationService';
+import { UserProfile } from '../types';
+import { getDocs, getDoc, doc } from 'firebase/firestore';
+import { SEOHeaders } from '../components/SEOHeaders';
 
-const RoomCard = React.memo(({ room }: { room: Room }) => {
+const RoomCard = React.memo(({ room, aiReason }: { room: Room, aiReason?: string }) => {
   const navigate = useNavigate();
   const categories = ['Chat', 'Music', 'Gaming', 'Dance', 'Beauty', 'Emotional'];
   const category = categories[room.id.length % categories.length];
@@ -44,6 +49,12 @@ const RoomCard = React.memo(({ room }: { room: Room }) => {
 
       {/* Bottom Info */}
       <div className="absolute bottom-2 left-2 right-2 flex flex-col gap-1">
+        {aiReason && (
+          <div className="bg-cyan-500/80 backdrop-blur-md px-1.5 py-0.5 rounded-sm flex items-center gap-1 mb-1 border border-cyan-400/50">
+            <BrainCircuit size={8} className="text-white" />
+            <span className="text-[7px] font-black text-white uppercase truncate">{aiReason}</span>
+          </div>
+        )}
         <div className="flex items-center gap-1.5">
           <div className="bg-gradient-to-br from-purple-500 to-indigo-600 px-1.5 py-0.5 rounded-full flex items-center gap-1 border border-white/20 shadow-lg">
             <UserIcon size={8} className="text-white" />
@@ -65,6 +76,8 @@ export default function HomePage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [weeklyKing, setWeeklyKing] = useState<UserProfile | null>(null);
+  const [aiRecs, setAiRecs] = useState<RecommendationResponse[]>([]);
   const [activeTab, setActiveTab] = useState('Popular');
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
@@ -94,6 +107,40 @@ export default function HomePage() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    // Fetch Weekly King (Top Bean Earner)
+    const fetchKing = async () => {
+      const q = query(collection(db, 'users'), orderBy('totalBeansEarned', 'desc'), limit(1));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        setWeeklyKing({ uid: snap.docs[0].id, ...snap.docs[0].data() } as UserProfile);
+      }
+    };
+    fetchKing();
+  }, []);
+
+  useEffect(() => {
+    // Run AI recommendations when rooms are loaded
+    if (rooms.length > 0 && aiRecs.length === 0) {
+      const runAiRecs = async () => {
+        // Fetch profiles for the top rooms to give AI context
+        const profiles: Record<string, UserProfile> = {};
+        const topHostUids = Array.from(new Set(rooms.slice(0, 10).map(r => r.hostUid)));
+        
+        await Promise.all(topHostUids.map(async (uid) => {
+          const snap = await getDoc(doc(db, 'users', uid));
+          if (snap.exists()) {
+            profiles[uid] = { uid: snap.id, ...snap.data() } as UserProfile;
+          }
+        }));
+
+        const recs = await getAIStreamRecommendations(rooms.slice(0, 20), profiles);
+        setAiRecs(recs);
+      };
+      runAiRecs();
+    }
+  }, [rooms.length]);
 
   // Drag to scroll logic for desktop
   useEffect(() => {
@@ -184,6 +231,11 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none relative">
+      <SEOHeaders 
+        title="Bingo Live - Global Gifting & Live Streaming Platform"
+        description="The elite live streaming community for USA, UK, Europe, Australia and Ireland. Join professional creators, engage in interactive rooms, and experience advanced digital gifting."
+        keywords="live streaming USA, professional streamers UK, social broadcasting Europe, creator monetization Australia, live gifting app Ireland, global social platform"
+      />
       {isAdmin && (
         <button 
           onClick={() => navigate('/admin')}
@@ -250,6 +302,32 @@ export default function HomePage() {
 
       {/* Main Content Area - Only scrolls vertically */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide">
+        {/* Weekly King Spotlight */}
+        <div className="px-4 py-4 pt-6">
+          <WeeklyKing user={weeklyKing} type="Host" />
+        </div>
+
+        {/* AI Recommendations Section */}
+        {aiRecs.length > 0 && (
+          <div className="px-4 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 bg-cyan-500/20 rounded-lg">
+                <BrainCircuit size={16} className="text-cyan-400" />
+              </div>
+              <h3 className="text-xs font-black uppercase italic tracking-widest text-white/60">
+                AI Match for you
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 gap-0.5 rounded-2xl overflow-hidden border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+              {aiRecs.slice(0, 2).map(rec => {
+                const room = rooms.find(r => r.id === rec.recommendedRoomId);
+                if (!room) return null;
+                return <RoomCard key={room.id} room={room} aiReason={rec.reason} />;
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Banner Section */}
         <div className="px-4 py-3">
           <div className="relative aspect-[21/9] rounded-2xl overflow-hidden bg-gradient-to-r from-orange-500 to-pink-600 shadow-2xl group cursor-pointer">
@@ -271,7 +349,11 @@ export default function HomePage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-0.5 px-0.5">
           {filteredRooms.map(room => (
-            <RoomCard key={room.id} room={room} />
+            <RoomCard 
+              key={room.id} 
+              room={room} 
+              aiReason={aiRecs.find(rec => rec.recommendedRoomId === room.id)?.reason} 
+            />
           ))}
         </div>
         {filteredRooms.length === 0 && (

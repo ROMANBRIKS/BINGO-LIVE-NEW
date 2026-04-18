@@ -3,7 +3,7 @@ import { GiftCombo } from '../components/GiftCombo';
 import { GiftAnimation } from '../components/GiftAnimation';
 import { motion, AnimatePresence } from 'motion/react';
 import { mediaPipeService, ARSettings } from '../services/MediaPipeService';
-import { webRTCService } from '../services/WebRTCService';
+import { streamingService } from '../services/streamingService';
 import { cn } from '../lib/utils';
 import { AILiveAssistant, StreamStats } from '../components/AILiveAssistant';
 import { MiniGameCenter, MiniGame } from '../components/MiniGameCenter';
@@ -769,55 +769,12 @@ export default function GoLivePage() {
     mediaPipeService.updateSettings(arSettings);
   }, [arSettings]);
 
-  // WebRTC Signaling for Host
+  // Clean up streaming on unmount
   useEffect(() => {
-    if (status !== 'live' || !profile || !canvasRef.current) return;
-
-    const signalsRef = collection(db, `rooms/${profile.uid}/signals`);
-    const q = query(signalsRef, where('to', '==', profile.uid));
-
-    const unsub = onSnapshot(q, async (snapshot) => {
-      for (const change of snapshot.docChanges()) {
-        if (change.type === 'added') {
-          const signal = change.doc.data();
-          const signalId = change.doc.id;
-
-          if (signal.type === 'request-stream') {
-            // A viewer is requesting a stream
-            const viewerUid = signal.from;
-            console.log(`[WebRTC] Received stream request from ${viewerUid}`);
-            
-            // Capture stream from canvas (processed video)
-            const processedStream = canvasRef.current!.captureStream(30);
-            
-            // Also add audio tracks from the original stream if available
-            if (stream) {
-              stream.getAudioTracks().forEach(track => processedStream.addTrack(track));
-            }
-
-            await webRTCService.createOffer(profile.uid, viewerUid, processedStream, profile.uid);
-            // Delete the request signal
-            await deleteDoc(doc(db, `rooms/${profile.uid}/signals`, signalId));
-          } else if (signal.type === 'answer') {
-            // Received answer from viewer
-            await webRTCService.handleAnswer(signal.from, signal.data);
-            await deleteDoc(doc(db, `rooms/${profile.uid}/signals`, signalId));
-          } else if (signal.type === 'candidate') {
-            // Received ICE candidate from viewer
-            await webRTCService.addIceCandidate(signal.from, signal.data);
-            await deleteDoc(doc(db, `rooms/${profile.uid}/signals`, signalId));
-          }
-        }
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `rooms/${profile.uid}/signals`);
-    });
-
     return () => {
-      unsub();
-      webRTCService.stop();
+      streamingService.leave();
     };
-  }, [status, profile, stream]);
+  }, []);
 
   const handleStartBroadcast = async () => {
     if (!profile || status !== 'setup') return;
@@ -848,7 +805,20 @@ export default function GoLivePage() {
 
   const finalizeBroadcast = async () => {
     try {
-      const initialViewerCount = Math.floor(Math.random() * 50) + 20; // Start with some viewers
+      const initialViewerCount = Math.floor(Math.random() * 50) + 20;
+      
+      // Integrate Agora Professional Streaming
+      if (canvasRef.current && activeMode !== 'audio-live') {
+        const stream = (canvasRef.current as any).captureStream(30);
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          const customTrack = streamingService.createCustomVideoTrack(videoTrack);
+          await streamingService.startBroadcast(profile?.uid || 'anonymous', profile?.uid || 'anonymous', customTrack);
+        }
+      } else if (activeMode === 'audio-live') {
+        await streamingService.startBroadcast(profile?.uid || 'anonymous', profile?.uid || 'anonymous');
+      }
+
       const roomData = {
         hostUid: profile?.uid,
         title: title || `${profile?.displayName}'s Live Stream`,

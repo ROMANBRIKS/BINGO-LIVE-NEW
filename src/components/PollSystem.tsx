@@ -3,11 +3,11 @@ import {
   collection, query, where, onSnapshot, addDoc, 
   serverTimestamp, doc, updateDoc, increment, setDoc, getDoc 
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, functions, callFunction } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { BarChart3, Clock, CheckCircle2, X, Plus, Send } from 'lucide-react';
+import { BarChart3, Clock, CheckCircle2, X, Plus, Send, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface PollOption {
@@ -120,27 +120,33 @@ export const PollSystem: React.FC<PollSystemProps> = ({ roomId, isHost }) => {
     if (!profile || !activePoll || userVote) return;
 
     try {
-      const pollRef = doc(db, 'rooms', roomId, 'polls', activePoll.id);
-      const voteRef = doc(db, 'rooms', roomId, 'polls', activePoll.id, 'votes', profile.uid);
-
-      // Update poll options and total votes
-      const updatedOptions = activePoll.options.map(opt => 
-        opt.id === optionId ? { ...opt, votes: opt.votes + 1 } : opt
-      );
-
-      await updateDoc(pollRef, {
-        options: updatedOptions,
-        totalVotes: increment(1)
-      });
-
-      await setDoc(voteRef, {
-        optionId,
-        timestamp: serverTimestamp()
+      const voteOnPoll = callFunction(functions, 'voteOnPoll');
+      await voteOnPoll({ 
+        pollId: activePoll.id, 
+        optionId, 
+        coins: 10 
       });
 
       showToast("Vote recorded! ✅", "success");
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `rooms/${roomId}/polls/${activePoll.id}/votes/${profile.uid}`);
+    }
+  };
+
+  const handleStreamerBoost = async (optionId: string) => {
+    if (!profile || !activePoll || !isHost) return;
+
+    try {
+      const boostFn = callFunction(functions, 'streamerBoost');
+      await boostFn({ 
+        pollId: activePoll.id, 
+        optionId, 
+        amount: 500 
+      });
+
+      showToast("Streamer Boost applied! 🔥", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `rooms/${roomId}/polls/${activePoll.id}/boost`);
     }
   };
 
@@ -247,35 +253,46 @@ export const PollSystem: React.FC<PollSystemProps> = ({ roomId, isHost }) => {
                 const isSelected = userVote === option.id;
 
                 return (
-                  <button
-                    key={option.id}
-                    onClick={() => handleVote(option.id)}
-                    disabled={!!userVote}
-                    className={cn(
-                      "w-full relative h-10 rounded-xl overflow-hidden border transition-all",
-                      isSelected ? "border-cyan-500/50 bg-cyan-500/10" : "border-white/10 bg-white/5",
-                      !userVote && "hover:bg-white/10 active:scale-[0.98]"
-                    )}
-                  >
-                    {/* Progress Bar */}
-                    <div 
+                  <div key={option.id} className="relative">
+                    <button
+                      key={option.id}
+                      onClick={() => handleVote(option.id)}
+                      disabled={!!userVote}
                       className={cn(
-                        "absolute inset-y-0 left-0 transition-all duration-1000",
-                        isSelected ? "bg-cyan-500/20" : "bg-white/5"
+                        "w-full relative h-10 rounded-xl overflow-hidden border transition-all",
+                        isSelected ? "border-cyan-500/50 bg-cyan-500/10" : "border-white/10 bg-white/5",
+                        !userVote && "hover:bg-white/10 active:scale-[0.98]"
                       )}
-                      style={{ width: `${percentage}%` }}
-                    />
-                    
-                    <div className="absolute inset-0 px-3 flex items-center justify-between text-xs">
-                      <span className={cn("font-medium", isSelected && "text-cyan-400")}>
-                        {option.text}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {isSelected && <CheckCircle2 size={12} className="text-cyan-400" />}
-                        <span className="font-bold opacity-60">{percentage}%</span>
+                    >
+                      {/* Progress Bar */}
+                      <div 
+                        className={cn(
+                          "absolute inset-y-0 left-0 transition-all duration-1000",
+                          isSelected ? "bg-cyan-500/20" : "bg-white/5"
+                        )}
+                        style={{ width: `${percentage}%` }}
+                      />
+                      
+                      <div className="absolute inset-0 px-3 flex items-center justify-between text-xs">
+                        <span className={cn("font-medium", isSelected && "text-cyan-400")}>
+                          {option.text}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {isSelected && <CheckCircle2 size={12} className="text-cyan-400" />}
+                          <span className="font-bold opacity-60">{percentage}%</span>
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                    {isHost && (
+                      <button 
+                        onClick={() => handleStreamerBoost(option.id)}
+                        className="absolute -right-2 -top-2 p-1 bg-yellow-500 text-black rounded-full shadow-lg hover:scale-110 transition-transform z-20"
+                        title="Streamer Boost"
+                      >
+                        <Zap size={10} fill="currentColor" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>

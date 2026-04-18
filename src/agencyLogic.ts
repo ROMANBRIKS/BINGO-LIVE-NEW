@@ -21,11 +21,18 @@ export interface AgencyMember {
 }
 
 export const AGENCY_TIERS = {
-  Junior: { minEarnings: 0, commissionBonus: 0 },
-  Senior: { minEarnings: 10000, commissionBonus: 0.02 },
-  Elite: { minEarnings: 50000, commissionBonus: 0.05 },
-  Master: { minEarnings: 200000, commissionBonus: 0.1 },
+  Junior: { minEarnings: 0, commissionBonus: 0, label: 'Junior' },
+  Senior: { minEarnings: 10000, commissionBonus: 0.02, label: 'Senior' },
+  Elite: { minEarnings: 50000, commissionBonus: 0.05, label: 'Elite' },
+  Master: { minEarnings: 200000, commissionBonus: 0.1, label: 'Master' },
 };
+
+export function getTierForEarnings(earnings: number): 'Junior' | 'Senior' | 'Elite' | 'Master' {
+  if (earnings >= AGENCY_TIERS.Master.minEarnings) return 'Master';
+  if (earnings >= AGENCY_TIERS.Elite.minEarnings) return 'Elite';
+  if (earnings >= AGENCY_TIERS.Senior.minEarnings) return 'Senior';
+  return 'Junior';
+}
 
 export async function calculateAgencyCommission(streamerUid: string, amount: number) {
   try {
@@ -37,16 +44,29 @@ export async function calculateAgencyCommission(streamerUid: string, amount: num
     if (!agencyDoc.exists()) return 0;
 
     const agencyData = agencyDoc.data() as Agency;
-    const commission = amount * agencyData.commissionRate;
+    
+    // Base commission
+    let totalRate = agencyData.commissionRate;
+    
+    // Add Tier Bonus
+    const tierConfig = AGENCY_TIERS[memberData.tier];
+    totalRate += tierConfig.commissionBonus;
+
+    const commission = amount * totalRate;
 
     // Update agency earnings
     await updateDoc(doc(db, 'agencies', memberData.agencyId), {
       totalEarnings: increment(commission)
     });
 
-    // Update member commission paid
+    // Update member earnings and check for tier upgrade
+    const newEarnings = (memberData.totalEarnings || 0) + amount;
+    const newTier = getTierForEarnings(newEarnings);
+
     await updateDoc(doc(db, 'agency_members', streamerUid), {
-      commissionPaid: increment(commission)
+      totalEarnings: increment(amount),
+      commissionPaid: increment(commission),
+      tier: newTier
     });
 
     return commission;

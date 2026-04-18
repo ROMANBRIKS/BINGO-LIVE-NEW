@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
-import { Home as HomeIcon, Trophy, Users, Star, Flame, TrendingUp, Search, Plus, Shield } from 'lucide-react';
+import { Home as HomeIcon, Trophy, Users, Star, Flame, TrendingUp, Search, Plus, Shield, Briefcase } from 'lucide-react';
 import { GoLiveModal } from './GoLiveModal';
 import { AnimatePresence } from 'motion/react';
 
@@ -18,6 +18,8 @@ export const Sidebar = React.memo(() => {
                   (user?.uid === 'YDnNAkdp5sYRs8YNN8K22576UO33') || 
                   (user?.email === 'rogershep101@gmail.com');
 
+  const isAgency = profile?.role === 'agency';
+
   const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
   if (isStreamPage) return null;
 
@@ -29,6 +31,10 @@ export const Sidebar = React.memo(() => {
     { icon: Flame, label: 'PK', path: '/pk' },
     { icon: TrendingUp, label: 'Hot', path: '/hot' },
   ];
+
+  if (isAgency) {
+    menuItems.push({ icon: Briefcase, label: 'Agency', path: '/agency-dashboard' });
+  }
 
   if (isAdmin) {
     menuItems.push({ icon: Shield, label: 'Admin', path: '/admin' });

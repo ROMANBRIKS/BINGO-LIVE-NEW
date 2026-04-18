@@ -192,8 +192,8 @@ export default function LeaderboardPage() {
                 <div className="w-6 flex flex-col items-center">
                   {i < 3 ? (
                     <div className={cn(
-                      "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black italic",
-                      i === 0 ? "bg-yellow-400 text-black" : i === 1 ? "bg-slate-400 text-black" : "bg-orange-700 text-white"
+                      "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black italic shadow-lg",
+                      i === 0 ? "bg-yellow-400 text-black shadow-yellow-500/50" : i === 1 ? "bg-slate-400 text-black" : "bg-orange-700 text-white"
                     )}>
                       {i + 1}
                     </div>
@@ -203,7 +203,17 @@ export default function LeaderboardPage() {
                 </div>
                 
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-full border border-white/10 overflow-hidden">
+                  {i === 0 && (
+                    <motion.div 
+                      animate={{ opacity: [0.4, 0.8, 0.4], scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="absolute -inset-1 bg-yellow-400 blur-md rounded-full z-0"
+                    />
+                  )}
+                  <div className={cn(
+                    "w-12 h-12 rounded-full border overflow-hidden relative z-10",
+                    i === 0 ? "border-yellow-400 border-2" : "border-white/10"
+                  )}>
                     <img src={user.photoURL || `https://picsum.photos/seed/${user.uid}/60/60`} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
                   </div>
                   {i % 3 === 0 && (

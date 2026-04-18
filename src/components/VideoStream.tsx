@@ -7,6 +7,7 @@ import { VirtualAvatar } from './VirtualAvatar';
 import { webRTCService } from '../services/WebRTCService';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { streamingService } from '../services/streamingService';
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc } from 'firebase/firestore';
 
 const PermissionGuide = ({ onClose, onGrant }: { onClose: () => void, onGrant: () => void }) => {
@@ -90,67 +91,50 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = React.useRef<HTMLVideoElement>(null);
+  const remoteVideoContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // WebRTC Signaling for Viewer
+  // Agora Integration
   useEffect(() => {
-    if (isHost || !profile || !roomId || type === 'audio') return;
+    if (!profile || !roomId || isVirtual) return;
 
-    console.log(`[WebRTC] Viewer ${profile.uid} requesting stream from host ${hostUid}`);
-    
-    // 1. Send request-stream signal
-    const sendRequest = async () => {
-      await addDoc(collection(db, `rooms/${roomId}/signals`), {
-        type: 'request-stream',
-        from: profile.uid,
-        to: hostUid,
-        timestamp: new Date()
-      });
-    };
-    sendRequest();
-
-    // 2. Listen for signals from host
-    const signalsRef = collection(db, `rooms/${roomId}/signals`);
-    const q = query(signalsRef, where('to', '==', profile.uid));
-
-    const unsub = onSnapshot(q, async (snapshot) => {
-      for (const change of snapshot.docChanges()) {
-        if (change.type === 'added') {
-          const signal = change.doc.data();
-          const signalId = change.doc.id;
-
-          if (signal.type === 'offer') {
-            console.log('[WebRTC] Received offer from host');
-            await webRTCService.createAnswer(roomId, hostUid, profile.uid, signal.data, (stream) => {
-              setRemoteStream(stream);
-            });
-            await deleteDoc(doc(db, `rooms/${roomId}/signals`, signalId));
-          } else if (signal.type === 'candidate') {
-            console.log('[WebRTC] Received ICE candidate from host');
-            await webRTCService.addIceCandidate(hostUid, signal.data);
-            await deleteDoc(doc(db, `rooms/${roomId}/signals`, signalId));
+    const initStreaming = async () => {
+      if (isHost) {
+        // Broadcaster side
+        try {
+          const { videoTrack } = await streamingService.startBroadcast(roomId, profile.uid) || {};
+          if (videoTrack && videoRef.current) {
+            videoTrack.play(videoRef.current);
           }
+        } catch (err) {
+          console.error("Agora Broadcast Start Error:", err);
+        }
+      } else {
+        // Audience side
+        try {
+          await streamingService.joinAsAudience(roomId, profile.uid, (user, mediaType) => {
+            if (mediaType === "video" && user.uid === hostUid) {
+              const remoteTrack = user.videoTrack;
+              if (remoteTrack && remoteVideoContainerRef.current) {
+                remoteTrack.play(remoteVideoContainerRef.current);
+              }
+            }
+            if (mediaType === "audio" && user.uid === hostUid) {
+              user.audioTrack?.play();
+            }
+          });
+        } catch (err) {
+          console.error("Agora Audience Join Error:", err);
         }
       }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, `rooms/${roomId}/signals`);
-    });
+    };
+
+    initStreaming();
 
     return () => {
-      unsub();
-      webRTCService.stop(hostUid);
-      setRemoteStream(null);
+      streamingService.leave();
     };
-  }, [isHost, profile, roomId, hostUid, type]);
-
-  // Attach remote stream to video element
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
+  }, [isHost, profile, roomId, hostUid, isVirtual]);
 
   useEffect(() => {
     if (isHost) {
@@ -243,19 +227,20 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
         <div className={cn("relative h-full overflow-hidden", isPK ? "w-1/2 border-r border-white/10" : "w-full")}>
           {isVirtual ? (
             <VirtualAvatar seed={hostUid} />
-          ) : remoteStream ? (
-            <video 
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
           ) : (
-            <img 
-              src={`https://picsum.photos/seed/${hostUid}/1920/1080`} 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            <div 
+              ref={remoteVideoContainerRef}
+              className="w-full h-full bg-black"
+            >
+              {/* Agora will inject the video here */}
+              {!streamingService.getClient() && (
+                <img 
+                  src={`https://picsum.photos/seed/${hostUid}/1920/1080`} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              )}
+            </div>
           )}
           <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
         </div>

@@ -3,7 +3,7 @@ import {
   collection, query, where, onSnapshot, addDoc, 
   serverTimestamp, doc, updateDoc, increment, setDoc, getDoc, deleteDoc 
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, functions, callFunction } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -65,25 +65,16 @@ export const EasterEggDrops: React.FC<EasterEggDropsProps> = ({ roomId }) => {
     if (!profile) return;
 
     try {
-      const eggRef = doc(db, 'rooms', roomId, 'egg_drops', egg.id);
-      
-      // Atomic update to prevent double claim
-      await updateDoc(eggRef, {
-        status: 'collected',
-        collectedBy: profile.uid,
-        collectedAt: serverTimestamp()
+      const claimEggFn = callFunction(functions, 'claimEgg');
+      await claimEggFn({ 
+        eggId: egg.id,
+        roomId 
       });
 
-      // Update user balance
-      const field = egg.rewardType === 'diamonds' ? 'diamonds' : 'beans';
-      await updateDoc(doc(db, 'users', profile.uid), {
-        [field]: increment(egg.rewardValue)
-      });
-
-      showToast(`Surprise! You found ${egg.rewardValue} ${egg.rewardType}! ✨`, "success");
+      showToast(`Surprise! You found a reward! ✨`, "success");
     } catch (error) {
       console.error("Claim failed:", error);
-      // If update fails, it likely means someone else claimed it or it expired
+      showToast("Someone else grabbed it first! 💨", "info");
     }
   };
 

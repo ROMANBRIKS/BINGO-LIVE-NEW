@@ -59,6 +59,7 @@ import { initializeEnhancedSeats } from '../seatManagementLogic';
 import { SVIPManager } from '../lib/svipLogic';
 import { MiniGameOverlay, MiniGame as ActiveGame } from '../components/MiniGameOverlay';
 import { PK_SHIELDS } from '../pkShieldLogic';
+import { SEOHeaders } from '../components/SEOHeaders';
 
 export default function RoomPage() {
   const { roomId } = useParams();
@@ -796,6 +797,12 @@ export default function RoomPage() {
 
   return (
     <div className="h-full w-full bg-black overflow-hidden relative font-sans select-none">
+      <SEOHeaders 
+        title={`${room?.title || 'Live Room'} - Bingo Live`}
+        description={`Watch ${hostProfile?.displayName || 'Host'} live on Bingo Live! Join the fun with gifts, polls, and more.`}
+        keywords={`live streaming, ${hostProfile?.displayName || 'streamer'}, bingo live, gifting, USA, UK, Europe`}
+        isLive={room?.status === 'live'}
+      />
       <div className="absolute inset-0 z-0 bg-[#0f172a]">
         <VideoStream 
           isHost={profile?.uid === room.hostUid} 
