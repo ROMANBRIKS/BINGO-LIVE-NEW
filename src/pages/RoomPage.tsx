@@ -60,6 +60,7 @@ import { SVIPManager } from '../lib/svipLogic';
 import { MiniGameOverlay, MiniGame as ActiveGame } from '../components/MiniGameOverlay';
 import { PK_SHIELDS } from '../pkShieldLogic';
 import { SEOHeaders } from '../components/SEOHeaders';
+import { UserDiscoveryPopup } from '../components/UserDiscoveryPopup';
 
 export default function RoomPage() {
   const { roomId } = useParams();
@@ -113,6 +114,10 @@ export default function RoomPage() {
   const [seatRequestCount, setSeatRequestCount] = useState(0);
   const [fluctuatedViewerCount, setFluctuatedViewerCount] = useState(0);
   const [activePrivateCall, setActivePrivateCall] = useState<any | null>(null);
+
+  // Profile Discovery State
+  const [selectedInRoomUser, setSelectedInRoomUser] = useState<UserProfile | null>(null);
+  const cachedDiscoveryProfiles = React.useRef<Record<string, UserProfile>>({});
 
   // 2. REFS
   const pendingLikesRef = React.useRef(0);
@@ -379,6 +384,23 @@ export default function RoomPage() {
     await updateDoc(doc(db, 'rooms', roomId), {
       seats: updatedSeats
     });
+  };
+
+  const showUserProfile = async (uid: string) => {
+    if (cachedDiscoveryProfiles.current[uid]) {
+      setSelectedInRoomUser(cachedDiscoveryProfiles.current[uid]);
+      return;
+    }
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (snap.exists()) {
+        const u = { uid: snap.id, ...snap.data() } as UserProfile;
+        cachedDiscoveryProfiles.current[uid] = u;
+        setSelectedInRoomUser(u);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const visibleMessages = React.useMemo(() => {
@@ -828,7 +850,10 @@ export default function RoomPage() {
             <div className="flex items-start justify-between pointer-events-auto">
               {/* Left Group: Host Info & Secondary Pills */}
               <div className="flex flex-col gap-1.5">
-                <div className="flex items-center bg-black/40 backdrop-blur-md rounded-full p-0.5 pr-0 border border-white/10 shadow-lg scale-90 origin-left">
+                <div 
+                  onClick={() => hostProfile && showUserProfile(hostProfile.uid)}
+                  className="flex items-center bg-black/40 backdrop-blur-md rounded-full p-0.5 pr-0 border border-white/10 shadow-lg scale-90 origin-left cursor-pointer group hover:bg-black/60 transition-all"
+                >
                   <NobleFrame tier={hostProfile?.nobleTitle || 'None'} size={32}>
                     <img src={hostProfile?.photoURL || 'https://i.pravatar.cc/150?u=host'} alt="Host" className="w-full h-full object-cover rounded-full" />
                   </NobleFrame>
@@ -996,6 +1021,7 @@ export default function RoomPage() {
                   isHost={profile?.uid === room.hostUid}
                   coinContribution={seat.coinContribution || 0}
                   onSeatChange={() => setSeats([...seats])}
+                  onShowProfile={showUserProfile}
                 />
               ))}
             </div>
@@ -1350,6 +1376,12 @@ export default function RoomPage() {
         level={fanClubWelcomeUser?.level || 1} 
         isSuperFan={fanClubWelcomeUser?.isSuperFan || false} 
         onComplete={() => setFanClubWelcomeUser(null)} 
+      />
+      {/* User discovery popup */}
+      <UserDiscoveryPopup 
+        user={selectedInRoomUser} 
+        onClose={() => setSelectedInRoomUser(null)} 
+        isHost={profile?.uid === room.hostUid}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { RightSidebar } from './components/RightSidebar';
@@ -26,7 +27,7 @@ const TaskCenterPage = lazy(() => import('./pages/TaskCenterPage'));
 const FansGroupPage = lazy(() => import('./pages/FansGroupPage'));
 const PostsPage = lazy(() => import('./pages/PostsPage'));
 const PropsStorePage = lazy(() => import('./pages/PropsStorePage'));
-const PointsRedemptionPage = lazy(() => import('./pages/PointsRedemptionPage'));
+import PointsRedemptionPage from './pages/PointsRedemptionPage';
 const WalletPage = lazy(() => import('./pages/WalletPage'));
 const FamilyDashboardPage = lazy(() => import('./pages/FamilyDashboardPage'));
 const FanClubCenterPage = lazy(() => import('./pages/FanClubCenterPage'));
@@ -39,6 +40,8 @@ const EarningsDashboardPage = lazy(() => import('./pages/EarningsDashboardPage')
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 const TrendsPage = lazy(() => import('./pages/TrendsPage'));
+const MigrationPage = lazy(() => import('./pages/MigrationPage'));
+const TalentProfilePage = lazy(() => import('./pages/TalentProfilePage'));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -48,6 +51,7 @@ const LoadingFallback = () => (
 
 const AppContent = () => {
   const { user, loading } = useAuth();
+  const { theme } = useTheme();
   const location = useLocation();
 
   if (loading) return <LoadingFallback />;
@@ -55,20 +59,27 @@ const AppContent = () => {
   if (!user) {
     return (
       <Suspense fallback={<LoadingFallback />}>
-        <LandingPage />
+        <Routes>
+          <Route path="/talent/:username" element={<TalentProfilePage />} />
+          <Route path="*" element={<LandingPage />} />
+        </Routes>
       </Suspense>
     );
   }
 
-  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live' || location.pathname.startsWith('/talent/');
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex justify-center overflow-x-hidden">
+    <div className={cn(
+      "min-h-screen flex justify-center overflow-x-hidden transition-colors duration-300",
+      theme === 'dark' ? "bg-[#050505] text-white" : "bg-[#f8f8f8] text-black"
+    )}>
       <div className="w-full flex max-w-[1600px] relative">
         {!isStreamPage && <Sidebar />}
         <main className={cn(
-          "flex-1 min-h-screen bg-[#121212] relative overflow-x-hidden",
-          !isStreamPage && "sm:border-x border-white/5"
+          "flex-1 min-h-screen relative overflow-x-hidden transition-colors duration-300",
+          theme === 'dark' ? "bg-[#121212]" : "bg-white",
+          !isStreamPage && (theme === 'dark' ? "sm:border-x border-white/5" : "sm:border-x border-black/5")
         )}>
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
@@ -104,6 +115,8 @@ const AppContent = () => {
               <Route path="/vip" element={<VIPCenterPage />} />
               <Route path="/pk" element={<ComingSoonPage title="PK Battles" />} />
               <Route path="/hot" element={<ComingSoonPage title="Hot Content" />} />
+              <Route path="/migration" element={<MigrationPage />} />
+              <Route path="/talent/:username" element={<TalentProfilePage />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>
@@ -157,13 +170,15 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 export default function App() {
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </AuthProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

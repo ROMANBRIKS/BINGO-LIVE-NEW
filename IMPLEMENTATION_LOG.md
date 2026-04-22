@@ -626,6 +626,594 @@ This file tracks all custom logic, features, and systems implemented in the Bing
     };
     ```
 
+## 24. Media Player & Professional Audio Mixer
+- **Concept**: A pro-level streamer tool for playing media files (music/videos) while mixing live microphone audio without echo or distortion.
+- **Architecture**:
+    - **Input**: Local file/URL source.
+    - **UI**: 25% width, 16:9 ratio, top-right absolute positioning (TikTok/Bigo style).
+    - **Mixing Engine**: `AudioContext` based extraction and merging of 🎵 Music + 🎤 Voice.
+    - **Output**: Unified `MediaStream` for WebRTC/Firebase delivery.
+- **Key Logic (React + Web Audio API)**:
+    ```typescript
+    import React, { useRef, useState, useEffect } from "react";
+
+    export default function MediaPlayerMixer() {
+      const videoRef = useRef(null);
+      const [file, setFile] = useState(null);
+      const [audioContext, setAudioContext] = useState(null);
+
+      useEffect(() => {
+        if (file) {
+          setupAudioMixer();
+        }
+      }, [file]);
+
+      const setupAudioMixer = async () => {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const video = videoRef.current;
+
+        // Source 1: Video Audio
+        const source = ctx.createMediaElementSource(video);
+
+        // Source 2: Microphone
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const micSource = ctx.createMediaStreamSource(micStream);
+
+        // Control: Gain nodes
+        const videoGain = ctx.createGain();
+        const micGain = ctx.createGain();
+        videoGain.gain.value = 0.7; // Music
+        micGain.gain.value = 1.0;   // Voice
+
+        // Destination: Final mixed stream
+        const destination = ctx.createMediaStreamDestination();
+
+        // Connection
+        source.connect(videoGain).connect(destination);
+        micSource.connect(micGain).connect(destination);
+
+        // Listen: Local monitoring
+        source.connect(ctx.destination);
+        micSource.connect(ctx.destination);
+
+        setAudioContext({ ctx, outputStream: destination.stream });
+      };
+
+      return (
+        <div style={{ position: "relative" }}>
+          <input type="file" accept="video/*,audio/*" onChange={(e) => setFile(URL.createObjectURL(e.target.files[0]))} />
+          {file && (
+            <video
+              ref={videoRef}
+              src={file}
+              controls
+              autoPlay
+              style={{
+                position: "absolute", top: 10, right: 10, width: "25%", 
+                maxWidth: "220px", borderRadius: "10px", boxShadow: "0 0 10px rgba(0,0,0,0.5)"
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+    ```
+- **Next Integration Step**: Wire `audioContext.outputStream` to WebRTC `peerConnection.addTrack()`.
+
+## 25. Multi-Guest Seat & Role System (Foundation)
+- **Concept**: The foundational logic controlling the hierarchy and placement of users in a live room (Host, Guest, Viewer). This system governs audio permissions, gift targeting, and PK eligibility.
+- **Architecture**:
+    - **Hierarchy**: Host (Controller) > Guest (Active Participant) > Viewer (Audience).
+    - **UI Mirror**: Direct mapping between data seats and the visual tile grid.
+    - **Interaction**: Single-tap requests for viewers; full management (assign/remove) for hosts.
+- **Core Data Structure**:
+    ```typescript
+    const initialRoomState = {
+      hostId: "user_1",
+      seats: [
+        { seatId: 1, user: { id: "user_1", name: "Host" } },
+        { seatId: 2, user: null },
+        { seatId: 3, user: null },
+        { seatId: 4, user: null }
+      ],
+      users: {
+        "user_1": { role: "host", name: "Host" }
+      }
+    };
+    ```
+- **React Implementation (Stateful Logic)**:
+    ```typescript
+    import React, { useState } from "react";
+
+    export default function SeatSystem({ currentUserId }) {
+      const [room, setRoom] = useState({
+        hostId: "user_1",
+        seats: [
+          { seatId: 1, user: { id: "user_1", name: "Host" } },
+          { seatId: 2, user: null },
+          { seatId: 3, user: null },
+          { seatId: 4, user: null }
+        ]
+      });
+
+      const isHost = currentUserId === room.hostId;
+
+      const requestSeat = (seatId) => {
+        // Integration Point: Connect to backend request queue
+        alert("Request sent to host");
+      };
+
+      const assignSeat = (seatId, user) => {
+        if (!isHost) return;
+        setRoom((prev) => ({
+          ...prev,
+          seats: prev.seats.map((s) => s.seatId === seatId ? { ...s, user } : s)
+        }));
+      };
+
+      const removeUserFromSeat = (seatId) => {
+        if (!isHost) return;
+        setRoom((prev) => ({
+          ...prev,
+          seats: prev.seats.map((s) => s.seatId === seatId ? { ...s, user: null } : s)
+        }));
+      };
+
+      return (
+        <div className="grid grid-cols-2 gap-2 p-2">
+          {room.seats.map((seat) => (
+            <div
+              key={seat.seatId}
+              className="h-32 bg-gray-800 text-white flex flex-col items-center justify-center rounded-xl cursor-pointer"
+              onClick={() => {
+                if (!seat.user) requestSeat(seat.seatId);
+                else if (isHost) removeUserFromSeat(seat.seatId);
+              }}
+            >
+              {seat.user ? (
+                <div className="text-center">
+                  <p className="font-bold">{seat.user.name}</p>
+                  {isHost && <span className="text-[10px] text-red-400">Tap to remove</span>}
+                </div>
+              ) : (
+                <p className="text-gray-500">Empty Seat</p>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    ```
+- **System Extensions**: Planned integration for Invite System, Seat Locking, Seat Swapping, and "Raise Hand" mechanics.
+
+## 26. Audio Detection & Speaker Visualizer
+- **Concept**: A real-time engagement system that identifies active speakers by analyzing audio stream volume and animating the visual UI. This provides focus in multi-guest rooms and makes the interface feel "alive."
+- **Architecture**:
+    - **Logic**: Audio Stream -> Web Audio API `AudioContext` -> Volume Threshold Analysis -> State Update.
+    - **UI**: A dynamic, pulsing ring component (`AudioRing`) that sits behind or around the user's avatar.
+    - **Feedback Thresholds**: Silent (<20), Speaking (20-60), High Energy/Music (>60).
+- **Key Logic (React Hooks + Web Audio API)**:
+    ```typescript
+    import { useEffect, useState } from "react";
+
+    export function useAudioLevel(stream: MediaStream | null) {
+      const [level, setLevel] = useState(0);
+
+      useEffect(() => {
+        if (!stream) return;
+
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+
+        source.connect(analyser);
+        analyser.fftSize = 256;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const update = () => {
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          setLevel(sum / dataArray.length);
+          requestAnimationFrame(update);
+        };
+
+        update();
+        return () => audioContext.close();
+      }, [stream]);
+
+      return level;
+    }
+
+    // Visual Component
+    export function AudioRing({ level }: { level: number }) {
+      const scale = 1 + level / 200;
+      return (
+        <div
+          className="absolute inset-0 rounded-full border-2 border-cyan-400 transition-transform duration-100 ease-linear"
+          style={{
+            transform: `scale(${scale})`,
+            opacity: level > 20 ? 1 : 0.3,
+          }}
+        />
+      );
+    }
+    ```
+- **UI Integration**: Injected into `SeatTile` components to wrap avatars for Host and Guests.
+
+## 27. PK System (Battle Mode)
+- **Concept**: The core monetization and engagement engine where two streamers compete in a timed battle. Success is determined by viewer gifts (points), creating a direct link between competition and revenue.
+- **Architecture**:
+    - **Logic**: 60-second Countdown Timer -> Gift Listener (Point Accumulation) -> Winner Determination.
+    - **UI**: A top-level overlay that splits the screen between Player A and Player B, displaying name, score, and a central timer.
+    - **Gifting Bridge**: All incoming gifts are intercepted and added to the respective player's score via `addScore(target, value)`.
+- **Core State**:
+    ```typescript
+    const initialPK = {
+      active: false,
+      playerA: null,
+      playerB: null,
+      scoreA: 0,
+      scoreB: 0,
+      timeLeft: 60
+    };
+    ```
+- **React Implementation (Battle Logic & UI)**:
+    ```typescript
+    import React, { useState, useEffect } from "react";
+
+    export default function PKSystem({ currentUser, guests }) {
+      const [pk, setPK] = useState({
+        active: false,
+        playerA: null,
+        playerB: null,
+        scoreA: 0,
+        scoreB: 0,
+        timeLeft: 60
+      });
+
+      const startPK = (opponent) => {
+        setPK({
+          active: true,
+          playerA: currentUser,
+          playerB: opponent,
+          scoreA: 0,
+          scoreB: 0,
+          timeLeft: 60
+        });
+      };
+
+      useEffect(() => {
+        if (!pk.active) return;
+        const interval = setInterval(() => {
+          setPK((prev) => {
+            if (prev.timeLeft <= 1) {
+              clearInterval(interval);
+              return { ...prev, active: false };
+            }
+            return { ...prev, timeLeft: prev.timeLeft - 1 };
+          });
+        }, 1000);
+        return () => clearInterval(interval);
+      }, [pk.active]);
+
+      const addScore = (player, amount) => {
+        setPK((prev) => ({
+          ...prev,
+          scoreA: player.id === prev.playerA?.id ? prev.scoreA + amount : prev.scoreA,
+          scoreB: player.id === prev.playerB?.id ? prev.scoreB + amount : prev.scoreB
+        }));
+      };
+
+      return (
+        <div className="relative">
+          {!pk.active && (
+            <button className="bg-red-600 text-white px-4 py-2 rounded-full" onClick={() => startPK(guests[0])}>
+              ⚔️ Start PK
+            </button>
+          )}
+
+          {pk.active && (
+            <div className="flex justify-between items-center bg-black/60 p-4 rounded-b-2xl">
+              <div className="text-center text-white">
+                <p className="text-xs uppercase opacity-80">{pk.playerA?.name}</p>
+                <p className="text-2xl font-black">{pk.scoreA}</p>
+              </div>
+
+              <div className="text-center">
+                <p className="text-amber-400 font-black text-xl">{pk.timeLeft}s</p>
+                <p className="text-white/40 text-[10px]">VS</p>
+              </div>
+
+              <div className="text-center text-white">
+                <p className="text-xs uppercase opacity-80">{pk.playerB?.name}</p>
+                <p className="text-2xl font-black">{pk.scoreB}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+- **Planned Extensions**: Leaderboard Panel (Top Gifters), Winner Animations, and Rematch systems.
+
+## 28. PK Leaderboard / Ranking Panel
+- **Concept**: A real-time competitive ranking system that tracks and displays the top contributors (gifters) during a PK battle. This fuels competition between viewers and maximizes monetization.
+- **Architecture**:
+    - **Data Logic**: Map of User IDs to cumulative gift scores, sorted in descending order.
+    - **UI**: A floating, toggleable overlay panel launched via a "🏆 Ranking" button near the active PK display.
+    - **Integration**: Every gift event triggers an update to the leaderboard state.
+- **Key Logic (React Implementation)**:
+    ```typescript
+    import React, { useState } from "react";
+
+    export default function PKLeaderboard() {
+      const [open, setOpen] = useState(false);
+      const [leaders, setLeaders] = useState<{ userId: string; name: string; score: number }[]>([]);
+
+      // Update Logic (Triggered by sendGift)
+      const updateLeaderboard = (user: { id: string; name: string }, amount: number) => {
+        setLeaders((prev) => {
+          const existing = prev.find((u) => u.userId === user.id);
+          let newList;
+          if (existing) {
+            newList = prev.map((u) => u.userId === user.id ? { ...u, score: u.score + amount } : u);
+          } else {
+            newList = [...prev, { userId: user.id, name: user.name, score: amount }];
+          }
+          return newList.sort((a, b) => b.score - a.score);
+        });
+      };
+
+      return (
+        <div className="relative">
+          <button className="bg-amber-500 text-black px-3 py-1 rounded-full text-xs font-bold" onClick={() => setOpen(!open)}>
+            🏆 Ranking
+          </button>
+
+          {open && (
+            <div className="absolute top-10 right-0 w-48 bg-black/80 backdrop-blur-md rounded-xl p-3 border border-white/10 z-50">
+              <h3 className="text-white text-sm font-bold mb-2 border-b border-white/10 pb-1">Top Gifters</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {leaders.map((user, index) => (
+                  <div key={user.userId} className="flex justify-between text-[11px] text-white">
+                    <span className="opacity-50">{index + 1}. {user.name}</span>
+                    <span className="text-amber-400 font-mono font-bold">{user.score}</span>
+                  </div>
+                ))}
+                {leaders.length === 0 && <p className="text-[10px] text-white/30 text-center py-2">No contributors yet</p>}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+- **System Synchronization**:
+    ```javascript
+    const sendGift = (sender, receiver, gift) => {
+       addScore(receiver, gift.value);       // Increases PK Battle Score
+       updateLeaderboard(sender, gift.value); // Updates Gifter Ranking
+    }
+    ```
+
+## 29. Watch + React Sync System
+- **Concept**: A real-time synchronization engine ensuring all users in a live room see and hear the same media content exactly at the same time. This is critical for group reactions, dance sessions, and shared music experiences.
+- **Architecture**:
+    - **Master-Slave Pattern**: The Host (controller) emits playback events; all other clients (viewers) listen and synchronize their local players.
+    - **Logic**: React hook (`useSyncPlayer`) managing socket listeners for `play`, `pause`, and `seek` events.
+    - **Security**: Strict role-checking ensuring only the designated Host can emit control events to the room.
+- **Key Logic (React Hook & Component)**:
+    ```typescript
+    import { useEffect } from "react";
+
+    // Sync Engine Hook
+    export function useSyncPlayer(videoRef: React.RefObject<HTMLVideoElement>, socket: any, isHost: boolean) {
+      useEffect(() => {
+        if (!socket) return;
+
+        socket.on("video_play", () => videoRef.current?.play());
+        socket.on("video_pause", () => videoRef.current?.pause());
+        socket.on("video_seek", (time: number) => {
+          if (videoRef.current) videoRef.current.currentTime = time;
+        });
+      }, [socket]);
+
+      return {
+        play: () => isHost && socket.emit("video_play"),
+        pause: () => isHost && socket.emit("video_pause"),
+        seek: (time: number) => isHost && socket.emit("video_seek", time),
+      };
+    }
+
+    // Synced UI component
+    export default function SyncedPlayer({ isHost, src, socket }: any) {
+      const videoRef = React.useRef<HTMLVideoElement>(null);
+      const { play, pause, seek } = useSyncPlayer(videoRef, socket, isHost);
+
+      return (
+        <div className="absolute top-4 right-4 z-50">
+          <video ref={videoRef} src={src} className="w-[200px] rounded-lg shadow-2xl" />
+          {isHost && (
+            <div className="flex gap-2 mt-2 justify-center bg-black/40 p-1 rounded-md">
+              <button onClick={play} className="text-white hover:text-cyan-400">▶</button>
+              <button onClick={pause} className="text-white hover:text-cyan-400">⏸</button>
+              <button onClick={() => videoRef.current && seek(videoRef.current.currentTime + 5)} className="text-white hover:text-cyan-400">⏩</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+- **Sync Accuracy Enhancement**: Planned integration of periodic "Time Correction" pings to adjust local `currentTime` based on server-synced master timestamps.
+
+## 30. Dance + Rating System
+- **Concept**: A real-time engagement engine that allows viewers to rate the streamer's performance (dance, singing, or reactions). This creates a live feedback loop and fuels competition, especially during PK battles.
+- **Architecture**:
+    - **Logic**: Real-time Socket Events (`send_rating` -> `update_rating`) syncing average scores across all clients.
+    - **UI**: A floating bottom-right star-rating component with a live average counter.
+    - **Feedback loop**: High ratings (4+ stars) can trigger visual "Glow" effects and pop animations on the streamer's profile.
+- **Key Logic (React Implementation)**:
+    ```typescript
+    import React, { useState } from "react";
+
+    export default function RatingSystem({ targetUserId, socket }: { targetUserId: string, socket: any }) {
+      const [rating, setRating] = useState(0);
+      const [stats, setStats] = useState({ total: 0, count: 0, average: "0.0" });
+
+      const sendRating = (value: number) => {
+        setRating(value);
+        socket.emit("send_rating", { userId: targetUserId, value });
+      };
+
+      // Listener for real-time updates
+      socket.on("update_rating", (data: { userId: string, value: number }) => {
+        if (data.userId !== targetUserId) return;
+        setStats((prev) => {
+          const total = prev.total + data.value;
+          const count = prev.count + 1;
+          return { total, count, average: (total / count).toFixed(1) };
+        });
+      });
+
+      return (
+        <div className="absolute bottom-24 right-4 text-center">
+          <div className="flex gap-1 mb-1 bg-black/40 p-2 rounded-full backdrop-blur-sm">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span
+                key={star}
+                className={`text-xl cursor-pointer ${rating >= star ? 'text-amber-400' : 'text-gray-500'}`}
+                onClick={() => sendRating(star)}
+              >
+                ★
+              </span>
+            ))}
+          </div>
+          <p className="text-white text-xs font-bold drop-shadow-md">
+            Rating: {stats.average} ⭐
+          </p>
+        </div>
+      );
+    }
+    ```
+- **PK Mode Integration**: In battle mode, dual rating systems are deployed, allowing viewers to choose who to support with high scores simultaneously.
+
+## 31. Host Control Panel
+- **Concept**: The "Central Command" for room management, granting the Host total authority to maintain order and structure. This includes moderation, guest orchestration, and PK initialization.
+- **Architecture**:
+    - **Logic**: Strict conditional rendering based on `isHost` status. Actions emit Socket events to the server for distribution.
+    - **UI**: A kebab-menu (⋮) located within each guest `SeatTile`, revealing a context-aware action list.
+    - **Actions**: Mute (audio kill), Kick (force removal), Swap (positioning), and Invite (audience-to-guest elevation).
+- **Key Logic (React & Socket Implementation)**:
+    ```typescript
+    import React, { useState } from "react";
+
+    export default function HostControls({ user, isHost, socket }: any) {
+      const [open, setOpen] = useState(false);
+      if (!isHost || !user) return null;
+
+      const actions = [
+        { label: "🔇 Mute", event: "mute_user" },
+        { label: "❌ Kick", event: "kick_user" },
+        { label: "🔄 Swap", event: "swap_seat" },
+        { label: "➕ Invite", event: "invite_user" }
+      ];
+
+      return (
+        <div className="absolute top-2 right-2 z-50">
+          <button onClick={() => setOpen(!open)} className="text-white bg-black/40 rounded-full w-6 h-6 flex items-center justify-center">⋮</button>
+          {open && (
+            <div className="absolute right-0 mt-2 w-32 bg-black border border-white/10 rounded-lg shadow-xl p-1">
+              {actions.map(action => (
+                <button
+                  key={action.event}
+                  className="w-full text-left px-3 py-2 text-xs text-white hover:bg-white/10 rounded-md transition-colors"
+                  onClick={() => {
+                    socket.emit(action.event, user.id);
+                    setOpen(false);
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+    ```
+- **Backend Integrations**: Documented event listeners for handling mutes (WebRTC track state), kicks (seat state cleanup), and invites (viewer notification system).
+
+## 32. UI Layering System (Z-Index Control)
+- **Concept**: A rigorous architectural layout that manages visual priority and interaction flow across complex live-stream overlays. This prevents "UI Collision" where gifts, chat, or media players overlap and block critical interactions.
+- **Architecture (The 7-Layer Stack)**:
+    - **Layer 1 (Bottom, Z: 1)**: Primary Video/Camera Stream.
+    - **Layer 2 (Z: 2)**: Media Player (Watch/React window).
+    - **Layer 3 (Z: 3)**: Multi-guest Seat Tiles.
+    - **Layer 4 (Z: 4)**: PK Battle Overlays.
+    - **Layer 5 (Z: 5)**: High-Impact Gift Animations (set to `pointer-events: none`).
+    - **Layer 6 (Z: 6)**: Interaction Layer (Chat feed, Action buttons, Rating stars).
+    - **Layer 7 (Top, Z: 7)**: Popups, Context Menus, and Modal Leaderboards.
+- **Key Logic (CSS/React Layout)**:
+    ```typescript
+    const UI_LAYERS = {
+      CONTAINER: "relative w-full h-full overflow-hidden",
+      VIDEO: "absolute inset-0 z-[1]",
+      MEDIA: "absolute top-4 right-4 z-[2]",
+      SEATS: "absolute inset-0 z-[3] flex items-center justify-center pointer-events-none",
+      PK: "absolute top-20 left-0 w-full z-[4]",
+      GIFTS: "absolute inset-0 z-[5] pointer-events-none",
+      INTERACTION: "absolute inset-0 z-[6] flex flex-col justify-end p-4",
+      POPUP: "absolute inset-0 z-[7] flex items-center justify-center bg-black/20 backdrop-blur-[2px]"
+    };
+    ```
+- **Critical Interaction Rules**:
+    - **Animation Safety**: Layer 5 (Gifts) MUST use `pointer-events: none` to ensure viewers can still click buttons underneath during heavy gifting.
+    - **Blocking Modals**: Layer 7 MUST capture all pointer events and provide a backdrop blur for focus.
+    - **Media Spacing**: The Media Player is anchored top-right to preserve visibility of the streamer's face (center/top) and seat tiles (center).
+
+## 33. Tile Interaction System
+- **Concept**: A specialized interaction layer that makes static seat tiles into functional entry points for social engagement. Tapping a tile triggers a profile-centric popup containing critical social actions (Follow, Gift, Mute, Message).
+- **Architecture**:
+    - **Event Handling**: Tiles act as click listeners that pass the nested `user` object to a central state manager (`selectedUser`).
+    - **UI**: A modal-style overlay (`UserPopup`) that floats above the content (Layer 7 of the UI Stack).
+    - **Propagation Control**: Uses `e.stopPropagation()` to prevent clicks on the menu from closing the overlay prematurely.
+- **Key Logic (React Implementation)**:
+    ```typescript
+    import React, { useState } from "react";
+
+    // Sub-component: The Interaction Popup
+    function UserPopup({ user, onClose }: { user: any, onClose: () => void }) {
+      if (!user) return null;
+      return (
+        <div 
+          className="fixed inset-0 z-[7] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={onClose}
+        >
+          <div 
+            className="bg-zinc-900 border border-white/10 w-full max-w-sm rounded-[24px] p-6 text-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-20 h-20 bg-gray-700 rounded-full mx-auto mb-4 border-2 border-white/20 overflow-hidden">
+               <img src="/avatar_placeholder.png" alt="" />
+            </div>
+            <h3 className="text-white text-xl font-bold mb-6">{user.name}</h3>
+            
+            <div className="grid grid-cols-1 gap-3">
+              <button className="bg-red-500 text-white py-3 rounded-full font-bold active:scale-95 transition-transform">❤️ Follow</button>
+              <button className="bg-amber-400 text-black py-3 rounded-full font-bold active:scale-95 transition-transform">🎁 Send Gift</button>
+              <button className="bg-white/10 text-white py-3 rounded-full font-bold hover:bg-white/20 transition-colors">🔇 Mute</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ```
+- **UX Flow**:
+    - **Viewer**: Taps any tile -> Sees profile + Gifting options.
+    - **Host**: Taps guest tile -> Sees profile + Moderation options.
+    - **Guest**: Taps other guest -> Sees profile + Interaction options.
+
 ---
 ## 🚀 Planned Features (To Be Added)
 ### 9. Budget-Friendly AR Integration

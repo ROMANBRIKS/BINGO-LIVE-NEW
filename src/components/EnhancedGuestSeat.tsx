@@ -18,6 +18,7 @@ interface EnhancedGuestSeatProps {
   };
   coinContribution: number;
   onSeatChange?: () => void;
+  onShowProfile?: (uid: string) => void;
 }
 
 export const EnhancedGuestSeat: React.FC<EnhancedGuestSeatProps> = ({
@@ -27,7 +28,8 @@ export const EnhancedGuestSeat: React.FC<EnhancedGuestSeatProps> = ({
   isHost,
   guestProfile,
   coinContribution,
-  onSeatChange
+  onSeatChange,
+  onShowProfile
 }) => {
   const handleAction = async (action: 'kick' | 'mute' | 'lock') => {
     const roomRef = doc(db, 'rooms', roomId);
@@ -39,8 +41,13 @@ export const EnhancedGuestSeat: React.FC<EnhancedGuestSeatProps> = ({
   return (
     <motion.div 
       layout
+      onClick={() => {
+        if (seat.status === 'occupied' && seat.uid && onShowProfile) {
+          onShowProfile(seat.uid);
+        }
+      }}
       className={cn(
-        "relative aspect-square rounded-2xl overflow-hidden border-2 transition-all group",
+        "relative aspect-square rounded-2xl overflow-hidden border-2 transition-all group cursor-pointer",
         seat.status === 'occupied' ? "border-cyan-400/30 bg-slate-800" : "border-white/5 bg-white/5"
       )}
     >

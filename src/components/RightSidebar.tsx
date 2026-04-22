@@ -1,14 +1,21 @@
 import React from 'react';
 import { TrendingUp, Users, Star, Flame } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
+import { cn } from '../lib/utils';
 
 export const RightSidebar = React.memo(() => {
   const location = useLocation();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
   if (isStreamPage) return null;
 
   return (
-    <aside className="hidden lg:flex sticky top-0 h-screen w-80 bg-black/40 backdrop-blur-xl border-l border-white/5 flex-col p-6 z-40 shrink-0 gap-8">
+    <aside className={cn(
+      "hidden lg:flex sticky top-0 h-screen w-80 flex-col p-6 z-40 shrink-0 gap-8 transition-colors duration-300",
+      isLight ? "bg-white border-l border-black/5" : "bg-black/40 backdrop-blur-xl border-l border-white/5"
+    )}>
       {/* Trending Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-orange-500">
@@ -18,8 +25,8 @@ export const RightSidebar = React.memo(() => {
         <div className="space-y-3">
           {['#FridayVibes', '#PKBattle', '#KaraokeNight', '#GamingPro'].map((tag, i) => (
             <div key={i} className="group cursor-pointer">
-              <p className="text-sm font-bold text-white/80 group-hover:text-white transition-colors">{tag}</p>
-              <p className="text-[10px] text-white/20 uppercase tracking-widest">12.4k viewers</p>
+              <p className={cn("text-sm font-bold transition-colors", isLight ? "text-black/80 group-hover:text-black" : "text-white/80 group-hover:text-white")}>{tag}</p>
+              <p className={cn("text-[10px] uppercase tracking-widest", isLight ? "text-black/20" : "text-white/20")}>12.4k viewers</p>
             </div>
           ))}
         </div>
@@ -38,14 +45,14 @@ export const RightSidebar = React.memo(() => {
               className="flex items-center gap-3 group cursor-pointer active:scale-95 transition-all"
             >
               <div className="relative">
-                <img src={`https://picsum.photos/seed/rec${i}/64/64`} className="w-10 h-10 rounded-full border border-white/10 group-hover:scale-110 transition-transform" />
-                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
+                <img src={`https://picsum.photos/seed/rec${i}/64/64`} className={cn("w-10 h-10 rounded-full border group-hover:scale-110 transition-transform", isLight ? "border-black/10" : "border-white/10")} />
+                <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2", isLight ? "border-white" : "border-black")} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-white/80 truncate group-hover:text-white transition-colors">Star Creator {i}</p>
-                <p className="text-[9px] text-white/20 uppercase tracking-widest">Music • 5.2k fans</p>
+                <p className={cn("text-xs font-bold truncate transition-colors", isLight ? "text-black/80 group-hover:text-black" : "text-white/80 group-hover:text-white")}>Star Creator {i}</p>
+                <p className={cn("text-[9px] uppercase tracking-widest", isLight ? "text-black/20" : "text-white/20")}>Music • 5.2k fans</p>
               </div>
-              <button className="text-[10px] font-black uppercase tracking-widest text-cyan-400 hover:text-white transition-colors">Follow</button>
+              <button className="text-[10px] font-black uppercase tracking-widest text-cyan-400 hover:text-cyan-500 transition-colors">Follow</button>
             </div>
           ))}
         </div>

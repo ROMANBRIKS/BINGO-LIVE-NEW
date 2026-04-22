@@ -33,9 +33,10 @@ export default function AdminDashboardPage() {
     reports: 0
   });
   const [isGhostMode, setIsGhostMode] = useState(true);
-  const [activeTab, setActiveTab] = useState<'main' | 'rooms' | 'private' | 'reports' | 'gifts' | 'features' | 'eggs'>('main');
+  const [activeTab, setActiveTab] = useState<'main' | 'rooms' | 'private' | 'reports' | 'gifts' | 'features' | 'eggs' | 'migration'>('main');
   const [features, setFeatures] = useState<any[]>([]);
   const [gifts, setGifts] = useState<Gift[]>([]);
+  const [migrationRequests, setMigrationRequests] = useState<any[]>([]);
   const [easterEggs, setEasterEggs] = useState<any[]>([]);
   const [isAddingGift, setIsAddingGift] = useState(false);
   const [isAddingEgg, setIsAddingEgg] = useState(false);
@@ -154,6 +155,56 @@ export default function AdminDashboardPage() {
 
     return () => unsub();
   }, [isAdmin]);
+
+  // Fetch Migration Requests
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const q = query(collection(db, 'migration_requests'), orderBy('createdAt', 'desc'), limit(50));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setMigrationRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'migration_requests');
+    });
+
+    return () => unsub();
+  }, [isAdmin]);
+
+  const handleApproveMigration = async (request: any) => {
+    try {
+      // 1. Update user profile with King status (example)
+      const userRef = doc(db, 'users', request.uid);
+      await updateDoc(userRef, {
+        nobleTitle: 'King', // Match requested status
+        migrationBonus: true,
+        migrationRankMatched: true,
+        level: 50 // Fast track
+      });
+
+      // 2. Mark request as approved
+      await updateDoc(doc(db, 'migration_requests', request.id), {
+        status: 'approved',
+        approvedBy: user?.uid,
+        approvedAt: new Date().toISOString()
+      });
+
+      showToast(`Migration approved for ${request.userName}!`, 'success');
+    } catch (error) {
+      showToast("Error approving migration", 'error');
+    }
+  };
+
+  const handleRejectMigration = async (requestId: string) => {
+    try {
+      await updateDoc(doc(db, 'migration_requests', requestId), {
+        status: 'rejected',
+        rejectedAt: new Date().toISOString()
+      });
+      showToast("Migration request rejected", 'info');
+    } catch (error) {
+      showToast("Error rejecting migration", 'error');
+    }
+  };
 
   const handleSaveEgg = async () => {
     if (!eggForm.name || !eggForm.image) {
@@ -417,6 +468,7 @@ export default function AdminDashboardPage() {
             { id: 'rooms', label: 'Live Rooms', icon: Video },
             { id: 'private', label: 'Private Calls', icon: Phone },
             { id: 'gifts', label: 'Gift Management', icon: GiftIcon },
+            { id: 'migration', label: 'Migration Requests', icon: Shield },
             { id: 'reports', label: 'Reports', icon: AlertTriangle },
           ].map(tab => (
             <button
@@ -447,6 +499,7 @@ export default function AdminDashboardPage() {
               { id: 'rooms', label: 'Live Room Manager', icon: Video, desc: 'Monitor and moderate active streams', color: 'bg-red-500/10 text-red-500' },
               { id: 'private', label: 'Private Call Center', icon: Phone, desc: 'Track active private sessions', color: 'bg-pink-500/10 text-pink-500' },
               { id: 'gifts', label: 'Gift & Store', icon: GiftIcon, desc: 'Upload and manage platform gifts', color: 'bg-yellow-500/10 text-yellow-500' },
+              { id: 'migration', label: 'Migration Audit', icon: Shield, desc: 'Review status matches from other apps', color: 'bg-amber-500/10 text-amber-500' },
               { id: 'eggs', label: 'Easter Eggs', icon: Sparkles, desc: 'Design surprise drops and rewards', color: 'bg-purple-500/10 text-purple-500' },
               { id: 'reports', label: 'Safety & Reports', icon: AlertTriangle, desc: 'Review user reports and violations', color: 'bg-orange-500/10 text-orange-500' },
             ].map(item => (
@@ -783,6 +836,99 @@ export default function AdminDashboardPage() {
                 </motion.div>
               ))}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'migration' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black uppercase italic tracking-tighter text-amber-400">Migration Audit Queue</h2>
+              <div className="px-3 py-1 bg-amber-500/20 rounded-full border border-amber-500/30 text-amber-500 text-[10px] font-black uppercase italic tracking-widest">
+                {migrationRequests.filter(r => r.status === 'pending').length} Pending Requests
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {migrationRequests.length === 0 ? (
+                <div className="py-20 flex flex-col items-center justify-center text-white/20 border-2 border-dashed border-white/5 rounded-[3rem]">
+                   <Shield size={48} className="mb-4 opacity-20" />
+                   <p className="font-black uppercase italic tracking-widest">No migration requests found</p>
+                </div>
+              ) : (
+                migrationRequests.map(req => (
+                  <motion.div 
+                   initial={{ opacity: 0, scale: 0.95 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   key={req.id} 
+                   className="bg-[#1a1a1a] border border-white/10 rounded-[2.5rem] p-6 flex items-center gap-6 group hover:border-amber-500/30 transition-all"
+                  >
+                    <div className="w-24 h-24 rounded-2xl overflow-hidden bg-black border border-white/5 cursor-pointer relative group" onClick={() => window.open(req.proofUrl, '_blank')}>
+                      <img src={req.proofUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Eye size={20} />
+                      </div>
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-black uppercase italic text-white tracking-tighter">{req.userName}</h3>
+                        <div className="px-2 py-0.5 bg-white/5 rounded-md text-[8px] font-black uppercase text-white/40 border border-white/10 tracking-widest">UID: {req.uid.slice(0, 8)}</div>
+                      </div>
+                      
+                      <div className="flex items-center gap-6">
+                        <div className="flex flex-col">
+                          <span className="text-[7px] font-black uppercase tracking-widest text-white/20 text-blue-400">Target Rank</span>
+                          <span className="text-xs font-black uppercase italic text-amber-500">{req.matchedRank}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[7px] font-black uppercase tracking-widest text-white/20">Platform</span>
+                          <span className="text-xs font-black uppercase italic text-white/60">{req.platform}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[7px] font-black uppercase tracking-widest text-white/20">Status</span>
+                          <span className={cn(
+                            "text-[9px] font-black uppercase italic tracking-widest",
+                            req.status === 'approved' ? "text-green-500" :
+                            req.status === 'rejected' ? "text-red-500" :
+                            "text-yellow-500 animate-pulse"
+                          )}>{req.status}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {req.status === 'pending' ? (
+                        <>
+                          <button 
+                            onClick={() => handleRejectMigration(req.id)}
+                            className="px-6 py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all border border-red-500/20"
+                          >
+                            Reject
+                          </button>
+                          <button 
+                            onClick={() => handleApproveMigration(req)}
+                            className="px-6 py-4 bg-amber-400 hover:bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg hover:shadow-amber-400/20"
+                          >
+                            Approve Match
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-[10px] font-black uppercase italic text-white/20 pr-4">
+                          Handled on {new Date(req.approvedAt || req.rejectedAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="py-20 flex flex-col items-center justify-center text-white/20 border-2 border-dashed border-white/5 rounded-[3rem]">
+            <AlertTriangle size={48} className="mb-4 opacity-20" />
+            <p className="font-black uppercase italic tracking-widest">No reports pending review</p>
           </div>
         )}
 

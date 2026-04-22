@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Crown, Sparkles, TrendingUp } from 'lucide-react';
 import { UserProfile } from '../types';
 import { cn } from '../lib/utils';
+import { useTheme } from '../context/ThemeContext';
 
 interface WeeklyKingProps {
   user: UserProfile | null;
@@ -10,6 +11,8 @@ interface WeeklyKingProps {
 }
 
 export const WeeklyKing: React.FC<WeeklyKingProps> = ({ user, type }) => {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   if (!user) return null;
 
   return (
@@ -21,7 +24,10 @@ export const WeeklyKing: React.FC<WeeklyKingProps> = ({ user, type }) => {
       {/* Background Glow */}
       <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 via-orange-500/20 to-yellow-500/20 blur-3xl animate-pulse" />
       
-      <div className="relative bg-white/5 border border-yellow-500/30 backdrop-blur-md rounded-3xl p-6 overflow-hidden">
+      <div className={cn(
+        "relative border backdrop-blur-md rounded-3xl p-6 overflow-hidden transition-colors duration-300",
+        isLight ? "bg-white/80 border-yellow-500/10 shadow-xl" : "bg-white/5 border-yellow-500/30"
+      )}>
         {/* Animated Background Lines */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-50" />
@@ -41,7 +47,10 @@ export const WeeklyKing: React.FC<WeeklyKingProps> = ({ user, type }) => {
               
               <img 
                 src={user.photoURL || `https://picsum.photos/seed/${user.uid}/200/200`} 
-                className="relative w-24 h-24 rounded-full object-cover border-4 border-[#121212]" 
+                className={cn(
+                  "relative w-24 h-24 rounded-full object-cover border-4 transition-colors",
+                  isLight ? "border-white" : "border-[#121212]"
+                )}
                 alt="Weekly King"
                 referrerPolicy="no-referrer"
               />
@@ -56,14 +65,17 @@ export const WeeklyKing: React.FC<WeeklyKingProps> = ({ user, type }) => {
                 <span className="bg-yellow-400 text-black text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full italic">
                   Weekly King
                 </span>
-                <span className="text-white/40 text-[10px] font-bold uppercase tracking-widest">
+                <span className={cn("text-[10px] font-bold uppercase tracking-widest", isLight ? "text-gray-400" : "text-white/40")}>
                   {type} Edition
                 </span>
               </div>
-              <h2 className="text-4xl font-black italic uppercase tracking-tighter text-white mb-1 group-hover:text-yellow-400 transition-colors">
+              <h2 className={cn(
+                "text-4xl font-black italic uppercase tracking-tighter mb-1 transition-colors group-hover:text-yellow-400",
+                isLight ? "text-black" : "text-white"
+              )}>
                 {user.displayName}
               </h2>
-              <div className="flex items-center gap-2 text-yellow-400/60 font-bold italic text-sm">
+              <div className="flex items-center gap-2 text-yellow-500 font-bold italic text-sm">
                 <TrendingUp size={16} />
                 <span>Lv.{user.level} Eternal Legend</span>
               </div>
@@ -71,15 +83,18 @@ export const WeeklyKing: React.FC<WeeklyKingProps> = ({ user, type }) => {
           </div>
 
           <div className="flex flex-col lg:items-end justify-center">
-            <div className="bg-black/40 backdrop-blur-md px-6 py-4 rounded-2xl border border-yellow-500/20 shadow-2xl">
-              <div className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-1">
+            <div className={cn(
+              "backdrop-blur-md px-6 py-4 rounded-2xl border shadow-2xl transition-colors",
+              isLight ? "bg-black/5 border-yellow-500/10" : "bg-black/40 border-yellow-500/20"
+            )}>
+              <div className={cn("text-[10px] font-black uppercase tracking-widest mb-1", isLight ? "text-gray-400" : "text-white/40")}>
                 {type === 'Host' ? 'Beans Generated' : 'Diamonds Sent'}
               </div>
               <div className="text-3xl font-black tabular-nums flex items-center gap-2">
-                <span className="text-yellow-400">
+                <span className="text-yellow-500">
                   {(type === 'Host' ? user.totalBeansEarned : user.totalDiamondsSpent).toLocaleString()}
                 </span>
-                <Sparkles size={20} className="text-yellow-400 animate-pulse" />
+                <Sparkles size={20} className="text-yellow-500 animate-pulse" />
               </div>
             </div>
           </div>
