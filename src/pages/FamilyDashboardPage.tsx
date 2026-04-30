@@ -11,52 +11,56 @@ import {
 import { cn } from '../lib/utils';
 import { Family, FamilyMember, UserProfile } from '../types';
 import { auth, db } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 import { checkFamilyDailyCheckIn } from '../familyLogic';
-import { doc, getDoc, collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, limit, orderBy, onSnapshot } from 'firebase/firestore';
+
+import { FamilyCreatePopup } from '../components/FamilyCreatePopup';
 
 export default function FamilyDashboardPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const { profile: contextProfile } = useAuth();
   const [family, setFamily] = useState<Family | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [activeTab, setActiveTab] = useState<'Overview' | 'Members' | 'Ranking' | 'PK'>('Overview');
   const [isLoading, setIsLoading] = useState(true);
+  const [showCreateFamily, setShowCreateFamily] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!auth.currentUser) return;
-      
-      try {
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists()) {
-          const profile = userDoc.data() as UserProfile;
-          setUserProfile(profile);
-          
-          if (profile.familyId) {
-            const familyDoc = await getDoc(doc(db, 'families', profile.familyId));
-            if (familyDoc.exists()) {
-              setFamily(familyDoc.data() as Family);
-              
-              // Fetch members
-              const membersSnap = await getDocs(
-                query(collection(db, `families/${profile.familyId}/members`), orderBy('contributionPoints', 'desc'))
-              );
-              setMembers(membersSnap.docs.map(d => d.data() as FamilyMember));
-            }
-          }
+    let familyUnsub: (() => void) | null = null;
+    let membersUnsub: (() => void) | null = null;
+
+    if (contextProfile?.familyId) {
+      // Listen to family document
+      familyUnsub = onSnapshot(doc(db, 'families', contextProfile.familyId), (familyDoc) => {
+        if (familyDoc.exists()) {
+          setFamily({ id: familyDoc.id, ...familyDoc.data() } as Family);
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error("Error fetching family data:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      });
+
+      // Listen to members
+      const membersQuery = query(
+        collection(db, `families/${contextProfile.familyId}/members`), 
+        orderBy('contributionPoints', 'desc')
+      );
+      membersUnsub = onSnapshot(membersQuery, (snap) => {
+        setMembers(snap.docs.map(d => d.data() as FamilyMember));
+      });
+    } else {
+      setFamily(null);
+      setMembers([]);
+      setIsLoading(false);
+    }
+
+    return () => {
+      if (familyUnsub) familyUnsub();
+      if (membersUnsub) membersUnsub();
     };
+  }, [contextProfile?.familyId]);
 
-    fetchData();
-  }, []);
-
-  if (isLoading) {
+  if (isLoading || (contextProfile?.familyId && !family)) {
     return (
       <div className="flex items-center justify-center h-full bg-[#121212]">
         <div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
@@ -90,7 +94,7 @@ export default function FamilyDashboardPage() {
 
           <div className="grid grid-cols-1 gap-4 w-full max-w-sm">
             <button 
-              onClick={() => showToast("Create Family coming soon! 🛠️", 'info')}
+              onClick={() => setShowCreateFamily(true)}
               className="w-full py-4 bg-cyan-400 text-white rounded-2xl font-black uppercase italic tracking-widest text-sm shadow-lg shadow-cyan-400/20 active:scale-95 transition-all"
             >
               Create a Family
@@ -118,6 +122,12 @@ export default function FamilyDashboardPage() {
             ))}
           </div>
         </div>
+
+        <AnimatePresence>
+          {showCreateFamily && (
+            <FamilyCreatePopup onClose={() => setShowCreateFamily(false)} />
+          )}
+        </AnimatePresence>
       </div>
     );
   }

@@ -18,6 +18,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { LevelBadge } from '../components/LevelBadge';
 import { UserDiscoveryPopup } from '../components/UserDiscoveryPopup';
 import { GoLiveModal } from '../components/GoLiveModal';
+import { FamilyCreatePopup } from '../components/FamilyCreatePopup';
+import { FamilyDetailsPopup } from '../components/FamilyDetailsPopup';
+import { getFamilyRankInfo } from '../lib/familyLogic';
+import { onSnapshot } from 'firebase/firestore';
+import { Family } from '../types';
 
 export default function ProfilePage() {
   const { profile, user, logout } = useAuth();
@@ -28,7 +33,27 @@ export default function ProfilePage() {
   const [showGoLive, setShowGoLive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showCreateFamily, setShowCreateFamily] = useState(false);
+  const [showFamilyDetails, setShowFamilyDetails] = useState(false);
+  const [familyData, setFamilyData] = useState<Family | null>(null);
+  const [loadingFamily, setLoadingFamily] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (profile?.familyId) {
+      setLoadingFamily(true);
+      const unsub = onSnapshot(doc(db, 'families', profile.familyId), (docSnap) => {
+        if (docSnap.exists()) {
+          setFamilyData({ id: docSnap.id, ...docSnap.data() } as Family);
+        }
+        setLoadingFamily(false);
+      }, (error) => {
+        console.error("Error fetching family real-time:", error);
+        setLoadingFamily(false);
+      });
+      return () => unsub();
+    }
+  }, [profile?.familyId]);
 
   if (!profile) return null;
 
@@ -218,15 +243,46 @@ export default function ProfilePage() {
           </div>
 
           {/* Family Card */}
-          <div className="relative aspect-[4/3] rounded-2xl bg-gradient-to-br from-orange-800/20 to-orange-900/40 border border-orange-800/30 flex flex-col items-center justify-center gap-1 overflow-hidden group cursor-pointer active:scale-95 transition-all">
-            <div className="flex -space-x-2 mb-1">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="w-6 h-6 rounded-full border border-orange-800/50 overflow-hidden bg-gray-800">
-                  <img src={`https://i.pravatar.cc/100?u=family${i}`} className="w-full h-full object-cover" />
+          <div 
+            onClick={() => {
+              if (profile.familyId) {
+                setShowFamilyDetails(true);
+              } else {
+                setShowCreateFamily(true);
+              }
+            }}
+            className={cn(
+              "relative aspect-[4/3] rounded-2xl border flex flex-col items-center justify-center gap-1 overflow-hidden group cursor-pointer active:scale-95 transition-all text-center px-1",
+              profile.familyId 
+                ? "bg-gradient-to-br from-orange-800/20 to-orange-900/40 border-orange-800/30" 
+                : "bg-gradient-to-br from-indigo-500/10 to-indigo-600/20 border-indigo-500/20"
+            )}
+          >
+            {profile.familyId ? (
+              <>
+                <div className="w-9 h-9 rounded-xl bg-orange-400/20 flex items-center justify-center text-orange-400 mb-1">
+                  <Shield size={20} fill="currentColor" />
                 </div>
-              ))}
-            </div>
-            <span className="text-[10px] font-black text-orange-400 uppercase italic">Family</span>
+                <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-tighter truncate w-full px-2">
+                  {familyData?.name || 'Loading...'}
+                </h4>
+                <span className="text-[8px] font-black text-orange-500/60 uppercase tracking-widest italic leading-none">
+                  {familyData ? `${getFamilyRankInfo(familyData.combatPoints || 0).tier} ${getFamilyRankInfo(familyData.combatPoints || 0).level}` : '...'}
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-sm border border-indigo-500/10 mb-1">
+                  <Plus size={20} />
+                </div>
+                <span className="text-[10px] font-black text-indigo-400 uppercase italic">Start Tribe</span>
+                <span className="text-[7px] font-bold text-indigo-400/40 uppercase tracking-widest">Create Family</span>
+              </>
+            )}
+            <div className={cn(
+              "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity",
+              profile.familyId ? "bg-orange-400/5" : "bg-indigo-400/5"
+            )} />
           </div>
         </div>
 
@@ -372,8 +428,14 @@ export default function ProfilePage() {
           <MenuItem 
              icon={Users2} 
              label="Family Dashboard" 
-             desc="Manage your organization" 
-             onClick={() => navigate('/family-dashboard')}
+             desc={profile.familyId ? "Manage your organization" : "Join or Create a Family"} 
+             onClick={() => {
+               if (profile.familyId) {
+                 navigate('/family-dashboard');
+               } else {
+                 setShowCreateFamily(true);
+               }
+             }}
              color="text-purple-500" 
              bg="bg-purple-500/10" 
           />
@@ -437,6 +499,15 @@ export default function ProfilePage() {
           <UserDiscoveryPopup 
             user={profile} 
             onClose={() => setShowPreview(false)} 
+          />
+        )}
+        {showCreateFamily && (
+          <FamilyCreatePopup onClose={() => setShowCreateFamily(false)} />
+        )}
+        {showFamilyDetails && familyData && (
+          <FamilyDetailsPopup 
+            family={familyData} 
+            onClose={() => setShowFamilyDetails(false)} 
           />
         )}
       </AnimatePresence>

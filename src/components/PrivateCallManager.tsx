@@ -11,7 +11,9 @@ import { UserProfile, PrivateCallRequest } from '../types';
 import { useToast } from '../context/ToastContext';
 import { PRIVATE_CALL_FEE_AUDIO, PRIVATE_CALL_FEE_VIDEO, calculatePrivateCallCost } from '../privateCallLogic';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, updateDoc, addDoc, collection, serverTimestamp, query, where, increment } from 'firebase/firestore';
+import { FamilyBadge } from './FamilyBadge';
+import { Family } from '../types';
 
 interface PrivateCallManagerProps {
   roomId: string;
@@ -35,6 +37,80 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
   const [isRequesting, setIsRequesting] = useState(false);
   const [duration, setDuration] = useState(5); // Default 5 mins
   const [selectedType, setSelectedType] = useState<'audio' | 'video' | null>(null);
+  const [viewerFamily, setViewerFamily] = useState<Family | null>(null);
+  const [hostFamily, setHostFamily] = useState<Family | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  useEffect(() => {
+    if (!activeCall?.startedAt) return;
+    
+    const startTime = activeCall.startedAt.toMillis ? activeCall.startedAt.toMillis() : Date.now();
+    const durationMs = (activeCall.duration || 5) * 60 * 1000;
+    const endTime = startTime + durationMs;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = Math.max(0, Math.floor((endTime - now) / 1000));
+      setTimeLeft(diff);
+      
+      if (diff <= 0) {
+        clearInterval(interval);
+        if (isHost) handleEndCall(activeCall.id);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeCall, isHost]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    if (!activeCall) {
+      setViewerFamily(null);
+      setHostFamily(null);
+      return;
+    }
+
+    // 1. Fetch Viewer Family
+    let viewerFamUnsub = () => {};
+    const fetchViewerInfo = async () => {
+      const vDoc = await getDoc(doc(db, 'users', activeCall.viewerUid));
+      if (vDoc.exists()) {
+        const vData = vDoc.data() as UserProfile;
+        if (vData.familyId) {
+          viewerFamUnsub = onSnapshot(doc(db, 'families', vData.familyId), (fSnap) => {
+            if (fSnap.exists()) setViewerFamily({ id: fSnap.id, ...fSnap.data() } as Family);
+          });
+        }
+      }
+    };
+
+    // 2. Fetch Host Family
+    let hostFamUnsub = () => {};
+    const fetchHostInfo = async () => {
+      const hDoc = await getDoc(doc(db, 'users', activeCall.hostUid));
+      if (hDoc.exists()) {
+        const hData = hDoc.data() as UserProfile;
+        if (hData.familyId) {
+          hostFamUnsub = onSnapshot(doc(db, 'families', hData.familyId), (fSnap) => {
+            if (fSnap.exists()) setHostFamily({ id: fSnap.id, ...fSnap.data() } as Family);
+          });
+        }
+      }
+    };
+
+    fetchViewerInfo();
+    fetchHostInfo();
+
+    return () => {
+      viewerFamUnsub();
+      hostFamUnsub();
+    };
+  }, [activeCall]);
 
   useEffect(() => {
     if (!roomId || !auth.currentUser) return;
@@ -90,13 +166,52 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
   };
 
   const handleAcceptCall = async (requestId: string) => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request) return;
+
     try {
+      const viewerRef = doc(db, 'users', request.viewerUid);
+      const hostRef = doc(db, 'users', request.hostUid);
+      
+      // Deduct diamonds from viewer
+      await updateDoc(viewerRef, {
+        diamonds: increment(-request.totalCost || 0),
+        totalDiamondsSpent: increment(request.totalCost || 0)
+      });
+
+      // Add beans to host
+      await updateDoc(hostRef, {
+        beans: increment(request.totalCost || 0),
+        totalBeansEarned: increment(request.totalCost || 0)
+      });
+
+      // Update call status
       await updateDoc(doc(db, `rooms/${roomId}/private_calls`, requestId), {
         status: 'active',
         startedAt: serverTimestamp()
       });
+
+      // Family Contribution
+      const viewerDoc = await getDoc(viewerRef);
+      if (viewerDoc.exists()) {
+        const vData = viewerDoc.data() as UserProfile;
+        if (vData.familyId) {
+          const familyRef = doc(db, 'families', vData.familyId);
+          const memberRef = doc(db, `families/${vData.familyId}/members`, vData.uid);
+          
+          await updateDoc(familyRef, {
+            totalDiamondsSpent: increment(request.totalCost || 0)
+          });
+          await updateDoc(memberRef, {
+            contributionPoints: increment(request.totalCost || 0)
+          });
+        }
+      }
+
+      showToast("Private call started! 💎", 'success');
     } catch (error) {
       console.error("Error accepting call:", error);
+      showToast("Failed to start call. Check balance.", 'error');
     }
   };
 
@@ -281,24 +396,66 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
               <div className="bg-emerald-500/20 text-emerald-400 px-6 py-2 rounded-full text-xs font-black uppercase italic tracking-[0.3em] border border-emerald-500/20 animate-pulse">
                 Private Session Active
               </div>
+              
+              {/* Family Connection Indicator */}
+              {(viewerFamily || hostFamily) && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl"
+                >
+                  <Shield size={12} className="text-yellow-500" fill="currentColor" />
+                  <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">
+                    {viewerFamily && hostFamily ? "Tribe Alliance Active" : "Family Contribution Live"}
+                  </span>
+                  <div className="w-1 h-1 bg-yellow-500 rounded-full animate-ping" />
+                </motion.div>
+              )}
+
               <div className="text-4xl font-black italic tracking-tighter text-white">
-                04:59
+                {formatTime(timeLeft)}
               </div>
             </div>
 
             <div className="flex items-center gap-12">
               <div className="flex flex-col items-center gap-4">
-                <div className="w-24 h-24 rounded-[2.5rem] overflow-hidden border-4 border-white/10 shadow-2xl">
+                <div className="w-24 h-24 rounded-[2.5rem] overflow-hidden border-4 border-white/10 shadow-2xl relative">
                   <img src={activeCall.viewerPhoto} className="w-full h-full object-cover" />
+                  {viewerFamily && (
+                    <div className="absolute bottom-1 right-1">
+                      <FamilyBadge familyName={viewerFamily.name} familyLevel={viewerFamily.level} />
+                    </div>
+                  )}
                 </div>
-                <span className="text-sm font-black italic uppercase tracking-tight text-white/60">{activeCall.viewerName}</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-black italic uppercase tracking-tight text-white/60">{activeCall.viewerName}</span>
+                  {viewerFamily && (
+                    <span className="text-[8px] font-bold text-yellow-500 uppercase tracking-widest mt-0.5">{viewerFamily.name}</span>
+                  )}
+                </div>
               </div>
+
               <div className="w-12 h-0.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full" />
+              
               <div className="flex flex-col items-center gap-4">
-                <div className="w-24 h-24 rounded-[2.5rem] overflow-hidden border-4 border-white/10 shadow-2xl bg-slate-800 flex items-center justify-center">
-                  <User size={48} className="text-white/20" />
+                <div className="w-24 h-24 rounded-[2.5rem] overflow-hidden border-4 border-white/10 shadow-2xl bg-slate-800 flex items-center justify-center relative">
+                  {activeCall.hostPhoto ? (
+                    <img src={activeCall.hostPhoto} className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={48} className="text-white/20" />
+                  )}
+                  {hostFamily && (
+                    <div className="absolute bottom-1 right-1">
+                      <FamilyBadge familyName={hostFamily.name} familyLevel={hostFamily.level} />
+                    </div>
+                  )}
                 </div>
-                <span className="text-sm font-black italic uppercase tracking-tight text-white/60">Host</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-black italic uppercase tracking-tight text-white/60">{activeCall.hostName || 'Host'}</span>
+                  {hostFamily && (
+                    <span className="text-[8px] font-bold text-cyan-400 uppercase tracking-widest mt-0.5">{hostFamily.name}</span>
+                  )}
+                </div>
               </div>
             </div>
 

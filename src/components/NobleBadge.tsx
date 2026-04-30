@@ -11,7 +11,7 @@ import { NOBLE_LEVELS, NobleTier } from '../NobleTypes';
 interface NobleBadgeProps {
   tier: NobleTier;
   gender?: 'male' | 'female';
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   showLabel?: boolean;
 }
 
@@ -23,6 +23,7 @@ export const NobleBadge: React.FC<NobleBadgeProps> = ({ tier, gender = 'male', s
   const displayTitle = gender === 'female' && level.femaleTitle ? level.femaleTitle : tier;
 
   const sizeMap = {
+    xs: { width: 'w-4', height: 'h-4', fontSize: 'text-[8px]', iconSize: 'text-[8px]' },
     sm: { width: 'w-6', height: 'h-6', fontSize: 'text-[10px]', iconSize: 'text-xs' },
     md: { width: 'w-10', height: 'h-10', fontSize: 'text-xs', iconSize: 'text-xl' },
     lg: { width: 'w-16', height: 'h-16', fontSize: 'text-sm', iconSize: 'text-3xl' }

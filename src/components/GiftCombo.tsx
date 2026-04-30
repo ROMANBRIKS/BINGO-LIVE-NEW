@@ -11,6 +11,7 @@ interface GiftComboProps {
   userPhoto?: string;
   combo: number;
   nobleTier?: string;
+  familyName?: string;
   onComplete: () => void;
 }
 
@@ -21,6 +22,7 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
   userPhoto, 
   combo, 
   nobleTier = 'None',
+  familyName,
   onComplete 
 }) => {
   const [displayCombo, setDisplayCombo] = useState(1);
@@ -85,9 +87,16 @@ export const GiftCombo: React.FC<GiftComboProps> = ({
         
         {/* Text Info */}
         <div className="flex flex-col z-10">
-          <span className="text-[10px] font-black text-white leading-none drop-shadow-md uppercase tracking-tighter">
-            {displayName}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] font-black text-white leading-none drop-shadow-md uppercase tracking-tighter">
+              {displayName}
+            </span>
+            {familyName && (
+              <span className="text-[7px] font-black text-yellow-400 bg-black/40 px-1 rounded italic leading-none">
+                {familyName}
+              </span>
+            )}
+          </div>
           <span className={cn(
             "text-[8px] font-bold italic drop-shadow-sm mt-0.5",
             effects.hasShine ? "text-white" : "text-yellow-400"

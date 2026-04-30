@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+  <url>
+    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/news/global-gifting-dominance</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Bingo Live Global Trends</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2026-04-30T04:10:00Z</news:publication_date>
+      <news:title>The Rise of Elite Gifting in Global Live Streaming: Why Bingo Live is Dominating 2026</news:title>
+    </news:news>
+  </url>
+  <url>
+    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/trends/top-streamers-april</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Bingo Live Global Trends</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2026-04-29T20:00:00Z</news:publication_date>
+      <news:title>Top 10 High-Growth Streamers in the USA Market for April 2026</news:title>
+    </news:news>
+  </url>
+</urlset>

@@ -397,9 +397,43 @@ This file serves as the central repository for brainstorming ideas, feature requ
     *   Prepare the backend for high-traffic events and thousands of concurrent users.
     *   Implement robust error handling and logging for production stability.
 
+## 🎥 28. Platform Core Infrastructure (Technical Modules)
+*   **Animations Engine:**
+    *   **Library:** `lottie-react`
+    *   **Purpose:** Interactive animations for gifting and UI effects.
+*   **Streaming (Agora):**
+    *   **Streamers:** RTC Participant model for instant, real-time communication.
+    *   **Viewers:** HLS (HTTP Live Streaming) for scalable, low-latency-balanced mass viewing.
+*   **Image Processing (Sharp):**
+    *   **Backend:** High-performance Node.js processing for assets and user photos.
+
+## ⚔️ 29. Elite PK Battle Experience & Visuals
+*   **PK Evolution (Point 18):** Advanced PK interaction system.
+*   **PK Themes (Point 23):** We will have specific themes for PK battles (not just teams), defining the visual atmosphere.
+*   **PK Designs (Point 30):** Custom-crafted designs for the PK interface.
+*   **The Divider Line (Point 39):** The middle line dividing players will sometimes feature dynamic **Fire FX**.
+*   **Chain Divider (Point 53):** A heavy chain will sometimes divide the screen. It stays until the counter stops.
+*   **Voting Chain (Point 57):** During the vote counting phase, the divider chain becomes a central visual element.
+*   **The Lock Rock (Point 103):** The chain features a massive "Lock Rock" – a heavy stone lock suspended from the chain.
+*   **Swinging Rock Mechanic (Point 132):**
+    *   Once counting starts, the Rock swings left and right like a pendulum.
+    *   Each player has a "Glass Panel" in front of their screen view.
+    *   The Rock moves based on the leading/losing status.
+*   **The Final Blow (Point 138):** When a loser is determined, the Swinging Rock delivers a powerful hit to that player's side.
+*   **Glass Break Effect (Point 147):** The rock hits and shatters the glass in front of the losing streamer's screen.
+*   **Fire Theme Eruption:** The fire divider moves to erupt across the loser's screen. Applies a "Burn Mask" effect (charred/survivor look) to the loser's stream after the eruption.
+*   **Water Theme Fountain:** A fountain or stream of water between players as the divider.
+*   **Water Splash Punishment:** Loser is "washed" by a heavy splash of chaotic, dripping water dropping from the top of their screen.
+*   **Implementation Strategy (Point 201 & 218):** 
+    *   Initial focus is on the design and logic.
+    *   Decision pending on whether to use pure code (CSS/SVG) or assets (Animations).
+
 ---
 
 ## 📝 To-Do List (Pending Discussion)
+- [ ] **Infrastructure Upgrade: Streaming** - Integrate Agora SDK (RTC for Streamers, HLS for Viewers).
+- [ ] **Infrastructure Upgrade: Animations** - Install `lottie-react` and set up the global animation overlay.
+- [ ] **Infrastructure Upgrade: Backend** - Configure Node.js server with `sharp` for extreme image processing.
 - [ ] Implement "User Management" in Admin Dashboard (to appoint Global Mods).
 - [ ] Design the "Report Queue" interface for Global Moderators.
 - [ ] Implement Timed Ban logic (Hours, Days, Weeks, Months, Permanent).
@@ -519,3 +553,8 @@ This file serves as the central repository for brainstorming ideas, feature requ
     - [ ] **Smart Gift Sending**: Add hold-to-send and combo multiplier button.
     - [ ] Connect real payments (Paystack + Stripe + Crypto).
     - [ ] Upgrade gift UI to premium (Bigo level).
+- [ ] **PK Battle Graphics (Points 18, 23, 30)**: Design the themed PK battle interface.
+- [ ] **PK Interactive FX (Points 39, 53, 57)**: Implement the divider FX (Fire, Heavy Chain).
+- [ ] **PK "Glass Break" Mechanic (Points 103, 132, 138, 147)**: Create the Swinging Rock and shattering glass animations for PK finales.
+- [ ] **PK Fire & Water Themes**: Implement Eruption/Burn and Splash/Wash effects for losers to make battles more fun.
+- [ ] **PK Implementation Research (Points 201, 218)**: Evaluate whether to use code-driven or asset-driven approaches for advanced PK visuals.

@@ -2,26 +2,44 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/</loc>
-    <lastmod>2026-04-18</lastmod>
+    <lastmod>2026-04-30</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/news</loc>
-    <lastmod>2026-04-18</lastmod>
+    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/go-live</loc>
+    <lastmod>2026-04-30</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/news</loc>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/trends</loc>
-    <lastmod>2026-04-18</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/leaderboard</loc>
-    <lastmod>2026-04-18</lastmod>
-    <changefreq>hourly</changefreq>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>always</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/honor-hall</loc>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/noble-center</loc>
+    <lastmod>2026-04-30</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
   </url>
 </urlset>

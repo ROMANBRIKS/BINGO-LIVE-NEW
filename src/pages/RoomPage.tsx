@@ -99,9 +99,9 @@ export default function RoomPage() {
   const [isLowLatency, setIsLowLatency] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
-  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string }>>([]);
-  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string, nobleTier?: string } | null>(null);
+  const [activeGifts, setActiveGifts] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string, familyName?: string }>>([]);
+  const [giftQueue, setGiftQueue] = useState<Array<{ id: string, giftName: string, giftImage?: string, displayName: string, userPhoto?: string, combo: number, animationType?: string, nobleTier?: string, familyName?: string }>>([]);
+  const [activeAnimation, setActiveAnimation] = useState<{ giftName: string, displayName: string, animationType: string, nobleTier?: string, familyName?: string } | null>(null);
   const [isSearchingPK, setIsSearchingPK] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -212,21 +212,22 @@ export default function RoomPage() {
           const animationType = lastMsg.animationType || 'standard';
           const senderName = lastMsg.displayName;
           const nobleTier = lastMsg.nobleTier || 'None';
+          const familyName = lastMsg.familyName;
           
           if (animationType === 'kiss' || animationType === 'flower') {
-            setActiveAnimation({ giftName, displayName: senderName, animationType, nobleTier });
+            setActiveAnimation({ giftName, displayName: senderName, animationType, nobleTier, familyName });
             setTimeout(() => setActiveAnimation(null), 4000);
           }
           
           const processGift = (giftData: any) => {
-            const { giftName, giftImage, quantity, animationType, senderName, photoURL, hostPhoto, id, nobleTier } = giftData;
+            const { giftName, giftImage, quantity, animationType, senderName, photoURL, hostPhoto, id, nobleTier, familyName } = giftData;
             const giftId = id || `msg-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`;
 
             setActiveGifts(prevActive => {
               const existingIndex = prevActive.findIndex(g => g.displayName === senderName && g.giftName === giftName);
               if (existingIndex !== -1) {
                 const updated = [...prevActive];
-                updated[existingIndex] = { ...updated[existingIndex], combo: updated[existingIndex].combo + quantity, animationType, nobleTier };
+                updated[existingIndex] = { ...updated[existingIndex], combo: updated[existingIndex].combo + quantity, animationType, nobleTier, familyName };
                 return updated;
               }
 
@@ -235,7 +236,7 @@ export default function RoomPage() {
               if (existingQueueIndex !== -1) {
                 setGiftQueue(prevQueue => {
                   const updated = [...prevQueue];
-                  updated[existingQueueIndex] = { ...updated[existingQueueIndex], combo: updated[existingQueueIndex].combo + quantity, animationType, nobleTier };
+                  updated[existingQueueIndex] = { ...updated[existingQueueIndex], combo: updated[existingQueueIndex].combo + quantity, animationType, nobleTier, familyName };
                   return updated;
                 });
                 return prevActive;
@@ -246,7 +247,7 @@ export default function RoomPage() {
                 id: giftId,
                 giftName, giftImage, displayName: senderName,
                 userPhoto: photoURL || hostPhoto,
-                combo: quantity, animationType, nobleTier
+                combo: quantity, animationType, nobleTier, familyName
               };
 
               if (prevActive.length < 2) {
@@ -261,7 +262,7 @@ export default function RoomPage() {
           processGift({
             giftName, giftImage, quantity, animationType, senderName,
             photoURL: lastMsg.photoURL, hostPhoto: lastMsg.hostPhoto, id: lastMsg.id,
-            nobleTier
+            nobleTier, familyName
           });
         }
 
@@ -470,7 +471,7 @@ export default function RoomPage() {
         id: giftId,
         giftName, giftImage, displayName: senderName,
         userPhoto: profile.photoURL,
-        combo: quantity, animationType
+        combo: quantity, animationType, familyName: profile.familyName
       };
 
       if (prevActive.length < 2) {
@@ -1162,6 +1163,7 @@ export default function RoomPage() {
                         userPhoto={gift.userPhoto}
                         combo={gift.combo}
                         nobleTier={gift.nobleTier}
+                        familyName={gift.familyName}
                         onComplete={() => {
                           setActiveGifts(prev => {
                             const filtered = prev.filter(g => g.id !== gift.id);
@@ -1368,6 +1370,7 @@ export default function RoomPage() {
           displayName={activeAnimation.displayName} 
           animationType={activeAnimation.animationType} 
           nobleTier={activeAnimation.nobleTier}
+          familyName={activeAnimation.familyName}
         />
       )}
 

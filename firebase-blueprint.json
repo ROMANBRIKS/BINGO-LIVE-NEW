@@ -204,12 +204,51 @@
         "status": { "type": "string", "enum": ["active", "collected", "expired"] }
       },
       "required": ["id", "eggId", "x", "y", "status"]
+    },
+    "MigrationRequest": {
+      "title": "MigrationRequest",
+      "description": "A request to migrate status from another platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "userName": { "type": "string" },
+        "platform": { "type": "string" },
+        "proofUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "matchedRank": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "platform", "proofUrl", "status"]
+    },
+    "Family": {
+      "title": "Family",
+      "description": "Represents a host family/clan.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "badge": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "description": { "type": "string" },
+        "memberCount": { "type": "number" },
+        "memberLimit": { "type": "number" },
+        "combatPoints": { "type": "number", "description": "Persistent XP from gifts" },
+        "monthlyPoints": { "type": "number", "description": "Points earned this month" },
+        "monthlyTarget": { "type": "number", "description": "Target points for this month" },
+        "level": { "type": "number" },
+        "tier": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerUid", "combatPoints", "level", "tier"]
     }
   },
   "firestore": {
     "/users/{uid}": {
       "schema": "User",
       "description": "User profiles and balances."
+    },
+    "/families/{familyId}": {
+      "schema": "Family",
+      "description": "Family details and rankings."
     },
     "/agencies/{agencyId}": {
       "schema": "Agency",
@@ -254,6 +293,10 @@
     "/bank/{bankId}": {
       "schema": "Bank",
       "description": "House reserve for Model 2."
+    },
+    "/migration_requests/{requestId}": {
+      "schema": "MigrationRequest",
+      "description": "Status migration oversight."
     }
   }
 }

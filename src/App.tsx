@@ -42,6 +42,7 @@ const AgencyDashboardPage = lazy(() => import('./pages/AgencyDashboardPage'));
 const TrendsPage = lazy(() => import('./pages/TrendsPage'));
 const MigrationPage = lazy(() => import('./pages/MigrationPage'));
 const TalentProfilePage = lazy(() => import('./pages/TalentProfilePage'));
+const PublicPortfolio = lazy(() => import('./components/PublicPortfolio').then(m => ({ default: m.PublicPortfolio })));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -61,13 +62,14 @@ const AppContent = () => {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/talent/:username" element={<TalentProfilePage />} />
+          <Route path="/u/:uid" element={<PublicPortfolio />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </Suspense>
     );
   }
 
-  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live' || location.pathname.startsWith('/talent/');
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live' || location.pathname.startsWith('/talent/') || location.pathname.startsWith('/u/');
 
   return (
     <div className={cn(
@@ -117,6 +119,7 @@ const AppContent = () => {
               <Route path="/hot" element={<ComingSoonPage title="Hot Content" />} />
               <Route path="/migration" element={<MigrationPage />} />
               <Route path="/talent/:username" element={<TalentProfilePage />} />
+              <Route path="/u/:uid" element={<PublicPortfolio />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>

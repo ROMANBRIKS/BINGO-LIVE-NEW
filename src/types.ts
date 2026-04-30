@@ -49,10 +49,16 @@ export interface Family {
   ownerUid: string;
   description: string;
   memberCount: number;
+  memberLimit?: number;
   totalDiamondsSpent: number;
+  combatPoints: number;
+  monthlyPoints: number;
+  monthlyTarget: number;
   level: number;
+  tier: string;
   ranking?: number;
   announcement?: string;
+  createdAt?: any;
 }
 
 export interface FamilyMember {

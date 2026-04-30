@@ -1,3 +1,18 @@
 User-agent: *
 Allow: /
+Crawl-delay: 1
+
+# Sitemaps for Google, Bing, DuckDuckGo
 Sitemap: https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/sitemap.xml
+Sitemap: https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/news-sitemap.xml
+
+# RSS Feed for Browsers (Opera, Phoenix, etc)
+Sitemap: https://ais-dev-uvw3pg5fomle6hxqgu7tuc-465217709442.europe-west2.run.app/feed.xml
+
+# Targeting Social Algorithms
+User-agent: FacebookBot
+Allow: /
+User-agent: Twitterbot
+Allow: /
+User-agent: TikTokBot
+Allow: /

@@ -196,15 +196,29 @@ const FlowerAnimation = () => {
   );
 };
 
-export const GiftAnimation = React.memo(({ giftName, displayName, combo = 1, animationType, nobleTier = 'None' }: { giftName: string, displayName: string, combo?: number, animationType?: string, nobleTier?: string }) => {
+export const GiftAnimation = React.memo(({ 
+  giftName, 
+  displayName, 
+  combo = 1, 
+  animationType, 
+  nobleTier = 'None',
+  familyName 
+}: { 
+  giftName: string, 
+  displayName: string, 
+  combo?: number, 
+  animationType?: string, 
+  nobleTier?: string,
+  familyName?: string
+}) => {
   const effects = getGiftingEffect({ nobleTitle: nobleTier as NobleTier } as any);
 
   return (
     <>
       <motion.div 
-        initial={{ x: -200, opacity: 0, scale: 0.8 }}
+        initial={{ x: -250, opacity: 0, scale: 0.8 }}
         animate={{ x: 0, opacity: 1, scale: 1 }}
-        exit={{ x: 200, opacity: 0, scale: 0.8 }}
+        exit={{ x: 250, opacity: 0, scale: 0.8 }}
         className={cn(
           "fixed top-1/3 left-4 z-[150] flex items-center gap-3 backdrop-blur-md p-1.5 pr-8 rounded-full shadow-2xl border",
           effects.hasShine ? "bg-gradient-to-r from-yellow-600/90 via-yellow-400/90 to-yellow-600/90 border-yellow-200/50" : 
@@ -229,15 +243,21 @@ export const GiftAnimation = React.memo(({ giftName, displayName, combo = 1, ani
           )}
         </div>
         <div className="flex flex-col">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <p className="text-white font-black italic text-[11px] uppercase leading-none drop-shadow-md">{displayName}</p>
             {effects.hasShine && <Zap size={10} fill="currentColor" className="text-yellow-200" />}
+            {familyName && (
+              <span className="text-[10px] bg-white/20 text-white font-black px-1.5 py-0.5 rounded italic">
+                {familyName}
+              </span>
+            )}
           </div>
           <p className={cn(
             "font-black text-[9px] uppercase tracking-wider drop-shadow-sm",
             effects.hasShine ? "text-white" : "text-yellow-300"
           )}>Sent {giftName}</p>
         </div>
+        
         {combo > 1 && (
           <motion.div 
             key={combo}
@@ -250,6 +270,15 @@ export const GiftAnimation = React.memo(({ giftName, displayName, combo = 1, ani
           >
             X{combo}
           </motion.div>
+        )}
+        
+        {/* Family Shine Effect if in family */}
+        {familyName && (
+          <motion.div
+            animate={{ opacity: [0.2, 0.5, 0.2] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 rounded-full border-2 border-yellow-400/40 pointer-events-none"
+          />
         )}
         
         {effects.hasShine && (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase';
 import { UserProfile } from '../types';
 
@@ -26,20 +26,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      
+      let profileUnsub: (() => void) | null = null;
+
       if (u) {
-        const userDoc = doc(db, 'users', u.uid);
-        try {
-          const snap = await getDoc(userDoc);
+        const userDocRef = doc(db, 'users', u.uid);
+        
+        // Use onSnapshot for real-time profile updates
+        profileUnsub = onSnapshot(userDocRef, async (snap) => {
           if (snap.exists()) {
             const existingProfile = snap.data() as UserProfile;
+            
+            // Handle one-time admin promotion if needed
             if (u.email === 'rogershep101@gmail.com' && existingProfile.role !== 'admin') {
-              await updateDoc(userDoc, { role: 'admin' });
-              existingProfile.role = 'admin';
+              await updateDoc(userDocRef, { role: 'admin' });
             }
+            
             setProfile(existingProfile);
+            setLoading(false);
           } else {
+            // Create new profile if it doesn't exist
             const newProfile: UserProfile = {
               uid: u.uid,
               displayName: u.displayName || 'Anonymous',
@@ -59,17 +67,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               lastNoblePurchaseDate: new Date(),
               referralCode: Math.random().toString(36).substring(7).toUpperCase(),
             };
-            await setDoc(userDoc, newProfile);
-            setProfile(newProfile);
+            await setDoc(userDocRef, newProfile);
+            // Profile state will be updated by the next snapshot trigger
           }
-        } catch (e) {
-          console.error("Error fetching profile", e);
-        }
+        }, (error) => {
+          console.error("Error listening to profile:", error);
+          setLoading(false);
+        });
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
+      
+      return () => {
+        if (profileUnsub) profileUnsub();
+      };
     });
+
     return () => unsubscribe();
   }, []);
 

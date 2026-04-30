@@ -73,10 +73,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
 export async function testConnection() {
   try {
+    // Try to reach the server once
     await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log("Firebase connection verified: ONLINE");
   } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. ");
+    if(error instanceof Error && (error.message.includes('unavailable') || error.message.includes('the client is offline'))) {
+      console.warn("Firestore connection: Offline mode (Network unavailable or restricted).");
+    } else {
+      console.error("Firestore initialization status:", error);
     }
   }
 }

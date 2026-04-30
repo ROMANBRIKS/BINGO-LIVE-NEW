@@ -170,6 +170,8 @@ export const GiftingModal = ({ room, onClose, onGiftSent }: { room: any, onClose
         displayName: profile.displayName,
         photoURL: profile.photoURL,
         svipTier: profile.svipStatus?.status === 'active' ? profile.svipStatus.tier : null,
+        familyId: profile.familyId || null,
+        familyName: profile.familyName || null,
         timestamp: serverTimestamp(),
         isGift: true,
         giftId: selectedGift.id,
