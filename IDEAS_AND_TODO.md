@@ -428,6 +428,19 @@ This file serves as the central repository for brainstorming ideas, feature requ
     *   Initial focus is on the design and logic.
     *   Decision pending on whether to use pure code (CSS/SVG) or assets (Animations).
 
+## 👨‍👩‍👧‍👦 30. Family & Referral System
+*   **Referral Engine:**
+    *   Generation of unique referral codes and deep-links for every user.
+    *   Dashboard to track successful referrals and earned rewards.
+*   **Sign-up Flow Integration:**
+    *   **Referral Field:** Add a dedicated field for referral codes during account creation.
+    *   **Incentivized Onboarding:** New users are automatically added to the inviter's "Family" upon successful sign-up with a code.
+    *   **Extended Profile Capture:** Even for social/Gmail logins, implement a mandatory (but skippable) secondary step to fill in profile details that will be displayed on their public page.
+*   **Family Hierarchy & Perks:**
+    *   **Automatic Linking:** Referred users are permanently (or semi-permanently) linked to the referrer's family tree.
+    *   **Dual-Gain Rewards:** Both the referrer and the new user gain benefits (coins, badges, or ranking boosts).
+    *   **Family Dashboard:** A shared space for family members to see their collective contribution to the platform.
+
 ---
 
 ## 📝 To-Do List (Pending Discussion)
@@ -558,3 +571,8 @@ This file serves as the central repository for brainstorming ideas, feature requ
 - [ ] **PK "Glass Break" Mechanic (Points 103, 132, 138, 147)**: Create the Swinging Rock and shattering glass animations for PK finales.
 - [ ] **PK Fire & Water Themes**: Implement Eruption/Burn and Splash/Wash effects for losers to make battles more fun.
 - [ ] **PK Implementation Research (Points 201, 218)**: Evaluate whether to use code-driven or asset-driven approaches for advanced PK visuals.
+- [ ] **Referral Code System**: Design and implement the referral code generation and validation logic.
+- [ ] **Family Integration**: Connect the referral system to the "Family" logic, ensuring automatic linking.
+- [ ] **Enhanced Sign-up Form**: Create a multi-step registration flow to collect additional profile info post-social login.
+- [ ] **Referral Performance Dashboard**: Build a UI for users to track their invites and family growth.
+- [ ] **Technical Implementation Research**: Decide on the flexibility of family membership (joining/leaving rules).
