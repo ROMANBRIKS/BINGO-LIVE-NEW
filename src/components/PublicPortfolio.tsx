@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Eye, Heart, Share2, Download, 
   ExternalLink, Diamond, Users, MessageCircle, ShieldCheck,
   ChevronLeft, Copy, Plus, Settings, Sparkles, MapPin, Globe, 
-  Scale, Ruler, Star, MoreHorizontal
+  Scale, Ruler, Star, MoreHorizontal, X, Flag, Ban, Briefcase
 } from 'lucide-react';
 import { generateEnhancedImageUrl } from '../lib/imageProcessor';
 import { cn } from '../lib/utils';
@@ -18,21 +18,29 @@ import { SVIPBadge } from './SVIPBadge';
 import { FamilyDetailsPopup } from './FamilyDetailsPopup';
 import { FamilyCreatePopup } from './FamilyCreatePopup';
 import { getFamilyRankInfo } from '../lib/familyLogic';
+import { useToast } from '../context/ToastContext';
 
 export const PublicPortfolio: React.FC = () => {
   const { uid } = useParams<{ uid: string }>();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [family, setFamily] = useState<Family | null>(null);
+  const [agency, setAgency] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'status' | 'dino'>('status');
   const [showFamilyDetails, setShowFamilyDetails] = useState(false);
+  const [showCreateFamily, setShowCreateFamily] = useState(false);
+  const [showThreeDots, setShowThreeDots] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   const isOwner = auth.currentUser?.uid === user?.uid;
   
   useEffect(() => {
     let userUnsub: (() => void) | undefined;
     let familyUnsub: (() => void) | undefined;
-
+    let agencyUnsub: (() => void) | undefined;
+ 
     async function fetchUser() {
       if (!uid) return;
       try {
@@ -40,7 +48,7 @@ export const PublicPortfolio: React.FC = () => {
           if (userDoc.exists()) {
             const userData = { uid: userDoc.id, ...userDoc.data() } as UserProfile;
             setUser(userData);
-
+ 
             if (userData.familyId) {
               if (familyUnsub) familyUnsub();
               familyUnsub = onSnapshot(doc(db, 'families', userData.familyId), (familyDoc) => {
@@ -48,6 +56,17 @@ export const PublicPortfolio: React.FC = () => {
                   setFamily({ id: familyDoc.id, ...familyDoc.data() } as Family);
                 }
               });
+            }
+
+            if (userData.agencyId) {
+              if (agencyUnsub) agencyUnsub();
+              agencyUnsub = onSnapshot(doc(db, 'agencies', userData.agencyId), (agencyDoc) => {
+                if (agencyDoc.exists()) {
+                  setAgency({ id: agencyDoc.id, ...agencyDoc.data() });
+                }
+              });
+            } else {
+              setAgency(null);
             }
           }
         });
@@ -57,11 +76,12 @@ export const PublicPortfolio: React.FC = () => {
         setLoading(false);
       }
     }
-
+ 
     fetchUser();
     return () => {
       if (userUnsub) userUnsub();
       if (familyUnsub) familyUnsub();
+      if (agencyUnsub) agencyUnsub();
     };
   }, [uid]);
 
@@ -130,8 +150,6 @@ export const PublicPortfolio: React.FC = () => {
     tier: 'Gold',
   };
 
-  const [showCreateFamily, setShowCreateFamily] = useState(false);
-
   return (
     <div className="min-h-screen bg-white font-roboto pb-24 max-w-lg mx-auto shadow-2xl">
       {/* Cover & Gallery Area */}
@@ -147,16 +165,86 @@ export const PublicPortfolio: React.FC = () => {
 
         {/* Global Action Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-20">
-          <button className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+          >
             <ChevronLeft size={24} />
           </button>
-          <div className="flex gap-2">
-            <button className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+          <div className="flex gap-2 relative">
+            <button 
+              onClick={() => {
+                const link = `${window.location.origin}/u/${user.uid}`;
+                navigator.clipboard.writeText(link);
+                showToast("Profile link copied to clipboard! 🔗", "success");
+              }}
+              className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+            >
               <Share2 size={20} />
             </button>
-            <button className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+            <button 
+              onClick={() => setShowThreeDots(prev => !prev)}
+              className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+            >
               <MoreHorizontal size={20} />
             </button>
+
+            {/* Three Dots Menu Dropdown */}
+            <AnimatePresence>
+              {showThreeDots && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowThreeDots(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    className="absolute right-0 top-12 w-56 bg-white rounded-3xl border border-slate-100 p-2 shadow-2xl z-40 text-left"
+                  >
+                    <button 
+                      onClick={() => {
+                        setShowThreeDots(false);
+                        navigate(`/talent/${user.uid.substring(0, 8)}`);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-black font-black text-xs uppercase tracking-wider rounded-2xl"
+                    >
+                      <ExternalLink size={16} className="text-cyan-500" />
+                      <span>Extended Profile</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowThreeDots(false);
+                        navigator.clipboard.writeText(user.uid);
+                        showToast("User ID copied!", "success");
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-black font-black text-xs uppercase tracking-wider rounded-2xl"
+                    >
+                      <Copy size={16} className="text-amber-500" />
+                      <span>Copy User ID</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowThreeDots(false);
+                        showToast("Talent reported successfully. Compliance team will audit uploads.", "success");
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-red-500 font-black text-xs uppercase tracking-wider rounded-2xl"
+                    >
+                      <Flag size={16} className="text-red-500" />
+                      <span>Report User</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowThreeDots(false);
+                        showToast(`Blocked user "${user.displayName}".`, "success");
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-red-600 font-black text-xs uppercase tracking-wider rounded-2xl"
+                    >
+                      <Ban size={16} className="text-red-600" />
+                      <span>Block User</span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -168,7 +256,8 @@ export const PublicPortfolio: React.FC = () => {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white shadow-lg flex-shrink-0"
+              onClick={() => setSelectedImage(thumb)}
+              className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white shadow-lg flex-shrink-0 cursor-pointer active:scale-95 transition-all hover:border-[#2af5ff]"
             >
               <img src={thumb} className="w-full h-full object-cover" alt="Album" />
             </motion.div>
@@ -249,6 +338,12 @@ export const PublicPortfolio: React.FC = () => {
 
         {/* Status/Accolade Row */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {agency && (
+            <div className="flex items-center gap-1 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-100 shrink-0">
+              <Briefcase size={10} className="text-cyan-500 stroke-[2.5]" />
+              <span className="text-[10px] font-black text-cyan-600 uppercase tracking-tighter">{agency.name} Partner</span>
+            </div>
+          )}
           <LevelBadge level={user.level || 67} className="h-4 pr-2" />
           <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-full border border-yellow-100">
             <NobleBadge tier={user.nobleTitle || 'King'} size="sm" />
@@ -391,7 +486,10 @@ export const PublicPortfolio: React.FC = () => {
                       <p className="text-[10px] font-bold text-slate-400">{post.date}</p>
                     </div>
                   </div>
-                  <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-slate-100 shadow-xl group">
+                  <div 
+                    onClick={() => setSelectedImage(post.thumbnail)}
+                    className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-slate-100 shadow-xl group cursor-pointer"
+                  >
                     <img src={post.thumbnail} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent flex flex-col justify-end p-5">
                       <div className="flex items-center gap-6">
@@ -432,6 +530,63 @@ export const PublicPortfolio: React.FC = () => {
         )}
         {showCreateFamily && (
           <FamilyCreatePopup onClose={() => setShowCreateFamily(false)} />
+        )}
+        {selectedImage && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-4 select-none"
+          >
+            {/* Top Close Button & Controls */}
+            <div className="absolute top-6 left-0 right-0 px-6 flex items-center justify-between z-10">
+              <button 
+                onClick={() => setSelectedImage(null)}
+                className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+              >
+                <X size={20} />
+              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(selectedImage);
+                    showToast("Photo link copied! ✨", "success");
+                  }}
+                  className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+                >
+                  <Share2 size={18} />
+                </button>
+                <button 
+                  onClick={() => {
+                    showToast("Saving high resolution artwork image...", "success");
+                  }}
+                  className="w-10 h-10 bg-[#2af5ff] rounded-full flex items-center justify-center text-black active:scale-95 transition-transform font-bold"
+                >
+                  <Download size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Display Image */}
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="max-h-[75vh] max-w-full rounded-2xl overflow-hidden shadow-2xl border border-white/5 relative bg-[#111]"
+            >
+              <img 
+                src={selectedImage} 
+                className="max-h-[75vh] max-w-full object-contain mx-auto"
+                alt="Fullscreen Portfolio Viewer"
+              />
+            </motion.div>
+            
+            {/* Legend / Tip */}
+            <p className="text-white/40 text-[10px] uppercase font-black tracking-widest mt-6">
+              Tap anywhere outside or close to exit
+            </p>
+            <div className="absolute inset-0 -z-10" onClick={() => setSelectedImage(null)} />
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { Family, Room } from './types';
 
@@ -57,9 +57,19 @@ export async function contributeToFamily(uid: string, familyId: string, amount: 
 
     // Update member contribution
     const memberRef = doc(db, `families/${familyId}/members`, uid);
-    await updateDoc(memberRef, {
+    
+    // Fetch profile fallback details just in case document doesn't exist yet
+    const userSnap = await getDoc(doc(db, 'users', uid)).catch(() => null);
+    const userData = userSnap?.exists() ? userSnap.data() : null;
+
+    await setDoc(memberRef, {
+      uid,
+      displayName: userData?.displayName || 'Member',
+      photoURL: userData?.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150',
+      role: 'member',
+      joinedAt: serverTimestamp(),
       contributionPoints: increment(amount)
-    });
+    }, { merge: true });
 
     return true;
   } catch (error) {

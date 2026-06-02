@@ -1,7 +1,7 @@
 import { NobleTier } from './NobleTypes';
 import { UserSVIPStatus } from './SVIPTypes';
 
-export type UserRole = 'user' | 'host' | 'agency' | 'admin';
+export type UserRole = 'user' | 'host' | 'agency' | 'admin' | 'moderator';
 export type StreamStatus = 'live' | 'ended';
 export type StreamType = 'multi-guest-live' | 'live' | 'audio-live' | 'game-live' | 'virtual-live';
 export type TransactionType = 'purchase' | 'gift' | 'salary' | 'rebate';
@@ -22,24 +22,47 @@ export interface UserProfile {
   fans: number;
   agencyId?: string;
   familyId?: string;
+  region?: string;
   totalDiamondsSpent: number;
   totalBeansEarned: number;
+  giftBeans?: number;
+  adBeans?: number;
+  totalAdBeansEarned?: number;
   lastNoblePurchaseDate?: any;
   referralCode: string;
   invitedBy?: string;
   svipStatus?: UserSVIPStatus;
   familyName?: string;
   familyLevel?: number;
+  phoneNumber?: string;
+  email?: string;
+  isBanned?: boolean;
+  isShadowBanned?: boolean;
+  suspendedUntil?: string; // ISO string
+  suspensionReason?: string;
+  customFallbackSalaryRate?: number; // Manual override rate e.g. 50% instead of global fallback rate
+  appealText?: string;
+  appealStatus?: 'none' | 'pending' | 'approved' | 'rejected';
+  bannedStreaming?: boolean;
+  bannedMessaging?: boolean;
+  bannedWithdrawals?: boolean;
+  bannedMovies?: boolean;
+  bannedApp?: boolean;
+  coolingOffScheduled?: boolean;
+  coolingOffSince?: any;
 }
 
 export interface Agency {
   id: string;
   name: string;
   ownerUid: string;
-  tier: number;
+  tier?: number;
   commissionRate: number;
-  rebateRate: number;
-  totalHosts: number;
+  rebateRate?: number;
+  totalHosts?: number;
+  memberCount?: number;
+  totalEarnings?: number;
+  createdAt?: any;
 }
 
 export interface Family {
@@ -108,6 +131,8 @@ export type ShieldTier = 'Light' | 'Standard' | 'Heavy' | 'Emergency';
 export interface Room {
   id: string;
   hostUid: string;
+  hostName?: string;
+  hostPhotoURL?: string;
   title: string;
   status: StreamStatus;
   type: StreamType;
@@ -118,6 +143,10 @@ export interface Room {
   seats?: GuestSeat[];
   micQueue?: MicRequest[];
   isPrivate: boolean;
+  accessType?: 'public' | 'private' | 'family';
+  passcode?: string;
+  familyId?: string;
+  familyName?: string;
   createdAt: any; // Firestore Timestamp
   pkStatus?: 'idle' | 'searching' | 'battling';
   pkOpponentUid?: string;
@@ -138,6 +167,13 @@ export interface Room {
   isSingingMode?: boolean;
   latitude?: number;
   longitude?: number;
+  locationName?: string;
+  isPopular?: boolean;
+  level?: number;
+  participants?: string[];
+  tag?: string;
+  countryCode?: string;
+  countryName?: string;
 }
 
 export interface Gift {

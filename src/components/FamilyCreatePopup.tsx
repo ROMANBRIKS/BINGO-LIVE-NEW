@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Shield, Plus, Sparkles, Wand2, Info } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '../context/ToastContext';
 
 interface FamilyCreatePopupProps {
@@ -48,6 +48,20 @@ export const FamilyCreatePopup: React.FC<FamilyCreatePopupProps> = ({ onClose })
       await updateDoc(doc(db, 'users', user.uid), {
         familyId: familyRef.id,
         familyName: name.trim()
+      });
+
+      // 3. Create the member document in the members subcollection
+      const userDocRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userDocRef).catch(() => null);
+      const userData = userSnap?.exists() ? userSnap.data() : null;
+
+      await setDoc(doc(db, `families/${familyRef.id}/members`, user.uid), {
+        uid: user.uid,
+        displayName: userData?.displayName || user.displayName || 'Leader',
+        photoURL: userData?.photoURL || user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150',
+        role: 'leader',
+        contributionPoints: 0,
+        joinedAt: serverTimestamp()
       });
 
       showToast('Family created successfully!', 'success');

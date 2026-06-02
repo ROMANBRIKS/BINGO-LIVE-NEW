@@ -10,8 +10,9 @@ import { cn } from '../lib/utils';
 import { UserProfile, PrivateCallRequest } from '../types';
 import { useToast } from '../context/ToastContext';
 import { PRIVATE_CALL_FEE_AUDIO, PRIVATE_CALL_FEE_VIDEO, calculatePrivateCallCost } from '../privateCallLogic';
+import { getTierForEarnings, getAgencyCommissionRateForTier } from '../agencyLogic';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, onSnapshot, getDoc, updateDoc, addDoc, collection, serverTimestamp, query, where, increment } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, updateDoc, addDoc, collection, serverTimestamp, query, where, increment, setDoc } from 'firebase/firestore';
 import { FamilyBadge } from './FamilyBadge';
 import { Family } from '../types';
 
@@ -185,6 +186,57 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
         totalBeansEarned: increment(request.totalCost || 0)
       });
 
+      // Agency System Calculations for Private Calls
+      try {
+        const agencyMemberRef = doc(db, 'agency_members', request.hostUid);
+        const agencyMemberSnap = await getDoc(agencyMemberRef);
+        if (agencyMemberSnap.exists()) {
+          const memberData = agencyMemberSnap.data();
+          const agencyId = memberData.agencyId;
+          if (agencyId) {
+            const agencyRef = doc(db, 'agencies', agencyId);
+            const agencySnap = await getDoc(agencyRef);
+            if (agencySnap.exists()) {
+              const agencyData = agencySnap.data();
+              const commissionRate = agencyData.commissionRate || 0.10;
+              const commission = Math.floor((request.totalCost || 0) * commissionRate);
+
+              if (commission > 0) {
+                // Compute updated agency tier
+                const newAgencyEarnings = (agencyData.totalEarnings || 0) + commission;
+                const newAgencyTier = getTierForEarnings(newAgencyEarnings);
+                const newAgencyCommissionRate = getAgencyCommissionRateForTier(newAgencyTier);
+
+                // Update agency data
+                await updateDoc(agencyRef, {
+                  totalEarnings: increment(commission),
+                  commissionRate: newAgencyCommissionRate
+                });
+
+                // Update agency member metrics
+                const newMemberEarnings = (memberData.totalEarnings || 0) + (request.totalCost || 0);
+                const newMemberTier = getTierForEarnings(newMemberEarnings);
+                await updateDoc(agencyMemberRef, {
+                  totalEarnings: increment(request.totalCost || 0),
+                  tier: newMemberTier
+                });
+
+                // Increment the Agency Owner's user balance
+                if (agencyData.ownerUid) {
+                  const ownerRef = doc(db, 'users', agencyData.ownerUid);
+                  await updateDoc(ownerRef, {
+                    beans: increment(commission),
+                    totalBeansEarned: increment(commission)
+                  }).catch(err => console.error("Agency owner private call split fail:", err));
+                }
+              }
+            }
+          }
+        }
+      } catch (agencyErr) {
+        console.error("Error processing agency commission for private call:", agencyErr);
+      }
+
       // Update call status
       await updateDoc(doc(db, `rooms/${roomId}/private_calls`, requestId), {
         status: 'active',
@@ -201,10 +253,16 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
           
           await updateDoc(familyRef, {
             totalDiamondsSpent: increment(request.totalCost || 0)
-          });
-          await updateDoc(memberRef, {
+          }).catch(err => console.error("Family update error:", err));
+
+          await setDoc(memberRef, {
+            uid: vData.uid,
+            displayName: vData.displayName || 'Member',
+            photoURL: vData.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150',
+            role: 'member',
+            joinedAt: serverTimestamp(),
             contributionPoints: increment(request.totalCost || 0)
-          });
+          }, { merge: true }).catch(err => console.error("Family member update error:", err));
         }
       }
 
@@ -244,19 +302,19 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
           <AnimatePresence>
             {showSelector && (
               <motion.div 
-                initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                className="absolute bottom-16 right-0 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-3 flex flex-col gap-3 min-w-[140px] shadow-2xl z-50"
+                initial={{ opacity: 0, x: 10, scale: 0.85, y: "-50%" }}
+                animate={{ opacity: 1, x: 0, scale: 0.95, y: "-50%" }}
+                exit={{ opacity: 0, x: 10, scale: 0.85, y: "-50%" }}
+                className="absolute right-[52px] top-1/2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl p-2 flex flex-col gap-1.5 min-w-[92px] shadow-2xl z-50"
               >
-                <div className="flex items-center justify-between px-2 mb-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Private Call</span>
-                  <button onClick={() => setShowSelector(false)} className="text-white/20 hover:text-white">
-                    <X size={12} />
+                <div className="flex items-center justify-between px-0.5 mb-0.5">
+                  <span className="text-[6.5px] font-black uppercase tracking-widest text-white/40">Private Call</span>
+                  <button onClick={() => setShowSelector(false)} className="text-white/20 hover:text-white cursor-pointer">
+                    <X size={8} />
                   </button>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   {/* Video Option */}
                   <button 
                     onClick={() => {
@@ -264,14 +322,14 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
                       handleRequestCall('video');
                     }}
                     disabled={isRequesting}
-                    className="flex-1 flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group/btn"
+                    className="flex-1 flex flex-col items-center gap-0.5 p-1 bg-white/5 hover:bg-white/10 rounded-lg transition-all group/btn cursor-pointer"
                   >
-                    <div className="w-10 h-10 bg-pink-500/20 rounded-xl flex items-center justify-center text-pink-500 group-hover/btn:scale-110 transition-transform">
-                      <Video size={18} fill="currentColor" />
+                    <div className="w-6 h-6 bg-pink-500/20 rounded-md flex items-center justify-center text-pink-500 group-hover/btn:scale-110 transition-transform">
+                      <Video size={11} fill="currentColor" />
                     </div>
                     <div className="flex flex-col items-center">
-                      <span className="text-[8px] font-black uppercase text-white/60">Video</span>
-                      <span className="text-[9px] font-black italic text-pink-500">{PRIVATE_CALL_FEE_VIDEO}/m</span>
+                      <span className="text-[6px] font-black uppercase text-white/60">Video</span>
+                      <span className="text-[6.5px] font-black italic text-pink-500">{PRIVATE_CALL_FEE_VIDEO}/m</span>
                     </div>
                   </button>
 
@@ -282,20 +340,20 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
                       handleRequestCall('audio');
                     }}
                     disabled={isRequesting}
-                    className="flex-1 flex flex-col items-center gap-1.5 p-3 bg-white/5 hover:bg-white/10 rounded-2xl transition-all group/btn"
+                    className="flex-1 flex flex-col items-center gap-0.5 p-1 bg-white/5 hover:bg-white/10 rounded-lg transition-all group/btn cursor-pointer"
                   >
-                    <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 group-hover/btn:scale-110 transition-transform">
-                      <Mic size={18} fill="currentColor" />
+                    <div className="w-6 h-6 bg-emerald-500/20 rounded-md flex items-center justify-center text-emerald-400 group-hover/btn:scale-110 transition-transform">
+                      <Mic size={11} fill="currentColor" />
                     </div>
                     <div className="flex flex-col items-center">
-                      <span className="text-[8px] font-black uppercase text-white/60">Audio</span>
-                      <span className="text-[9px] font-black italic text-emerald-400">{PRIVATE_CALL_FEE_AUDIO}/m</span>
+                      <span className="text-[6px] font-black uppercase text-white/60">Audio</span>
+                      <span className="text-[6.5px] font-black italic text-emerald-400">{PRIVATE_CALL_FEE_AUDIO}/m</span>
                     </div>
                   </button>
                 </div>
 
-                <div className="px-2 pt-1">
-                  <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-white/20 mb-2">
+                <div className="px-0.5 pt-0.5">
+                  <div className="flex items-center justify-between text-[6px] font-black uppercase tracking-widest text-white/20 mb-1">
                     <span>Duration</span>
                     <span className="text-white/60">{duration}m</span>
                   </div>
@@ -305,7 +363,7 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
                         key={d}
                         onClick={() => setDuration(d)}
                         className={cn(
-                          "flex-1 py-1 rounded-lg text-[8px] font-black transition-all",
+                          "flex-1 py-0 px-0.5 rounded text-[6px] font-black transition-all cursor-pointer",
                           duration === d ? "bg-white/20 text-white" : "bg-white/5 text-white/20"
                         )}
                       >
@@ -320,12 +378,12 @@ export const PrivateCallManager: React.FC<PrivateCallManagerProps> = ({
 
           <button 
             onClick={() => setShowSelector(!showSelector)}
-            className="flex flex-col items-center gap-1 group"
+            className="flex flex-col items-center gap-1 group relative animate-none"
           >
-            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
-              <Phone size={20} fill="currentColor" />
+            <div className="w-11 h-11 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-full flex items-center justify-center text-white shadow-lg hover:scale-110 transition-transform relative z-10 border border-white/10">
+              <Phone size={18} className="text-white" fill="currentColor" />
             </div>
-            <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Private</span>
+            <span className="text-[9px] font-black text-emerald-400 tracking-wider uppercase text-center relative z-10">Private</span>
           </button>
         </div>
       )}

@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, Brain, TrendingUp, Zap, AlertCircle, MessageSquare } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { Room, Message } from '../types';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export const AICoach = ({ room, messages, onClose }: { room: Room, messages: Message[], onClose: () => void }) => {
   const [feedback, setFeedback] = useState<string>('Analyzing your stream performance...');
@@ -17,7 +14,6 @@ export const AICoach = ({ room, messages, onClose }: { room: Room, messages: Mes
   });
 
   const getAIFeedback = async () => {
-    if (!process.env.GEMINI_API_KEY) return;
     setLoading(true);
     try {
       const recentMessages = messages.slice(-10).map(m => `${m.senderName}: ${m.text}`).join('\n');
@@ -35,13 +31,21 @@ export const AICoach = ({ room, messages, onClose }: { room: Room, messages: Mes
         "tips": ["tip 1", "tip 2", "tip 3"]
       }`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
+      const response = await fetch("/api/gemini/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          responseMimeType: "application/json"
+        })
       });
 
-      const data = JSON.parse(response.text || '{}');
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}`);
+      }
+
+      const val = await response.json();
+      const data = JSON.parse(val.text || '{}');
       setFeedback(data.feedback || 'Keep up the great energy!');
       setSuggestions(data.tips || []);
     } catch (error) {

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: live-redis-cluster
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: live-haproxy-lb
+    restart: always
+    volumes:
+      - ./server/haproxy-config.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - redis
+
+  sfu-node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: live-sfu-node-1
+    restart: always
+    environment:
+      - NODE_ID=sfu_node_1
+      - PORT=3001
+      - REDIS_URL=redis://redis:6379
+      - ANNOUNCED_IP=127.0.0.1
+    ports:
+      - "3001:3001"
+      - "20000-20100:20000-20100/udp"
+    depends_on:
+      - redis
+
+  sfu-node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: live-sfu-node-2
+    restart: always
+    environment:
+      - NODE_ID=sfu_node_2
+      - PORT=3002
+      - REDIS_URL=redis://redis:6379
+      - ANNOUNCED_IP=127.0.0.1
+    ports:
+      - "3002:3002"
+      - "20101-20200:20101-20200/udp"
+    depends_on:
+      - redis
+
+  signaling:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: live-signaling-svc
+    restart: always
+    environment:
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+
+volumes:
+  redis_data:

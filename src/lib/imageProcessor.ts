@@ -1,5 +1,5 @@
 /**
- * Image Enhancement Utility (Bigo/High-End Style)
+ * Image Enhancement Utility (Bingo/High-End Style)
  * Uses the backend Sharp API to provide a glossy, high-quality finish.
  */
 

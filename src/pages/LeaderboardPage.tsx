@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { Trophy, Star, Crown, Flame, ChevronRight, Diamond, Coins, ChevronDown, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LevelBadge } from '../components/LevelBadge';
+import { UserDiscoveryPopup } from '../components/UserDiscoveryPopup';
 
 export default function LeaderboardPage() {
   const { showToast } = useToast();
@@ -15,6 +16,7 @@ export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState<'hosts' | 'givers'>('hosts');
   const [timeRange, setTimeRange] = useState<'hourly' | 'daily' | 'weekly'>('hourly');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -186,7 +188,7 @@ export default function LeaderboardPage() {
             {data.map((user, i) => (
               <div 
                 key={user.uid} 
-                onClick={() => showToast(`Viewing ${user.displayName}'s profile...`, 'info')}
+                onClick={() => setSelectedUser(user)}
                 className="flex items-center gap-4 bg-white/5 p-4 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors group cursor-pointer active:scale-[0.98]"
               >
                 <div className="w-6 flex flex-col items-center">
@@ -255,6 +257,13 @@ export default function LeaderboardPage() {
           </div>
         </div>
       </div>
+
+      {selectedUser && (
+        <UserDiscoveryPopup 
+          user={selectedUser} 
+          onClose={() => setSelectedUser(null)} 
+        />
+      )}
     </div>
   );
 }

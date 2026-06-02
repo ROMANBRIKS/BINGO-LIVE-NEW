@@ -28,21 +28,21 @@ export const FanClubWelcome: React.FC<FanClubWelcomeProps> = ({ userName, level,
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-          className="absolute w-64 h-64 bg-gradient-to-r from-yellow-400/20 via-pink-500/20 to-purple-600/20 blur-3xl rounded-full"
+          className="absolute w-32 h-32 bg-gradient-to-r from-yellow-400/20 via-pink-500/20 to-purple-600/20 blur-2xl rounded-full"
         />
 
         {/* 2. Main Banner */}
-        <div className="relative bg-gradient-to-r from-pink-600 via-purple-600 to-pink-600 px-10 py-4 rounded-full border-4 border-white/30 shadow-[0_0_50px_rgba(219,39,119,0.5)] flex flex-col items-center">
-          <div className="flex items-center gap-3 mb-1">
-            <span className="text-2xl">💖</span>
-            <span className="text-xs font-black text-white/80 uppercase tracking-[0.4em]">Super Fan Joined</span>
-            <span className="text-2xl">💖</span>
+        <div className="relative bg-gradient-to-r from-pink-600 via-purple-600 to-pink-600 px-6 py-2 rounded-full border-2 border-white/20 shadow-[0_0_20px_rgba(219,39,119,0.4)] flex flex-col items-center">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-base">💖</span>
+            <span className="text-[9px] font-black text-white/90 uppercase tracking-[0.25em]">Super Fan Joined</span>
+            <span className="text-base">💖</span>
           </div>
-          <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter drop-shadow-lg">
+          <h2 className="text-base font-black text-white italic uppercase tracking-normal drop-shadow-md">
             {userName}
           </h2>
-          <div className="mt-2 bg-white/20 px-4 py-1 rounded-full border border-white/30">
-            <span className="text-sm font-black text-yellow-300">LEVEL {level}</span>
+          <div className="mt-1 bg-white/20 px-3 py-0.5 rounded-full border border-white/20">
+            <span className="text-[10px] font-black text-yellow-300">LEVEL {level}</span>
           </div>
 
           {/* Glossy Shine */}

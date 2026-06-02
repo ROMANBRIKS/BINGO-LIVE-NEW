@@ -4,6 +4,7 @@ import { Gift as GiftIcon, Sparkles, Zap } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { getGiftingEffect } from '../nobleGiftingLogic';
 import { NobleTier } from '../NobleTypes';
+import { LottieAnimation } from './LottieAnimation';
 
 const KissAnimation = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -202,19 +203,188 @@ export const GiftAnimation = React.memo(({
   combo = 1, 
   animationType, 
   nobleTier = 'None',
-  familyName 
+  familyName,
+  animationUrl,
+  giftType,
+  cost = 0
 }: { 
   giftName: string, 
   displayName: string, 
   combo?: number, 
   animationType?: string, 
   nobleTier?: string,
-  familyName?: string
+  familyName?: string,
+  animationUrl?: string,
+  giftType?: string,
+  cost?: number
 }) => {
   const effects = getGiftingEffect({ nobleTitle: nobleTier as NobleTier } as any);
+  const [showImpact, setShowImpact] = React.useState(false);
+  const [showMainAsset, setShowMainAsset] = React.useState(false);
+
+  // Play flight and impact in cascade sequence
+  React.useEffect(() => {
+    const impactTimer = setTimeout(() => setShowImpact(true), 1100);
+    const assetTimer = setTimeout(() => setShowMainAsset(true), 1200);
+    return () => {
+      clearTimeout(impactTimer);
+      clearTimeout(assetTimer);
+    };
+  }, []);
 
   return (
     <>
+      {/* 1. Curve Gifting Flight CSS path particles */}
+      <div className="fixed inset-0 pointer-events-none z-[180]">
+        {Array.from({ length: 15 }).map((_, i) => {
+          const delay = i * 0.08;
+          const duration = 1.0 + Math.random() * 0.3;
+          return (
+            <motion.div
+              key={i}
+              initial={{ x: "10vw", y: "85vh", opacity: 0, scale: 0.3 }}
+              animate={{
+                x: ["10vw", "28vw", "50vw"],
+                y: ["85vh", "42vh", "45vh"],
+                scale: [0.3, 1.4, 0.8],
+                opacity: [0, 1, 1, 0]
+              }}
+              transition={{
+                duration: duration,
+                delay: delay,
+                ease: "easeOut"
+              }}
+              className="absolute w-5 h-5 rounded-full bg-gradient-to-r from-yellow-300 via-pink-500 to-purple-600 shadow-[0_0_15px_rgba(234,179,8,0.8)] border border-white/20 flex items-center justify-center text-xs"
+            >
+              ✨
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* 2. Visual impact-fx shockwave on arrival */}
+      {showImpact && (
+        <motion.div
+          initial={{ scale: 0.1, opacity: 1 }}
+          animate={{ scale: [0.1, 4.5], opacity: [1, 0] }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="fixed inset-0 flex items-center justify-center pointer-events-none z-[190]"
+        >
+          <div className="w-16 h-16 rounded-full bg-radial-gradient border-8 border-yellow-300 shadow-[0_0_60px_rgba(234,179,8,0.9)]" />
+        </motion.div>
+      )}
+
+      {/* 3. Huge centered Gift Animation Asset Panel (supports upload and fallback base64 urls) */}
+      <AnimatePresence>
+        {showMainAsset && (
+          <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[200]">
+            <motion.div
+              initial={{ scale: 0, rotate: -30, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              exit={{ scale: 1.4, opacity: 0, y: -50 }}
+              transition={{ type: "spring", damping: 15 }}
+              className="flex flex-col items-center gap-3 text-center"
+            >
+              {(() => {
+                const isLottie = giftType === 'lottie' || giftType === 'json' || (animationUrl && (animationUrl.endsWith('.json') || animationUrl.startsWith('data:application/json') || animationUrl.startsWith('data:text/json') || animationUrl.startsWith('data:application/octet-stream;base64,')));
+                
+                if (isLottie && animationUrl) {
+                  return (
+                    <div className="relative w-[320px] h-[320px] flex items-center justify-center drop-shadow-[0_0_50px_rgba(34,211,238,0.85)] rounded-full bg-cyan-950/10 p-4 border border-cyan-500/10 backdrop-blur-[1px] animate-pulse">
+                      <LottieAnimation animationUrl={animationUrl} className="w-[300px] h-[300px]" loop={true} />
+                    </div>
+                  );
+                }
+
+                if (giftType === 'video' && animationUrl) {
+                  return (
+                    <div className="relative group p-1.5 rounded-3xl bg-black/60 border border-white/10 shadow-[0_0_40px_rgba(6,182,212,0.6)] animate-pulse">
+                      <video 
+                        src={animationUrl} 
+                        autoPlay 
+                        muted 
+                        playsInline 
+                        loop={false} 
+                        className="max-w-[280px] h-auto rounded-2xl max-h-[280px]" 
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                    </div>
+                  );
+                }
+
+                if ((giftType === 'gif' || giftType === 'image') && animationUrl) {
+                  return (
+                    <img 
+                      src={animationUrl} 
+                      className="max-w-[250px] h-auto object-contain max-h-[250px] drop-shadow-[0_0_35px_rgba(239,68,68,0.7)] animate-bounce" 
+                      alt={giftName}
+                      referrerPolicy="no-referrer"
+                    />
+                  );
+                }
+
+                if (giftType === 'emoji') {
+                  return (
+                    <div className="text-[120px] drop-shadow-[0_0_30px_rgba(234,179,8,0.5)] select-none animate-pulse">
+                      🎁
+                    </div>
+                  );
+                }
+
+                if (animationUrl) {
+                  return (
+                    <img 
+                      src={animationUrl} 
+                      className="max-w-[220px] h-auto object-contain max-h-[220px] drop-shadow-[0_0_30px_rgba(59,130,246,0.6)] animate-pulse" 
+                      alt={giftName}
+                      referrerPolicy="no-referrer"
+                    />
+                  );
+                }
+
+                return null;
+              })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* 4. God-Tier Big Spender Spotlight Bar */}
+      {cost >= 1000 && (
+        <motion.div 
+          initial={{ y: -100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -100, opacity: 0 }}
+          className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-lg bg-gradient-to-r from-amber-500/10 via-yellow-400/25 to-amber-500/10 border-y border-yellow-400/40 py-2.5 flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(234,179,8,0.4)] z-[210] backdrop-blur-md rounded-2xl"
+        >
+          <Sparkles className="text-yellow-400 animate-pulse" size={16} />
+          <div className="text-[10px] font-black uppercase italic tracking-widest text-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-yellow-300">
+            ⭐ GOD-TIER GIFTER: {displayName} sent {giftName}! ⭐
+          </div>
+          <Sparkles className="text-yellow-400 animate-pulse" size={16} />
+        </motion.div>
+      )}
+
+      {/* 5. MVP Pinned Badge Card */}
+      {cost >= 100 && (
+        <motion.div 
+          initial={{ x: 200, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 200, opacity: 0 }}
+          className="fixed top-20 right-4 bg-[#0c0c0e]/95 border border-yellow-500/30 px-4 py-3 rounded-2xl flex items-center gap-3 shadow-[0_0_20px_rgba(234,179,8,0.25)] z-[100] backdrop-blur-sm"
+        >
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center text-white text-base shadow-sm">
+            👑
+          </div>
+          <div>
+            <div className="text-[8px] font-black uppercase text-yellow-500 tracking-wider">ROOM MVP</div>
+            <div className="text-[11px] font-black text-white">{displayName}</div>
+            <div className="text-[8px] text-zinc-400 uppercase font-bold tracking-widest mt-0.5">Sent {giftName} (💎{cost})</div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* 6. Standard Side floating combo flyer card */}
       <motion.div 
         initial={{ x: -250, opacity: 0, scale: 0.8 }}
         animate={{ x: 0, opacity: 1, scale: 1 }}

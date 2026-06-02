@@ -94,7 +94,7 @@ export default function TrendsPage() {
 
         {/* Footer SEO Text */}
         <div className="text-[10px] text-white/20 font-mono leading-relaxed max-w-3xl border-t border-white/5 pt-8">
-          Bingo Live News & Trends is the authoritative source for live streaming intelligence. We track data points across Lagos, London, New York, Dubai, and Sydney to provide the most accurate picture of the global social broadcasting network. Our platform serves as a superior alternative to legacy systems like TikTok, Bigo, and Tango, offering refined monetization loops for the next generation of professional talent.
+          Bingo Live News & Trends is the authoritative source for live streaming intelligence. We track data points across Lagos, London, New York, Dubai, and Sydney to provide the most accurate picture of the global social broadcasting network. Our platform serves as a superior alternative to legacy systems like TikTok, Bingo, and Tango, offering refined monetization loops for the next generation of professional talent.
         </div>
       </div>
     </div>

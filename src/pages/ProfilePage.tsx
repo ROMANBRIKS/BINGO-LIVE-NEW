@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs, limit, query } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -8,11 +8,11 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 import { cn } from '../lib/utils';
 import { 
-  Settings, Wallet, Briefcase, Calendar, ShoppingBag, FileText, Star, CheckCircle, 
+  Settings as SettingsIcon, Wallet, Briefcase, Calendar, ShoppingBag, FileText, Star, CheckCircle, 
   ChevronRight, Bell, BarChart2, HelpCircle, TrendingUp, LogOut, User as UserIcon, UserPlus,
   Diamond, Coins, Shield, Zap, Crown, Home as HomeIcon, Mic, Video, MessageSquare, Plus,
   Users2, Monitor, Heart, Eye, Share2, Copy, MapPin, Moon, Sun, X, ChevronLeft, Sparkles, Trophy, Gift,
-  LayoutGrid
+  LayoutGrid, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LevelBadge } from '../components/LevelBadge';
@@ -38,6 +38,38 @@ export default function ProfilePage() {
   const [familyData, setFamilyData] = useState<Family | null>(null);
   const [loadingFamily, setLoadingFamily] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // New settings & discovery states
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showDiscovery, setShowDiscovery] = useState(false);
+  const [discoveryQuery, setDiscoveryQuery] = useState('');
+  const [discoveredUsers, setDiscoveredUsers] = useState<any[]>([]);
+  const [selectedDiscoveredUser, setSelectedDiscoveredUser] = useState<any>(null);
+  const [editingDisplayName, setEditingDisplayName] = useState(profile?.displayName || '');
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  React.useEffect(() => {
+    if (profile?.displayName) {
+      setEditingDisplayName(profile.displayName);
+    }
+  }, [profile?.displayName]);
+
+  React.useEffect(() => {
+    if (showDiscovery) {
+      const fetchUsers = async () => {
+        try {
+          const usersSnap = await getDocs(query(collection(db, 'users'), limit(50)));
+          const list = usersSnap.docs
+            .map(d => ({ uid: d.id, ...d.data() }))
+            .filter((u: any) => u.uid !== profile?.uid);
+          setDiscoveredUsers(list);
+        } catch (err) {
+          console.error("Discovery users load error:", err);
+        }
+      };
+      fetchUsers();
+    }
+  }, [showDiscovery, profile?.uid]);
 
   React.useEffect(() => {
     if (profile?.familyId) {
@@ -112,11 +144,15 @@ export default function ProfilePage() {
             BINGO LIVE
           </h1>
           <div className="flex items-center gap-4">
-            <button onClick={toggleTheme}>
+            <button onClick={toggleTheme} className="p-1 active:scale-95 transition-transform" title="Toggle Theme">
               {isLight ? <Moon size={20} className="text-black/70" /> : <Sun size={20} className="text-white/70" />}
             </button>
-            <UserPlus size={20} className={isLight ? "text-black/70" : "text-white/70"} />
-            <Settings size={20} className={isLight ? "text-black/70" : "text-white/70"} />
+            <button onClick={() => setShowDiscovery(true)} className="p-1 active:scale-95 transition-transform" title="User Discovery">
+              <UserPlus size={20} className={isLight ? "text-cyan-600 font-bold" : "text-cyan-400 font-bold"} />
+            </button>
+            <button onClick={() => setShowSettingsModal(true)} className="p-1 active:scale-95 transition-transform" title="Settings">
+              <Settings size={20} className={isLight ? "text-black/70" : "text-white/70"} />
+            </button>
           </div>
         </div>
       </header>
@@ -173,7 +209,7 @@ export default function ProfilePage() {
               <div className="flex items-center gap-2">
                 <LevelBadge level={profile.level} />
                 <button 
-                  onClick={() => setShowPreview(true)}
+                  onClick={() => navigate(`/u/${profile.uid}`)}
                   className="text-[10px] font-black uppercase text-cyan-400 flex items-center gap-1 ml-auto"
                 >
                   View Public Profile <ChevronRight size={12} />
@@ -201,11 +237,18 @@ export default function ProfilePage() {
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: 'Friends', value: 9 },
-            { label: 'Following', value: profile.following || 392 },
-            { label: 'Fans', value: profile.fans || 32, growth: '+12' },
+            { label: 'Friends', value: 9, path: '/friends' },
+            { label: 'Following', value: profile.following || 392, path: '/following' },
+            { label: 'Fans', value: profile.fans || 32, growth: '+12', path: '/fans' },
           ].map((stat, i) => (
-            <div key={i} className="text-center py-2">
+            <div 
+              key={i} 
+              onClick={() => navigate(stat.path)}
+              className={cn(
+                "text-center py-2 rounded-xl cursor-pointer transition-all duration-200 active:scale-95",
+                isLight ? "hover:bg-stone-100" : "hover:bg-zinc-900/40"
+              )}
+            >
               <div className="flex items-center justify-center gap-1">
                 <p className={cn("text-lg font-black", isLight ? "text-black" : "text-white")}>
                   {(stat.value ?? 0).toLocaleString()}
@@ -219,7 +262,7 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* The Big Three Bigo Cards */}
+        {/* The Big Three Bingo Cards */}
         <div className="grid grid-cols-3 gap-2 py-2">
           {/* Level Card */}
           <div className="relative aspect-[4/3] rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/40 border border-teal-500/30 flex flex-col items-center justify-center gap-1 overflow-hidden group cursor-pointer active:scale-95 transition-all">
@@ -320,13 +363,13 @@ export default function ProfilePage() {
           <div className="absolute inset-0 flex items-center justify-between px-6">
             <div>
               <h3 className="text-xl font-black text-black italic tracking-tighter uppercase leading-none">Migration Portal</h3>
-              <p className="text-[8px] font-black text-black/50 uppercase tracking-widest">Claim your Bigo/TikTok Status Match</p>
+              <p className="text-[8px] font-black text-black/50 uppercase tracking-widest">Claim your Bingo/TikTok Status Match</p>
             </div>
             <div className="bg-black text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest">Enter</div>
           </div>
         </motion.div>
 
-        {/* Account Management List (Bigo Style) */}
+        {/* Account Management List (Bingo Style) */}
         <div className="space-y-1">
           <MenuItem 
             icon={Briefcase} 
@@ -508,6 +551,188 @@ export default function ProfilePage() {
           <FamilyDetailsPopup 
             family={familyData} 
             onClose={() => setShowFamilyDetails(false)} 
+          />
+        )}
+
+        {/* Extended Account Settings Modal */}
+        {showSettingsModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className={cn(
+                "w-full max-w-sm rounded-[32px] overflow-hidden p-6 border shadow-2xl space-y-4",
+                isLight ? "bg-white border-black/10 text-black" : "bg-[#181818] border-white/10 text-white"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black italic uppercase tracking-wider">Account Settings</h3>
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="p-1.5 rounded-full hover:bg-white/10"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Display Name</label>
+                <input 
+                  type="text"
+                  value={editingDisplayName}
+                  onChange={(e) => setEditingDisplayName(e.target.value)}
+                  placeholder="Enter Display Name"
+                  className={cn(
+                    "w-full p-3.5 rounded-2xl outline-none font-bold text-sm border focus:ring-2",
+                    isLight ? "bg-slate-100 border-black/10 focus:ring-orange-500" : "bg-black/40 border-white/10 focus:ring-[#2af5ff]"
+                  )}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Settings Sandbox</label>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center py-2 border-b border-light-divider">
+                    <span className="font-bold text-slate-400">Push Notifications</span>
+                    <input type="checkbox" defaultChecked className="accent-teal-500 w-4 h-4 cursor-pointer" />
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-light-divider">
+                    <span className="font-bold text-slate-400">Sound Effects</span>
+                    <input type="checkbox" defaultChecked className="accent-teal-500 w-4 h-4 cursor-pointer" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="flex-1 py-3 px-4 rounded-2xl text-xs font-black uppercase bg-white/5 border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={savingSettings}
+                  onClick={async () => {
+                    if (!profile?.uid) return;
+                    setSavingSettings(true);
+                    try {
+                      await updateDoc(doc(db, 'users', profile.uid), {
+                        displayName: editingDisplayName
+                      });
+                      showToast("Profile Updated Successfully!", "success");
+                      setShowSettingsModal(false);
+                    } catch (err) {
+                      showToast("Failed to save configuration.", "error");
+                    } finally {
+                      setSavingSettings(false);
+                    }
+                  }}
+                  className="flex-1 py-3 px-4 rounded-2xl text-xs font-black uppercase bg-[#2af5ff] text-black hover:scale-105 active:scale-95 transition-all"
+                >
+                  {savingSettings ? "Saving..." : "Save Settings"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Dynamic User Discovery Drawer Overlay */}
+        {showDiscovery && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-40 flex items-center justify-center p-4 animate-fade-in"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className={cn(
+                "w-full max-w-sm rounded-[32px] overflow-hidden p-6 border shadow-2xl flex flex-col h-[75vh]",
+                isLight ? "bg-white border-black/10 text-black" : "bg-[#181818] border-white/10 text-white"
+              )}
+            >
+              <div className="flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <UserPlus size={20} className="text-[#2af5ff]" />
+                  <h3 className="text-lg font-black italic uppercase tracking-wider">Discover Talents</h3>
+                </div>
+                <button 
+                  onClick={() => setShowDiscovery(false)}
+                  className="p-1.5 rounded-full hover:bg-white/10"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Search Header */}
+              <div className="mt-4 flex-shrink-0">
+                <input 
+                  type="text"
+                  value={discoveryQuery}
+                  onChange={(e) => setDiscoveryQuery(e.target.value)}
+                  placeholder="Search creators by Display Name..."
+                  className={cn(
+                    "w-full p-3 rounded-2xl outline-none font-bold text-xs border focus:ring-2",
+                    isLight ? "bg-slate-100 border-black/10 focus:ring-orange-500" : "bg-black/40 border-white/10 focus:ring-[#2af5ff]"
+                  )}
+                />
+              </div>
+
+              {/* Discovered Users List */}
+              <div className="flex-1 overflow-y-auto mt-4 space-y-2 pr-1 scrollbar-hide text-left">
+                {discoveredUsers
+                  .filter((u: any) => !discoveryQuery || u.displayName?.toLowerCase().includes(discoveryQuery.toLowerCase()))
+                  .map((u: any) => (
+                    <div 
+                      key={u.uid}
+                      className={cn(
+                        "p-3 rounded-2xl flex items-center justify-between border",
+                        isLight ? "bg-slate-50 border-black/5 hover:bg-slate-100" : "bg-white/5 border-white/5 hover:bg-white/10"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={u.photoURL || `https://picsum.photos/seed/${u.uid}/64/64`}
+                          className="w-10 h-10 rounded-full border border-white/10 object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="text-left">
+                          <h4 className="text-xs font-black italic uppercase tracking-tight truncate max-w-[120px]">{u.displayName || "Anonymous"}</h4>
+                          <p className="text-[8px] font-bold text-slate-400">Lv.{u.level || 1} • {u.role || 'user'}</p>
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setSelectedDiscoveredUser(u)}
+                        className="px-3.5 py-1.5 bg-[#2af5ff] text-black text-[9px] font-black uppercase tracking-wider rounded-xl hover:scale-105 active:scale-95 transition-all"
+                      >
+                        Profile Card
+                      </button>
+                    </div>
+                  ))}
+                {discoveredUsers.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-500">
+                    <p className="text-xs font-bold font-mono">No new creators online</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Selected Discovered User Mini Popup */}
+        {selectedDiscoveredUser && (
+          <UserDiscoveryPopup 
+            user={selectedDiscoveredUser}
+            onClose={() => setSelectedDiscoveredUser(null)}
           />
         )}
       </AnimatePresence>

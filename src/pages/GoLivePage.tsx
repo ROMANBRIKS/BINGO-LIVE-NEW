@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GiftCombo } from '../components/GiftCombo';
 import { GiftAnimation } from '../components/GiftAnimation';
+import { GiftExplosionFX } from '../components/GiftExplosionFX';
 import { motion, AnimatePresence } from 'motion/react';
 import { mediaPipeService, ARSettings } from '../services/MediaPipeService';
 import { streamingService } from '../services/streamingService';
 import { cn } from '../lib/utils';
 import { AILiveAssistant, StreamStats } from '../components/AILiveAssistant';
 import { MiniGameCenter, MiniGame } from '../components/MiniGameCenter';
-import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle, Smile, SendHorizontal, Crown, Glasses, Gamepad2, UserCircle, Mic, Youtube, Music, Mic2, RotateCw, Columns2, Heart, Star, Layout, Palette, User, Waves, Settings as SettingsIcon, Megaphone, Plus } from 'lucide-react';
+import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle, Smile, SendHorizontal, Crown, Glasses, Gamepad2, UserCircle, Mic, Youtube, Music, Mic2, RotateCw, Columns2, Heart, Star, Layout, Palette, User, Waves, Settings as SettingsIcon, Megaphone, Plus, Shield, Lock, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp, doc, onSnapshot, updateDoc, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, onSnapshot, updateDoc, query, where, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { PKBattle } from '../components/PKBattle';
+import { LiveAdPlayer } from '../components/LiveAdPlayer';
+import { CoStreamManager } from '../components/CoStreamManager';
 import { YoutubePlayer } from '../components/YoutubePlayer';
 import { MusicPlayer } from '../components/MusicPlayer';
 import { PredictionSystem } from '../components/PredictionSystem';
@@ -165,6 +168,8 @@ export default function GoLivePage() {
   const { profile } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [appealText, setAppealText] = useState('');
+  const [isAppealSubmitted, setIsAppealSubmitted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -179,6 +184,10 @@ export default function GoLivePage() {
   const [activeThemeId, setActiveThemeId] = useState('default');
   const [showMediaTools, setShowMediaTools] = useState(false);
   const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+
+  // Privacy & Gated Access states
+  const [roomAccess, setRoomAccess] = useState<'public' | 'private' | 'family'>('public');
+  const [passcode, setPasscode] = useState('1234');
 
   useEffect(() => {
     const handleResize = () => {
@@ -200,6 +209,115 @@ export default function GoLivePage() {
       case 'emotional': return 'Marriage ER Live';
       default: return 'Story Chain Room';
     }
+  };
+
+  const renderPrivacySelector = () => {
+    return (
+      <div className="w-full max-w-[320px] mx-auto bg-black/60 backdrop-blur-md rounded-3xl p-3.5 border border-white/10 space-y-3.5 shadow-2xl relative z-30">
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] font-black uppercase text-white/40 tracking-widest text-left">Space Privacy</span>
+          <span className="text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/15">
+            {roomAccess === 'public' ? 'Public Space' : roomAccess === 'private' ? 'Passcode Locked' : 'Agency Only'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setRoomAccess('public');
+              showToast("Space set to Public 🔓", "info");
+            }}
+            className={cn(
+              "py-2 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all text-center border",
+              roomAccess === 'public'
+                ? "bg-cyan-500/20 border-cyan-500 text-cyan-400 font-black"
+                : "bg-white/5 border-transparent text-white/40 hover:text-white/60"
+            )}
+          >
+            <Globe size={13} />
+            <span className="text-[8px] uppercase tracking-wider font-extrabold">Public</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRoomAccess('private');
+              showToast("Passcode-Gated Space selected 🔐", "info");
+            }}
+            className={cn(
+              "py-2 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all text-center border",
+              roomAccess === 'private'
+                ? "bg-purple-500/20 border-purple-500 text-purple-400 font-black"
+                : "bg-white/5 border-transparent text-white/40 hover:text-white/60"
+            )}
+          >
+            <Lock size={13} />
+            <span className="text-[8px] uppercase tracking-wider font-extrabold">Passcode</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRoomAccess('family');
+              showToast("Agency Exclusive Space selected 🛡️", "info");
+            }}
+            className={cn(
+              "py-2 px-1 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all text-center border",
+              roomAccess === 'family'
+                ? "bg-rose-500/20 border-rose-500 text-rose-400 font-black"
+                : "bg-white/5 border-transparent text-white/40 hover:text-white/60"
+            )}
+          >
+            <Shield size={13} />
+            <span className="text-[8px] uppercase tracking-wider font-extrabold">Agency</span>
+          </button>
+        </div>
+
+        {/* Conditional Passcode editor / Family info */}
+        <AnimatePresence mode="wait">
+          {roomAccess === 'private' && (
+            <motion.div
+              key="private-input-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-1 overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[8px] font-black uppercase text-purple-400 tracking-wider">Set Key Code</span>
+                <span className="text-[8px] font-mono text-white/40">4 digits</span>
+              </div>
+              <input 
+                type="text"
+                maxLength={4}
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value.replace(/\D/g, '').substring(0,4))}
+                placeholder="4 Digits (e.g. 1234)"
+                className="w-full bg-purple-950/20 border border-purple-500/30 rounded-2xl px-2 py-2 text-center text-sm font-black tracking-[0.2em] text-purple-300 placeholder:text-purple-300/30 focus:outline-none focus:border-purple-500 transition-all font-sans"
+              />
+            </motion.div>
+          )}
+
+          {roomAccess === 'family' && (
+            <motion.div
+              key="family-banner-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-2.5 bg-rose-950/20 border border-rose-500/25 rounded-2xl text-left overflow-hidden space-y-0.5"
+            >
+              <h4 className="text-[8px] font-black text-rose-400 uppercase tracking-wider flex items-center gap-1 leading-none">
+                🛡️ Brand Agency Secured
+              </h4>
+              <p className="text-[7.5px] text-zinc-400 uppercase tracking-wide font-extrabold leading-tight">
+                Automatically lets in verified members of <span className="text-white">"{profile?.familyName || 'Agency Elite'}"</span>. External users are gated.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
   };
   const [status, setStatus] = useState<'setup' | 'preparing' | 'countdown' | 'live'>('setup');
   const [countdown, setCountdown] = useState(3);
@@ -236,6 +354,32 @@ export default function GoLivePage() {
   const [showYoutubeInput, setShowYoutubeInput] = useState(false);
   const [youtubeId, setYoutubeId] = useState('');
   const [roomData, setRoomData] = useState<any>(null);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  const handleEndBroadcast = async () => {
+    if (!profile) return;
+    try {
+      const roomRef = doc(db, 'rooms', profile.uid);
+      await updateDoc(roomRef, {
+        status: 'ended',
+        endedAt: serverTimestamp()
+      });
+      
+      // Stop Agora stream
+      await streamingService.leave();
+      
+      // Reset local states
+      setStatus('setup');
+      setShowEndConfirm(false);
+      showToast("Broadcast ended successfully 🔴", 'info');
+    } catch (error) {
+      console.error("Error ending broadcast:", error);
+      // Fallback in case document update fails
+      await streamingService.leave();
+      setStatus('setup');
+      setShowEndConfirm(false);
+    }
+  };
 
   const [streamStats, setStreamStats] = useState<StreamStats>({
     viewerCount: 0,
@@ -259,6 +403,15 @@ export default function GoLivePage() {
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [showChatInput, setShowChatInput] = useState(false);
   const [input, setInput] = useState('');
+
+  // Camera Shake & Gifting Explosion system
+  const [isShaking, setIsShaking] = useState(false);
+  const [recentExplosion, setRecentExplosion] = useState<{ id: string; giftName: string; senderName: string; comboCount: number; cost: number } | null>(null);
+
+  const triggerShake = (duration = 600) => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), duration);
+  };
 
   useEffect(() => {
     if (status === 'live') {
@@ -291,7 +444,20 @@ export default function GoLivePage() {
       timestamp: 0
     };
 
-    return [systemMsg, ...messages]
+    const combined = [systemMsg, ...messages];
+    const seenIds = new Set<string>();
+    const uniqueCombined: any[] = [];
+    for (const msg of combined) {
+      if (msg && msg.id) {
+        if (seenIds.has(msg.id)) {
+          continue;
+        }
+        seenIds.add(msg.id);
+      }
+      uniqueCombined.push(msg);
+    }
+
+    return uniqueCombined
       .filter(msg => {
         if (msg.id === 'system-welcome') return true;
         
@@ -383,11 +549,33 @@ export default function GoLivePage() {
         const quantity = (lastMsg as any).quantity || 1;
         const animationType = (lastMsg as any).animationType || 'standard';
         const nobleTier = (lastMsg as any).nobleTier || 'None';
+        const cost = (lastMsg as any).cost || 0;
         
         setActiveGift(prev => {
           if (prev && prev.giftName === giftName && prev.displayName === lastMsg.displayName) {
-            return { ...prev, combo: prev.combo + quantity, animationType, nobleTier };
+            const nextCombo = prev.combo + quantity;
+            if (nextCombo % 10 === 0 || nextCombo === 5 || nextCombo === 18 || nextCombo === 99 || cost >= 100) {
+              setRecentExplosion({
+                id: `stream-${lastMsg.id || Math.random().toString()}-${nextCombo}-${Date.now()}`,
+                giftName,
+                senderName: lastMsg.displayName || 'Guest',
+                comboCount: nextCombo,
+                cost
+              });
+            }
+            return { ...prev, combo: nextCombo, animationType, nobleTier };
           }
+          
+          if (quantity >= 5 || cost >= 100) {
+            setRecentExplosion({
+              id: `stream-${lastMsg.id || Math.random().toString()}-${quantity}-${Date.now()}`,
+              giftName,
+              senderName: lastMsg.displayName || 'Guest',
+              comboCount: quantity,
+              cost
+            });
+          }
+
           return { 
             giftName, 
             giftImage,
@@ -820,7 +1008,10 @@ export default function GoLivePage() {
       }
 
       const roomData = {
+        id: profile?.uid,
         hostUid: profile?.uid,
+        hostName: profile?.displayName || 'Host',
+        hostPhotoURL: profile?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.uid}`,
         title: title || `${profile?.displayName}'s Live Stream`,
         status: 'live',
         type: activeMode,
@@ -829,12 +1020,16 @@ export default function GoLivePage() {
         guests: [],
         seats: initializeSeats(),
         micQueue: [],
-        isPrivate: false,
+        isPrivate: roomAccess !== 'public',
+        accessType: roomAccess,
+        passcode: roomAccess === 'private' ? passcode : null,
+        familyId: roomAccess === 'family' ? (profile?.familyId || 'agency_vips') : null,
+        familyName: roomAccess === 'family' ? (profile?.familyName || 'Agency Elite') : null,
         createdAt: serverTimestamp(),
         pkStatus: 'idle'
       };
 
-      await addDoc(collection(db, 'rooms'), roomData);
+      await setDoc(doc(db, 'rooms', profile.uid), roomData);
       setStreamStats(prev => ({ ...prev, viewerCount: initialViewerCount }));
       setStatus('live');
     } catch (error) {
@@ -1027,9 +1222,139 @@ export default function GoLivePage() {
     );
   };
 
+  const handleSendLiveAppeal = async () => {
+    if (!profile || !appealText.trim()) return;
+    try {
+      await updateDoc(doc(db, 'users', profile.uid), {
+        appealText: appealText,
+        appealStatus: 'pending'
+      });
+      // Synchronize latest active suspension report with the appeal values as well!
+      try {
+        const q = query(
+          collection(db, 'suspensions'),
+          where('userId', '==', profile.uid),
+          where('appealStatus', '==', 'none')
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const latestDoc = snapshot.docs[0];
+          await updateDoc(doc(db, 'suspensions', latestDoc.id), {
+            appealText: appealText,
+            appealStatus: 'pending'
+          });
+        }
+      } catch (innerErr) {
+        console.warn("Could not synchronize dynamic suspensions index appealText:", innerErr);
+      }
+      setIsAppealSubmitted(true);
+      showToast("Compliance appeal submitted successfully to staff board!", 'success');
+    } catch (e: any) {
+      showToast(`Appeal failed: ${e.message}`, 'error');
+    }
+  };
+
+  const isStreamingRestricted = profile?.bannedStreaming && (!profile.suspendedUntil || new Date(profile.suspendedUntil) > new Date());
+  const isSuspended = profile?.suspendedUntil && new Date(profile.suspendedUntil) > new Date();
+  const isLockedOut = profile && (profile.isBanned || profile.bannedApp || isStreamingRestricted || isSuspended);
+  
+  if (isLockedOut) {
+    return (
+      <div className="absolute inset-0 bg-[#07070a] z-[1000] flex items-center justify-center p-6 text-zinc-100 font-sans">
+        <div className="max-w-md w-full bg-[#101015] border border-red-500/20 rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative overflow-hidden text-center mx-auto">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500 via-amber-500 to-red-500" />
+          
+          <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 mx-auto">
+            <Shield className="text-red-500" size={26} />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-xl font-black uppercase tracking-tight text-white italic">
+              🚨 Broadcast Lock Initiated
+            </h1>
+            <p className="text-xs text-zinc-400">
+              Your account has been restricted from starting or joining live sessions.
+            </p>
+          </div>
+
+          <div className="bg-black/50 border border-white/5 p-4 rounded-2xl space-y-3.5 text-left text-xs font-mono">
+            <div>
+              <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">ACCOUNT ID:</span>
+              <span className="text-zinc-300 select-all overflow-hidden text-ellipsis block">{profile.uid}</span>
+            </div>
+            <div>
+              <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">REASON FOR LOCK:</span>
+              <span className="text-red-400 font-bold">{profile.suspensionReason || 'Automated policy infractions sweep'}</span>
+            </div>
+            {isSuspended && (
+              <div>
+                <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">LOCK EXPR DATE:</span>
+                <span className="text-amber-400 font-bold">{new Date(profile.suspendedUntil).toLocaleString()}</span>
+              </div>
+            )}
+            {profile.isBanned && (
+              <div>
+                <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">LOCK STATUS:</span>
+                <span className="text-red-500 font-extrabold uppercase">PERMANENT DEBARMENT</span>
+              </div>
+            )}
+          </div>
+
+          {/* Appeal Box Section */}
+          <div className="space-y-4 pt-4 border-t border-white/5 text-left">
+            <h3 className="text-xs font-black uppercase tracking-wider text-zinc-300">Submit Compliance Appeal</h3>
+            <p className="text-[10px] text-zinc-500 leading-normal">
+              If this was accidental or you wish to request reinstatement, submit your explanation statement for real-time review by the Compliance Board.
+            </p>
+
+            {(profile.appealStatus === 'pending' || isAppealSubmitted) ? (
+              <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl space-y-1.5 text-center">
+                <span className="text-[9px] text-amber-500 font-black tracking-widest uppercase animate-pulse block">🕒 APPEAL UNDER ACTIVE REVIEW</span>
+                <p className="text-[10px] text-zinc-400">Your compliance statement is being processed. Action requests typically resolve within 15 mins.</p>
+              </div>
+            ) : profile.appealStatus === 'rejected' ? (
+              <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-2xl space-y-1 text-center">
+                <span className="text-[9px] text-red-500 font-black tracking-widest uppercase block">❌ REINSTATEMENT APPEAL DENIED</span>
+                <p className="text-[10px] text-zinc-500">The moderation deck reviewed evidence logs and rejected the appeal. The suspension remains active.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <textarea
+                  placeholder="Explain why your broadcast should be reinstated..."
+                  value={appealText}
+                  onChange={(e) => setAppealText(e.target.value)}
+                  className="w-full h-20 bg-black/40 border border-white/5 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-red-500/30 font-medium placeholder:text-zinc-600"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendLiveAppeal}
+                  disabled={!appealText.trim()}
+                  className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] tracking-widest uppercase rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  Submit Reinstatement Appeal
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="text-[10px] font-black tracking-widest uppercase text-zinc-500 hover:text-white transition-all cursor-pointer block mx-auto pt-2"
+          >
+            Go Back Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
-      className="absolute inset-0 bg-gradient-to-b from-[#2e1a47] via-[#1a1a2e] to-[#0f0f1a] z-[100] flex flex-col overflow-hidden"
+      className={cn(
+        "absolute inset-0 bg-gradient-to-b from-[#2e1a47] via-[#1a1a2e] to-[#0f0f1a] z-[100] flex flex-col overflow-hidden",
+        isShaking && "animate-shake"
+      )}
       style={{ height: viewportHeight }}
     >
       {/* Hidden Video for Camera Stream */}
@@ -1211,7 +1536,9 @@ export default function GoLivePage() {
                 </button>
               </div>
 
-              <div className="flex-1" />
+              <div className="flex-1 flex flex-col items-center justify-center p-4">
+                {renderPrivacySelector()}
+              </div>
 
               {/* Floating Toolbar */}
               <div className="relative z-20 p-2 pb-2 bg-gradient-to-t from-black/60 to-transparent">
@@ -1406,11 +1733,13 @@ export default function GoLivePage() {
               </div>
 
               {/* Main Preview with Dynamic Seat Layouts */}
-              <div className="relative flex-1 flex flex-col items-center justify-center transition-all duration-300 p-0">
+              <div className="relative flex-none h-48 w-full flex flex-col items-center justify-center transition-all duration-300 p-0 scale-[0.9]">
                 {renderGrid()}
               </div>
 
-              <div className="flex-1" />
+              <div className="flex-1 flex flex-col items-center justify-center py-2 px-4">
+                {renderPrivacySelector()}
+              </div>
 
               {/* Floating Bottom Section */}
               <div className="relative z-20 px-4 py-0 pb-1.5">
@@ -1666,18 +1995,30 @@ export default function GoLivePage() {
         <div className="relative flex-1 flex flex-col overflow-hidden">
           {/* Background Layer */}
           <div className={cn(
-            "absolute inset-0 transition-all duration-700",
+            "absolute inset-0 transition-all duration-700 z-0",
             activeTheme.backgroundImage ? "" : `bg-gradient-to-b ${activeTheme.gradient}`
           )}>
-            {activeTheme.backgroundImage && (
-              <img 
-                src={activeTheme.backgroundImage} 
-                className="w-full h-full object-cover opacity-60" 
-                alt="Theme Background"
-                referrerPolicy="no-referrer"
-              />
+            {activeMode === 'live' ? (
+              <div className="absolute inset-0 bg-black">
+                <canvas 
+                  ref={canvasRef}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/20 pointer-events-none" />
+              </div>
+            ) : (
+              <>
+                {activeTheme.backgroundImage && (
+                  <img 
+                    src={activeTheme.backgroundImage} 
+                    className="w-full h-full object-cover opacity-60" 
+                    alt="Theme Background"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
+                <div className="absolute inset-0 bg-black/20" />
+              </>
             )}
-            <div className="absolute inset-0 bg-black/20" />
           </div>
 
           <div className="relative z-10 flex-1 flex flex-col">
@@ -1699,25 +2040,25 @@ export default function GoLivePage() {
                 <div className="flex items-center gap-1 bg-black/20 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/10">
                   <span className="text-xs font-bold">{streamStats.viewerCount}</span>
                 </div>
-                <button onClick={() => setStatus('setup')} className="text-white/80">
-                  <X size={24} />
+                <button 
+                  onClick={() => {
+                    if (status === 'live') {
+                      setShowEndConfirm(true);
+                    } else {
+                      setStatus('setup');
+                    }
+                  }} 
+                  className="w-8 h-8 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-white font-extrabold shadow-lg shadow-red-600/10 active:scale-95 transition-all"
+                  title="End Broadcast"
+                >
+                  <X size={18} strokeWidth={3} />
                 </button>
               </div>
             </div>
 
             {/* Grid Area - Same as Setup (Moved Up) */}
             <div className="flex-1 flex flex-col items-center justify-start pt-2 relative overflow-hidden">
-              {activeMode === 'live' ? (
-                <div className="absolute inset-0 z-0 bg-black">
-                  <canvas 
-                    ref={canvasRef}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/20 pointer-events-none" />
-                </div>
-              ) : (
-                renderGrid()
-              )}
+              {activeMode !== 'live' && renderGrid()}
             </div>
 
             {/* Left Side Goals/Actions */}
@@ -1885,9 +2226,9 @@ export default function GoLivePage() {
               >
                 <div className="flex flex-col gap-1 min-h-full justify-end items-start">
                   <div className="flex-1" />
-                  {visibleMessages.map(msg => (
+                  {visibleMessages.map((msg, idx) => (
                     <div 
-                      key={msg.id} 
+                      key={`${msg.id || 'msg'}-${idx}`} 
                       className={cn(
                         "rounded-xl px-3 py-1.5 max-w-full break-words border backdrop-blur-md transition-all",
                         activeTheme.chatStyle.bg,
@@ -1989,6 +2330,52 @@ export default function GoLivePage() {
 
       {/* MODALS & OVERLAYS */}
       <AnimatePresence>
+        {showEndConfirm && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setShowEndConfirm(false)} 
+              className="absolute inset-0 bg-black/80 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+              className="relative w-full max-w-sm bg-[#0c0c0d] border border-white/10 p-6 rounded-[2.5rem] shadow-2xl text-center overflow-hidden"
+            >
+              <div className="w-16 h-16 rounded-[1.5rem] bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-5 shadow-inner">
+                <StopCircle size={32} />
+              </div>
+
+              <h3 className="text-xl font-black uppercase italic tracking-tight text-white mb-2">
+                End Live Stream?
+              </h3>
+              <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-6">
+                Are you sure you want to end your stream? All active viewers will be disconnected, guest seats cleared, and your live broadcast record will close.
+              </p>
+
+              <div className="flex flex-col gap-2">
+                <button 
+                  id="btn-confirm-end-stream"
+                  onClick={handleEndBroadcast}
+                  className="w-full py-4 bg-red-600 hover:bg-red-700 active:scale-98 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-red-600/20 cursor-pointer"
+                >
+                  End Stream
+                </button>
+                <button 
+                  id="btn-cancel-end-stream"
+                  onClick={() => setShowEndConfirm(false)}
+                  className="w-full py-4 bg-white/5 hover:bg-white/10 active:scale-98 text-zinc-300 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/5 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showChatInput && (
           <div className="fixed inset-0 z-[200] flex flex-col justify-end">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowChatInput(false)} className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
@@ -2072,10 +2459,30 @@ export default function GoLivePage() {
       {status === 'live' && (
         <AILiveAssistant 
           stats={streamStats} 
+          room={{ title }}
+          messages={messages}
           onAction={(action) => {
             if (action === 'pk') setIsPkActive(true);
             if (action === 'share') showToast("Sharing stream... 📢", 'info');
           }} 
+        />
+      )}
+
+      {/* Live Interactive Ads Portal (For Broadcaster tracking/preview) */}
+      {status === 'live' && profile && (
+        <LiveAdPlayer 
+          roomId={profile.uid}
+          hostUid={profile.uid}
+          isHost={true}
+        />
+      )}
+
+      {/* Co-Stream Guest Join List & Picture-in-Picture display */}
+      {status === 'live' && profile && (
+        <CoStreamManager 
+          roomId={profile.uid}
+          hostUid={profile.uid}
+          isHost={true}
         />
       )}
 
@@ -2112,6 +2519,17 @@ export default function GoLivePage() {
           displayName={activeGift.displayName} 
           animationType={activeGift.animationType} 
           nobleTier={activeGift.nobleTier}
+        />
+      )}
+
+      {recentExplosion && (
+        <GiftExplosionFX
+          key={recentExplosion.id}
+          giftName={recentExplosion.giftName}
+          senderName={recentExplosion.senderName}
+          comboCount={recentExplosion.comboCount}
+          cost={recentExplosion.cost}
+          triggerShake={triggerShake}
         />
       )}
       {/* Beauty Modal */}

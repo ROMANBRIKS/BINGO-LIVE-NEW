@@ -5,7 +5,7 @@ import { ChevronLeft, MoreHorizontal, Lock, Zap, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 type StoreTab = 
-  | 'Featured' | 'Profile Card Set' | 'Exclusive BIGO ID' | 'Medal' 
+  | 'Featured' | 'Profile Card Set' | 'Exclusive BINGO ID' | 'Medal' 
   | 'Pendant' | 'Entrance Effect' | 'Badge' | 'Video Call Frame' 
   | 'Profile Skin' | 'Bullet Skin' | 'Comment Bubble' | 'Floating Screen' 
   | 'Multi-guest Frame' | 'Audio Circle' | 'Background';
@@ -27,7 +27,7 @@ const STORE_ITEMS: Record<StoreTab, StoreItem[]> = {
     { id: 'f5', name: 'Destory', icon: '💥', price: 300, duration: '3 days' },
     { id: 'f6', name: 'Gemstone crown', icon: '👑', price: 100, duration: '3 days' },
   ],
-  'Exclusive BIGO ID': [
+  'Exclusive BINGO ID': [
     { id: 'id1', name: 'ID: 777', icon: '🆔', price: 600000, duration: '30 days' },
     { id: 'id2', name: 'ID: 888', icon: '🆔', price: 800000, duration: '30 days' },
   ],
@@ -65,7 +65,7 @@ export default function PropsStorePage() {
   const [selectedItem, setSelectedItem] = useState<StoreItem | null>(STORE_ITEMS['Featured'][0]);
 
   const tabs: StoreTab[] = [
-    'Featured', 'Profile Card Set', 'Exclusive BIGO ID', 'Medal', 
+    'Featured', 'Profile Card Set', 'Exclusive BINGO ID', 'Medal', 
     'Pendant', 'Entrance Effect', 'Badge', 'Video Call Frame', 
     'Profile Skin', 'Bullet Skin', 'Comment Bubble', 'Floating Screen', 
     'Multi-guest Frame', 'Audio Circle', 'Background'

@@ -45,6 +45,7 @@ export const RoomToolsModal: React.FC<RoomToolsModalProps> = ({
     { icon: HdIcon, label: 'Quality' },
     { icon: OptimizationIcon, label: 'Watching Optimization' },
     { icon: Gift, label: 'Gift Settings' },
+    { icon: Gamepad2, label: 'Mini-Games', color: 'text-purple-500' },
     { icon: Flag, label: 'REPORT' },
     { icon: Ban, label: 'Block' },
     { icon: Ghost, label: isCleanMode ? 'Exit Clean' : 'Clean Mode' },

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { initializeFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, Timestamp, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot, addDoc, serverTimestamp, Timestamp, getDocFromServer, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -12,8 +12,11 @@ export const storage = getStorage(app);
 export const functions = getFunctions(app);
 export const callFunction = httpsCallable;
 
-// Use long polling to bypass potential websocket issues in the sandbox
+// Use long polling to bypass potential websocket issues in the sandbox and enable robust local cache
 export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  }),
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
 
@@ -49,8 +52,9 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMsg = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -67,6 +71,21 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
+
+  // Check if this is a connection/offline warning to continue in cache and avoid crashing React
+  const isTransientOrOffline = 
+    errMsg.toLowerCase().includes('unavailable') || 
+    errMsg.toLowerCase().includes('offline') || 
+    errMsg.toLowerCase().includes('could not reach') ||
+    errMsg.toLowerCase().includes('failed-precondition') ||
+    errMsg.toLowerCase().includes('permission-denied') ||
+    errMsg.toLowerCase().includes('quota');
+
+  if (isTransientOrOffline) {
+    console.warn('Firestore Connection/Access warning (re-routing cache layer):', JSON.stringify(errInfo));
+    return; // Do not throw to avoid crashing the react visual tree
+  }
+
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }

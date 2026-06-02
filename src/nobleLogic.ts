@@ -44,7 +44,7 @@ totalDiamondsSpent: number,
 lastPurchaseDate: Date
 ): UserNobleStatus => {
 const currentTier = calculateNobleTier(totalDiamondsSpent);
-// Expiration Logic (BIGO Rule: 30-day cycle)
+// Expiration Logic (BINGO Rule: 30-day cycle)
 const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
 const now = new Date();
 const timeSinceLastPurchase = now.getTime() - lastPurchaseDate.getTime();

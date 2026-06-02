@@ -14,7 +14,7 @@ export interface RankInfo {
 }
 
 export const TIERS = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Crown', 'King'];
-export const SUB_LEVELS = ['V', 'IV', 'III', 'II', 'I']; // Bigo uses V (lowest) to I (highest)
+export const SUB_LEVELS = ['V', 'IV', 'III', 'II', 'I']; // Bingo uses V (lowest) to I (highest)
 
 /**
  * Combat Points thresholds for each global level (1-35)

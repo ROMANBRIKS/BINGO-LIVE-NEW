@@ -17,7 +17,7 @@ export interface ExpirationAlert {
 }
 
 /**
- * Checks if a user needs a renewal reminder based on the BIGO 30-day rule.
+ * Checks if a user needs a renewal reminder based on the BINGO 30-day rule.
  * @param status The current UserNobleStatus from NobleLogic.ts
  * @returns An ExpirationAlert object with the message and severity.
  */
@@ -33,7 +33,7 @@ export const checkExpirationAlerts = (status: UserNobleStatus): ExpirationAlert 
     };
   }
 
-  // BIGO Rule: Alerts at 7, 3, and 1 days
+  // BINGO Rule: Alerts at 7, 3, and 1 days
   let shouldAlert = false;
   let severity: 'low' | 'medium' | 'high' = 'low';
   let message = '';

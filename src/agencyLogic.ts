@@ -21,11 +21,15 @@ export interface AgencyMember {
 }
 
 export const AGENCY_TIERS = {
-  Junior: { minEarnings: 0, commissionBonus: 0, label: 'Junior' },
-  Senior: { minEarnings: 10000, commissionBonus: 0.02, label: 'Senior' },
-  Elite: { minEarnings: 50000, commissionBonus: 0.05, label: 'Elite' },
-  Master: { minEarnings: 200000, commissionBonus: 0.1, label: 'Master' },
+  Junior: { minEarnings: 0, commissionBonus: 0, label: 'Junior', baseRate: 0.10 },
+  Senior: { minEarnings: 10000, commissionBonus: 0.02, label: 'Senior', baseRate: 0.12 },
+  Elite: { minEarnings: 50000, commissionBonus: 0.05, label: 'Elite', baseRate: 0.15 },
+  Master: { minEarnings: 200000, commissionBonus: 0.1, label: 'Master', baseRate: 0.20 },
 };
+
+export function getAgencyCommissionRateForTier(tier: 'Junior' | 'Senior' | 'Elite' | 'Master'): number {
+  return AGENCY_TIERS[tier]?.baseRate || 0.10;
+}
 
 export function getTierForEarnings(earnings: number): 'Junior' | 'Senior' | 'Elite' | 'Master' {
   if (earnings >= AGENCY_TIERS.Master.minEarnings) return 'Master';
@@ -79,11 +83,16 @@ export async function calculateAgencyCommission(streamerUid: string, amount: num
 export async function recruitStreamer(agencyId: string, streamerUid: string) {
   try {
     await setDoc(doc(db, 'agency_members', streamerUid), {
+      uid: streamerUid,
       agencyId,
       joinedAt: serverTimestamp(),
       totalEarnings: 0,
       commissionPaid: 0,
       tier: 'Junior'
+    });
+
+    await updateDoc(doc(db, 'users', streamerUid), {
+      agencyId
     });
 
     await updateDoc(doc(db, 'agencies', agencyId), {

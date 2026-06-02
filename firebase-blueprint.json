@@ -10,14 +10,23 @@
         "photoURL": { "type": "string", "description": "User's profile picture URL" },
         "diamonds": { "type": "number", "description": "Current diamond balance" },
         "beans": { "type": "number", "description": "Current bean balance (convertible to cash)" },
-        "role": { "type": "string", "enum": ["user", "host", "agency", "admin"], "description": "User's role" },
+        "role": { "type": "string", "enum": ["user", "host", "agency", "admin", "moderator"], "description": "User's role" },
         "nobleTitle": { "type": "string", "enum": ["None", "Baron", "Duke", "Grand Duke", "Archduke", "King", "Emperor", "Global God"], "description": "VIP noble title" },
         "agencyId": { "type": "string", "description": "ID of the agency the user belongs to (if host)" },
         "familyId": { "type": "string", "description": "ID of the host family" },
         "totalDiamondsSpent": { "type": "number", "description": "Total diamonds spent for leaderboard" },
         "totalBeansEarned": { "type": "number", "description": "Total beans earned for host salary" },
+        "adBeans": { "type": "number", "description": "Current Ad Bean balance (from watching sponsors)" },
+        "totalAdBeansEarned": { "type": "number", "description": "Total cumulative Ad Beans earned" },
         "referralCode": { "type": "string", "description": "User's unique referral code" },
-        "invitedBy": { "type": "string", "description": "UID of the user who invited this user" }
+        "invitedBy": { "type": "string", "description": "UID of the user who invited this user" },
+        "isBanned": { "type": "boolean", "description": "Whether user is banned from the service" },
+        "isShadowBanned": { "type": "boolean", "description": "Whether user is shadow-banned" },
+        "suspendedUntil": { "type": "string", "description": "ISO format timestamp of suspension ending" },
+        "suspensionReason": { "type": "string", "description": "Brief explanation tag for suspension" },
+        "customFallbackSalaryRate": { "type": "number", "description": "Manual override rate for streamer fallback base salary bonus" },
+        "appealText": { "type": "string", "description": "Appeal reasons specified by streamer" },
+        "appealStatus": { "type": "string", "enum": ["none", "pending", "approved", "rejected"], "description": "Streamer appeal state" }
       },
       "required": ["uid", "displayName", "diamonds", "beans", "role"]
     },
@@ -239,6 +248,105 @@
         "tier": { "type": "string" }
       },
       "required": ["id", "name", "ownerUid", "combatPoints", "level", "tier"]
+    },
+    "AgencyMember": {
+      "title": "AgencyMember",
+      "description": "Represents a streamer host affiliated with an agency.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "agencyId": { "type": "string" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "totalEarnings": { "type": "number" },
+        "commissionPaid": { "type": "number" },
+        "tier": { "type": "string", "enum": ["Junior", "Senior", "Elite", "Master"] }
+      },
+      "required": ["agencyId", "tier"]
+    },
+    "FanClubMember": {
+      "title": "FanClubMember",
+      "description": "Represents a fan of a host.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "hostUid": { "type": "string" },
+        "level": { "type": "number" },
+        "intimacyPoints": { "type": "number" },
+        "lastCheckIn": { "type": "number" },
+        "isSuperFan": { "type": "boolean" }
+      },
+      "required": ["uid", "hostUid", "level", "intimacyPoints"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Represents a real cash withdrawal requested by a host.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique withdrawal record ID" },
+        "userId": { "type": "string", "description": "UID of the host who withdrew" },
+        "userName": { "type": "string", "description": "Display name of the user" },
+        "userEmail": { "type": "string", "description": "Email address of the user" },
+        "userPhoto": { "type": "string", "description": "Photo URL of the user" },
+        "beansAmount": { "type": "number", "description": "Number of conversion beans deducted" },
+        "usdAmount": { "type": "number", "description": "Equivalent USD value payout" },
+        "method": { "type": "string", "description": "Withdrawal route (e.g. PayPal)" },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"], "description": "Withdrawal approval state" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Request creation timestamp" }
+      },
+      "required": ["id", "userId", "userName", "beansAmount", "usdAmount", "status", "timestamp"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Represents a diamond purchase made by a user using real money.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique transaction record ID" },
+        "userId": { "type": "string", "description": "UID of the buyer" },
+        "userName": { "type": "string", "description": "Display name of the buyer" },
+        "diamondsBought": { "type": "number", "description": "Diamonds purchased" },
+        "priceUSD": { "type": "number", "description": "Cash cost paid in USD" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Purchase transaction time" }
+      },
+      "required": ["id", "userId", "userName", "diamondsBought", "priceUSD", "timestamp"]
+    },
+    "AdImpression": {
+      "title": "AdImpression",
+      "description": "An audited advertisement impression registered by a spectator watching a streamer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Impression entry ID" },
+        "hostUid": { "type": "string", "description": "Streamer UID" },
+        "viewerUid": { "type": "string", "description": "Spectator UID" },
+        "viewerName": { "type": "string", "description": "Spectator Display Name" },
+        "campaignId": { "type": "string", "description": "Sponsor Campaign ID" },
+        "campaignBrand": { "type": "string", "description": "Brand Category name" },
+        "country": { "type": "string", "description": "Spectator Region Country code" },
+        "countryName": { "type": "string", "description": "Spectator Region full name" },
+        "ip": { "type": "string", "description": "Spectator IP address" },
+        "isVpn": { "type": "boolean", "description": "Whether proxy bypass signals were flagged" },
+        "cpmValue": { "type": "number", "description": "Ad CPM rate paid" },
+        "adBeansEarned": { "type": "number", "description": "Earned Ad Beans share fraction" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Record timestamp" }
+      },
+      "required": ["id", "hostUid", "viewerUid", "campaignId", "country", "timestamp"]
+    },
+    "SuspensionReport": {
+      "title": "SuspensionReport",
+      "description": "Represents a livestream suspension and safety audit infraction log.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique suspension entry ID" },
+        "userId": { "type": "string", "description": "UID of the suspended user" },
+        "userName": { "type": "string", "description": "Display name of the user" },
+        "userPhoto": { "type": "string", "description": "Photo URL of the user" },
+        "reason": { "type": "string", "description": "Suspension infraction reason explanation" },
+        "screenshotUrl": { "type": "string", "description": "Silent sensitive image evidence capture in base64/dataURL representation" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Infraction log timestamp" },
+        "appealText": { "type": "string", "description": "Reason text provided by streamer to appeal" },
+        "appealStatus": { "type": "string", "enum": ["none", "pending", "approved", "rejected"], "description": "Resolution status of user appeal" },
+        "resolvedBy": { "type": "string", "description": "UID of staff member resolving this appeal" }
+      },
+      "required": ["id", "userId", "reason", "timestamp", "appealStatus"]
     }
   },
   "firestore": {
@@ -253,6 +361,14 @@
     "/agencies/{agencyId}": {
       "schema": "Agency",
       "description": "Agency details and tiers."
+    },
+    "/agency_members/{streamerUid}": {
+      "schema": "AgencyMember",
+      "description": "Affiliated streamers under an agency representation."
+    },
+    "/fan_club_members/{memberKey}": {
+      "schema": "FanClubMember",
+      "description": "Fan club level and intimacy metrics."
     },
     "/rooms/{roomId}": {
       "schema": "Room",
@@ -297,6 +413,22 @@
     "/migration_requests/{requestId}": {
       "schema": "MigrationRequest",
       "description": "Status migration oversight."
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "Withdrawal",
+      "description": "Real cash out records."
+    },
+    "/purchases/{purchaseId}": {
+      "schema": "Purchase",
+      "description": "Store recharge deposit history."
+    },
+    "/ad_impressions/{impressionId}": {
+      "schema": "AdImpression",
+      "description": "Geotargeted advertiser impression logs and security signal audits."
+    },
+    "/suspensions/{reportId}": {
+      "schema": "SuspensionReport",
+      "description": "User livestream suspensions and policy violation logs."
     }
   }
 }

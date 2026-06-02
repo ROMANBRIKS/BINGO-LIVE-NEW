@@ -441,6 +441,26 @@ This file serves as the central repository for brainstorming ideas, feature requ
     *   **Dual-Gain Rewards:** Both the referrer and the new user gain benefits (coins, badges, or ranking boosts).
     *   **Family Dashboard:** A shared space for family members to see their collective contribution to the platform.
 
+## ⚔️ 31. Unified PK Battle & Interactive Arena System (Master Blueprint)
+*   **Aesthetic UI Layer Restructuring (Solving the "Messy Room" Overlaps):**
+    *   **Observed Overlaps in Screen Analysis:**
+        *   *AD LIVE / NVIDIA STREAM floating promo cards:* Currently override the side action buttons, causing clutter.
+        *   *Centered Modal Collisions:* "settlement of the PK" and "VICTORY! FORFEIT: DO 10 PUSHUPS" panels cover up real-time badges ("HNM 🦋🌹") and active chat components.
+        *   *Unbounded Feeds:* High-intensity comment feeds and "sent 99x Gift Box!" alerts stack on top of bottom controllers, preventing clean inputs.
+        *   *State Badges:* Hexagonal status indicators (e.g. "LOSS") overlap streamer feeds in a cramped arrangement.
+    *   **Resolution Strategy:**
+        *   Create standard horizontal zone boundaries or custom collapsible drawers for AD cards.
+        *   Implement a central overlay manager (queue structure) so active animations, settlement modals, and interactive popups play sequentially rather than concurrently.
+        *   Use standardized glassmorphism panels with bounded clipping heights to restrict chat bubbles from escaping into the active combat space.
+*   **Predictions & Community Betting Pools:**
+    *   **Wagers on PK Thresholds:** Let fans place side-bets (e.g., "Will Host win Round 3 with >1,000 diamond margin?").
+    *   **Prediction Bar Sync:** Embed dedicated micro prediction bars that sync predictions inside the active PK progress UI.
+*   **Group & Multi-Stream PK Battles (2v2 / 4v4 matches):**
+    *   **Flexible Grids:** Support multi-viewport side-by-side video feeds matching participants.
+    *   **Unified Tug-of-War Score:** Aggregate team points in real-time onto a shared central bar.
+*   **Comprehensive Interactive Voting Pools:**
+    *   Incorporate active voting modules into the battle layout, letting voters apply multipliers or dynamic shields to their chosen side.
+
 ---
 
 ## 📝 To-Do List (Pending Discussion)
@@ -576,3 +596,17 @@ This file serves as the central repository for brainstorming ideas, feature requ
 - [ ] **Enhanced Sign-up Form**: Create a multi-step registration flow to collect additional profile info post-social login.
 - [ ] **Referral Performance Dashboard**: Build a UI for users to track their invites and family growth.
 - [ ] **Technical Implementation Research**: Decide on the flexibility of family membership (joining/leaving rules).
+- [ ] **PK Master Layout Clean Up (Messy Room Fix)**:
+    *   [ ] Refactor overlapping floating elements (AD promo panels, quick-action widgets, chats) to use bounded absolute-grid containers.
+    *   [ ] Implement a centralized React Overlay Queue to safely orchestrate full-screen splash modals (Intro horns, settlement forfeits) so they never overlap.
+- [ ] **Interactive PK Votes & Predictions Engine**:
+    *   [ ] Build an overlay for live wagers and side-bets, with reward distribution on settlement.
+    *   [ ] Connect viewer prediction statistics to the live PK arena progress indicator.
+- [ ] **Group PK System (2v2 / 4v4 Team Matches)**:
+    *   [ ] Design multi-window viewport configurations for teams.
+    *   [ ] Integrate synchronized live web-sockets to manage combined points.
+- [ ] **Platform-Provided Standard Agency-Streamer Contract Formulation**:
+    *   [ ] Formulate a cohesive standard contract template directly inside the application for signed streamer relationships.
+    *   [ ] Model automated platform-enforced buyout parameters, regional percentage multipliers, minimum active broadcast targets, and automatic weekly split payouts.
+    *   [ ] Standardize the document to act as a system bond between **The Agency** and **The Streamer**, bypassing manual offline contract uploads.
+

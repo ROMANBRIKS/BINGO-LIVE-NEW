@@ -145,7 +145,7 @@ export default function PointsRedemptionPage() {
       { id: 'b4', icon: Video, label: 'Live Ban Appeal', points: 50, minLevel: 2 },
     ],
     reset: [
-      { id: 'r1', icon: UserPlus, label: 'Africa-BIGO ID Change', points: 50, minLevel: 3 },
+      { id: 'r1', icon: UserPlus, label: 'Africa-BINGO ID Change', points: 50, minLevel: 3 },
       { id: 'r2', icon: Star, label: 'Africa-Fan Medal Change', points: 50, minLevel: 3 },
       { id: 'r3', icon: Zap, label: 'Africa-Remove Beans & contribution list', points: 300, minLevel: 3 },
       { id: 'r4', icon: Users, label: 'Africa-Remove Contribution List', points: 100, minLevel: 3 },
@@ -424,7 +424,7 @@ export default function PointsRedemptionPage() {
         {/* Footer Info */}
         <div className="pt-8 pb-12 text-center">
           <p className="text-[10px] text-white/20 uppercase tracking-[0.2em] font-black">
-            All rights of interpretation belong to BIGO LIVE
+            All rights of interpretation belong to BINGO LIVE
           </p>
         </div>
       </div>

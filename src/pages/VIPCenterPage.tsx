@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, Info, ChevronRight, Star, Crown, Rocket, Bell, 
   MessageSquare, Gift, Eye, Zap, Smartphone, Mic, ShieldX,
-  Users2, Trophy, Layout, User as UserIcon, TrendingUp
+  Users2, Trophy, Layout, User as UserIcon, TrendingUp, Diamond, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { calculateWealthLevel, getDiamondsForLevel, getVIPTier, MAX_WEALTH_LEVEL } from '../wealthLogic';
+import { doc, setDoc, increment } from 'firebase/firestore';
+import { db } from '../firebase';
 
 type VIPLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -90,10 +95,37 @@ const VIPStar = ({ className, color = "#cd7f32", level = 1, isIridescent = false
 
 export default function VIPCenterPage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { showToast } = useToast();
   const [level, setLevel] = useState<VIPLevel>(1);
   const [selectedPrivilegeId, setSelectedPrivilegeId] = useState('medal');
+  const [isBoosting, setIsBoosting] = useState(false);
+  const [showBoostModal, setShowBoostModal] = useState(false);
+
+  const realSpent = profile?.totalDiamondsSpent || 0;
+  const realLevel = calculateWealthLevel(realSpent);
+  const realVIPTier = getVIPTier(realLevel);
 
   const levels: VIPLevel[] = [1, 2, 3, 4, 5, 6];
+
+  const vipTierStarts = {
+    1: 1,   // V1 starts at level 1
+    2: 10,  // V2 starts at level 10
+    3: 30,  // V3 starts at level 30
+    4: 50,  // V4 starts at level 50
+    5: 60,  // V5 starts at level 60
+    6: 90,  // V6 starts at level 90
+  };
+
+  // Set initial selected tab to the user's actual VIP tier on mount
+  useEffect(() => {
+    if (profile) {
+      const defaultTier = getVIPTier(calculateWealthLevel(profile.totalDiamondsSpent || 0));
+      if (defaultTier >= 1 && defaultTier <= 6) {
+        setLevel(defaultTier as VIPLevel);
+      }
+    }
+  }, [profile?.totalDiamondsSpent]);
 
   const levelConfigs: Record<number, { color: string; range: string; description?: string; isIridescent?: boolean; secondaryColor?: string }> = {
     1: { color: "#cd7f32", range: "For LV.1-LV.9" },
@@ -588,6 +620,18 @@ export default function VIPCenterPage() {
     }
   ];
 
+  const isMaxLevel = realLevel >= 119;
+  const currentLevelStartSpent = getDiamondsForLevel(realLevel);
+  const nextLevelRequiredSpent = getDiamondsForLevel(isMaxLevel ? realLevel : realLevel + 1);
+  const levelProgress = isMaxLevel ? 100 : (nextLevelRequiredSpent > currentLevelStartSpent 
+    ? Math.min(100, Math.max(0, ((realSpent - currentLevelStartSpent) / (nextLevelRequiredSpent - currentLevelStartSpent)) * 100))
+    : 0);
+  
+  const nextVIPTier = realVIPTier === 0 ? 1 : (realVIPTier < 6 ? realVIPTier + 1 : 6);
+  const nextTierStartLevel = vipTierStarts[nextVIPTier as keyof typeof vipTierStarts] || 1;
+  const nextTierRequiredSpent = getDiamondsForLevel(nextTierStartLevel);
+  const spentNeededForNextTier = Math.max(0, nextTierRequiredSpent - realSpent);
+
   const selectedPrivilege = privileges.find(p => p.id === selectedPrivilegeId) || privileges[0];
 
   return (
@@ -604,14 +648,95 @@ export default function VIPCenterPage() {
               <h1 className="text-xl font-black italic tracking-tight">V{level}</h1>
             </div>
           </div>
-          <button className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-            <span className="text-[10px] font-black text-white/60">VIP Diamonds 0 (0 to be released)</span>
+          <button 
+            onClick={() => navigate('/wallet')} 
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/15 px-3.5 py-1.5 rounded-full border border-white/20 active:scale-95 transition-all font-bold text-xs"
+          >
+            <Diamond size={12} className="text-yellow-400 fill-yellow-400" />
+            <span className="text-white font-black">{profile?.diamonds?.toLocaleString() || 0}</span>
+            <span className="text-white/40 text-[10px] font-medium">Recharge</span>
             <ChevronRight size={14} className="text-white/20" />
           </button>
         </div>
       </header>
 
-      <main className="flex-1 pt-24 pb-32 overflow-y-auto">
+      <main className="flex-1 pt-24 pb-32 overflow-y-auto w-full max-w-xl mx-auto">
+        {/* Dynamic VIP Status & Experience Progress Card */}
+        <div className="px-6 mb-8 mt-2">
+          <div className="bg-gradient-to-b from-white/10 to-transparent border border-white/10 p-5 rounded-3xl relative overflow-hidden backdrop-blur-md shadow-2xl">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex justify-between items-start mb-5 relative z-10">
+              <div>
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] block mb-1">YOUR CURRENT DECORATION</span>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-black italic tracking-tight text-white flex items-center gap-1.5">
+                    Lv.{realLevel}
+                    {realVIPTier > 0 && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-black tracking-normal not-italic text-black" style={{ backgroundColor: levelConfigs[realVIPTier]?.color || "#ffffff" }}>
+                        V{realVIPTier}
+                      </span>
+                    )}
+                  </h2>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] block mb-1">TOTAL SPENT</span>
+                <div className="flex items-center justify-end gap-1 font-black text-yellow-400 italic text-lg leading-none">
+                  <Diamond size={14} className="fill-yellow-400" />
+                  <span>{realSpent.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Linear Progress Bar */}
+            <div className="space-y-2 relative z-10">
+              <div className="flex justify-between text-[10px] font-bold text-white/60">
+                <span>Lv.{realLevel}</span>
+                {realLevel < 119 ? (
+                  <span>Next: Lv.{realLevel + 1}</span>
+                ) : (
+                  <span>Max Level Reached</span>
+                )}
+              </div>
+              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative border border-white/5">
+                <div 
+                  className="h-full rounded-full bg-gradient-to-r transition-all duration-1000"
+                  style={{ 
+                    width: `${isMaxLevel ? 100 : levelProgress}%`,
+                    backgroundImage: `linear-gradient(to right, ${config.color}, ${config.secondaryColor || '#ffffff'})`,
+                    boxShadow: `0 0 10px ${config.color}`
+                  }}
+                />
+              </div>
+              
+              <div className="flex justify-between items-center pt-0.5">
+                <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">
+                  {isMaxLevel ? 'Ultimate Status Mastered' : `${levelProgress.toFixed(1)}% complete`}
+                </span>
+                <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">
+                  {isMaxLevel ? 'Full Power unlocked' : `${(nextLevelRequiredSpent - realSpent).toLocaleString()} points to Lv.${realLevel + 1}`}
+                </span>
+              </div>
+            </div>
+
+            {/* Next VIP Level Motivation Badge */}
+            {realVIPTier < 6 && (
+              <div className="mt-4 p-3 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between gap-3 relative z-10">
+                <p className="text-[10px] text-white/60 font-medium leading-relaxed flex-1">
+                  Hold <span className="text-white font-black">+{spentNeededForNextTier.toLocaleString()}</span> points total to unlock <span className="font-black italic px-1 py-0.5 rounded text-black text-[9px]" style={{ backgroundColor: levelConfigs[nextVIPTier]?.color }}>V{nextVIPTier}</span> exclusive room benefits!
+                </p>
+                <button 
+                  onClick={() => setShowBoostModal(true)}
+                  className="flex-none px-3 py-1.5 rounded-xl bg-white text-black font-black text-[10px] uppercase tracking-wider hover:bg-zinc-150 active:scale-95 transition-all shadow-md"
+                >
+                  Boost
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Hero Section */}
         <div className="px-6 flex flex-col items-center mb-8">
           <div className="relative w-full aspect-square max-w-[300px] flex items-center justify-center">
@@ -732,17 +857,143 @@ export default function VIPCenterPage() {
       </main>
 
       {/* Sticky Bottom Purchase Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/95 to-transparent z-50">
-        <button 
-          className="w-full py-4 text-black font-black text-lg uppercase italic tracking-widest rounded-2xl shadow-2xl active:scale-95 transition-transform"
-          style={{ 
-            background: `linear-gradient(to right, #000, ${config.color}, #000)`,
-            boxShadow: `0 10px 30px ${config.color}4d`
-          }}
-        >
-          Purchase
-        </button>
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black via-black/95 to-transparent z-50 max-w-xl mx-auto">
+        {level > realVIPTier ? (
+          <button 
+            onClick={() => setShowBoostModal(true)}
+            className="w-full py-4 text-black font-black text-lg uppercase italic tracking-widest rounded-2xl shadow-2xl active:scale-95 hover:brightness-110 transition-all"
+            style={{ 
+              background: `linear-gradient(to right, #000, ${config.color}, #000)`,
+              boxShadow: `0 10px 30px ${config.color}4d`
+            }}
+          >
+            Boost to Unlock V{level}
+          </button>
+        ) : (
+          <button 
+            disabled
+            className="w-full py-4 text-white/50 bg-[#161616] border border-white/10 font-black text-lg uppercase italic tracking-widest rounded-2xl shadow-inner cursor-not-allowed"
+          >
+            V{level} Privileges Unlocked ✓
+          </button>
+        )}
       </div>
+
+      {/* Boost Activation Modal Overlay */}
+      <AnimatePresence>
+        {showBoostModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-md bg-[#121212] border border-white/10 rounded-3xl p-6 shadow-2xl relative"
+            >
+              <h3 className="text-xl font-black italic uppercase tracking-tight text-white mb-2 flex items-center gap-2">
+                <Rocket size={18} className="text-purple-400 animate-pulse" />
+                VIP Level Up Boost
+              </h3>
+              <p className="text-xs text-white/60 mb-6 leading-relaxed">
+                Converting active diamonds directly adds to your permanent spending score. Instantly elevate your platform status and unlock premium room effects.
+              </p>
+
+              {/* Status Compare columns */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-center">
+                  <span className="text-[10px] font-bold text-white/40 block mb-1 uppercase tracking-wider">CURRENT STATUS</span>
+                  <p className="text-lg font-black" style={{ color: realVIPTier > 0 ? levelConfigs[realVIPTier]?.color : '#ffffff' }}>
+                    {realVIPTier > 0 ? `V${realVIPTier}` : 'None'} (Lv.{realLevel})
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-500/10 rounded-2xl border border-purple-500/20 text-center">
+                  <span className="text-[10px] font-bold text-purple-400 block mb-1 uppercase tracking-wider">TARGET STATUS</span>
+                  <p className="text-lg font-black" style={{ color: levelConfigs[level]?.color }}>
+                    V{level} (Lv.{vipTierStarts[level as keyof typeof vipTierStarts]})
+                  </p>
+                </div>
+              </div>
+
+              {/* Requirements & Action */}
+              {(() => {
+                const targetLvl = vipTierStarts[level as keyof typeof vipTierStarts];
+                const requiredSpentToTarget = getDiamondsForLevel(targetLvl);
+                const diamondsToConvert = Math.max(0, requiredSpentToTarget - realSpent);
+                const hasEnough = (profile?.diamonds || 0) >= diamondsToConvert;
+
+                return (
+                  <div className="space-y-6">
+                    <div className="bg-[#1a1a1a] rounded-2xl p-4 space-y-3 border border-white/5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-white/40 font-medium">Conversion Cost:</span>
+                        <span className="font-extrabold text-yellow-400 flex items-center gap-1">
+                          <Diamond size={12} className="fill-yellow-400" />
+                          {diamondsToConvert.toLocaleString()} Diamonds
+                        </span>
+                      </div>
+                      <div className="h-px bg-white/5" />
+                      <div className="flex justify-between">
+                        <span className="text-white/40 font-medium">Your Balance:</span>
+                        <span className="font-extrabold text-white flex items-center gap-1">
+                          <Diamond size={12} className="fill-white" />
+                          {profile?.diamonds?.toLocaleString() || 0} Diamonds
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => setShowBoostModal(false)}
+                        className="flex-1 py-3 border border-white/10 rounded-xl font-bold text-sm text-white/60 hover:bg-white/5 active:scale-95 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      
+                      {hasEnough ? (
+                        <button 
+                          disabled={isBoosting}
+                          onClick={async () => {
+                            if (!profile) return;
+                            setIsBoosting(true);
+                            try {
+                              const userRef = doc(db, 'users', profile.uid);
+                              await setDoc(userRef, {
+                                diamonds: increment(-diamondsToConvert),
+                                totalDiamondsSpent: increment(diamondsToConvert),
+                                level: targetLvl
+                              }, { merge: true });
+                              showToast(`Successfully upgraded to V${level}! 🎉`, 'success');
+                              setShowBoostModal(false);
+                            } catch (err: any) {
+                              console.error(err);
+                              showToast(err.message || "Failed to convert diamonds", 'error');
+                            } finally {
+                              setIsBoosting(false);
+                            }
+                          }}
+                          className="flex-1 py-3 bg-white text-black font-black rounded-xl text-sm hover:bg-white/95 active:scale-[0.97] transition-all flex items-center justify-center gap-2 shadow-lg shadow-white/10"
+                        >
+                          {isBoosting && <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />}
+                          Confirm Conversion
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setShowBoostModal(false);
+                            navigate('/wallet');
+                          }}
+                          className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-black rounded-xl text-sm active:scale-[0.97] transition-all shadow-lg shadow-red-500/20"
+                        >
+                          Recharge 💎
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

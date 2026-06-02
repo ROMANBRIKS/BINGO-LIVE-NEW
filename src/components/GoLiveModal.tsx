@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Video, X, Sparkles, Camera, Mic, Dog, MapPin, Users, Gamepad2, Radio } from 'lucide-react';
+import { Video, X, Sparkles, Camera, Mic, Dog, MapPin, Users, Gamepad2, Radio, Globe, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -17,6 +17,10 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<StreamType>('multi-guest-live');
   const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+  
+  // Privacy states
+  const [roomAccess, setRoomAccess] = useState<'public' | 'private' | 'family'>('public');
+  const [passcode, setPasscode] = useState('1234');
 
   const tabs: { id: StreamType, label: string, icon: any, color: string }[] = [
     { id: 'multi-guest-live', label: 'GUEST LIVE', icon: Users, color: 'from-cyan-500 to-blue-600' },
@@ -51,7 +55,11 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
         currentBeans: 0,
         viewerCount: 0,
         guests: [],
-        isPrivate: false,
+        isPrivate: roomAccess !== 'public',
+        accessType: roomAccess,
+        passcode: roomAccess === 'private' ? passcode : null,
+        familyId: roomAccess === 'family' ? (profile?.familyId || 'agency_vips') : null,
+        familyName: roomAccess === 'family' ? (profile?.familyName || 'Agency Elite') : null,
         createdAt: serverTimestamp(),
         pkStatus: 'idle',
         latitude: location?.lat || null,
@@ -59,7 +67,7 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
       };
 
       const docRef = await addDoc(collection(db, 'rooms'), roomData);
-      navigate(`/room/${docRef.id}`);
+      navigate(`/room/${docRef.id}?mode=host`);
       onClose();
     } catch (error) {
       console.error("Error creating room:", error);
@@ -104,7 +112,7 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
           <p className="text-white/40 text-sm">Set your stream title and start broadcasting to your fans!</p>
         </div>
 
-        <div className="space-y-6 mb-8 relative z-10">
+        <div className="space-y-4 mb-6 relative z-10">
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 ml-2">Stream Title</label>
             <input 
@@ -116,14 +124,102 @@ export const GoLiveModal = ({ onClose }: { onClose: () => void }) => {
             />
           </div>
 
+          {/* Privacy Choice Section */}
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 ml-2">Space / Room Privacy</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setRoomAccess('public')}
+                className={cn(
+                  "py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all text-center border",
+                  roomAccess === 'public'
+                    ? "bg-cyan-500/10 border-cyan-500 text-cyan-400 font-extrabold"
+                    : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
+                )}
+              >
+                <Globe size={14} />
+                <span className="text-[9px] uppercase tracking-widest font-black">Public</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRoomAccess('private')}
+                className={cn(
+                  "py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all text-center border",
+                  roomAccess === 'private'
+                    ? "bg-purple-500/10 border-purple-500 text-purple-400 font-extrabold"
+                    : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
+                )}
+              >
+                <Lock size={14} />
+                <span className="text-[9px] uppercase tracking-widest font-black">Passcode</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRoomAccess('family')}
+                className={cn(
+                  "py-3 px-2 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all text-center border",
+                  roomAccess === 'family'
+                    ? "bg-rose-500/10 border-rose-500 text-rose-400 font-extrabold"
+                    : "bg-white/5 border-white/5 text-white/40 hover:text-white/60"
+                )}
+              >
+                <Users size={14} />
+                <span className="text-[9px] uppercase tracking-widest font-black">Agency</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Passcode Input & Family Banner Block */}
+          <AnimatePresence mode="wait">
+            {roomAccess === 'private' && (
+              <motion.div
+                key="passcode-container"
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                className="space-y-2 overflow-hidden"
+              >
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400 ml-2">Set 4-Digit Passcode</label>
+                <input 
+                  type="text"
+                  maxLength={4}
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value.replace(/\D/g, '').substring(0, 4))}
+                  placeholder="Enter 4 digits (e.g. 1234)"
+                  className="w-full bg-purple-950/15 border border-purple-500/30 rounded-2xl px-6 py-3 text-center text-lg font-bold tracking-[0.5em] text-purple-300 placeholder:text-purple-300/20 focus:outline-none focus:border-purple-500/60 transition-all font-sans"
+                />
+              </motion.div>
+            )}
+
+            {roomAccess === 'family' && (
+              <motion.div
+                key="agency-banner"
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                className="space-y-1 overflow-hidden bg-rose-950/10 border border-rose-500/20 rounded-2xl p-4 text-left"
+              >
+                <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                  🛡️ Family & Agency Mode Active
+                </h4>
+                <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider leading-relaxed">
+                  Only members of your Agency <span className="text-white">"{profile?.familyName || 'Agency Elite'}"</span> will bypass and join this session automatically. Others are gated.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <button 
             onClick={requestLocation}
             className={cn(
-              "w-full py-3 rounded-2xl border flex items-center justify-center gap-2 transition-all",
+              "w-full py-2.5 rounded-2xl border flex items-center justify-center gap-2 transition-all",
               location ? "bg-green-500/20 border-green-500/50 text-green-500" : "bg-white/5 border-white/5 text-white/40"
             )}
           >
-            <MapPin size={16} />
+            <MapPin size={14} />
             <span className="text-[10px] font-black uppercase tracking-widest">
               {location ? "Location Shared" : "Share Location for Nearby"}
             </span>

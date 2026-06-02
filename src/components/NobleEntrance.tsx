@@ -53,10 +53,11 @@ export const NobleEntrance: React.FC<NobleEntranceProps> = ({ user, onComplete }
   if (!user && !activeUser) return null;
 
   const displayUser = activeUser || user;
-  if (!displayUser || displayUser.tier === 'None') return null;
+  if (!displayUser || !displayUser.tier || displayUser.tier === 'None') return null;
 
   const levelData = NOBLE_LEVELS[displayUser.tier];
-  const duration = levelData.rank;
+  if (!levelData) return null;
+  const duration = levelData.rank || 5;
 
   // Metallic Gradients matching the badges
   const gradients: Record<NobleTier, string> = {
@@ -108,7 +109,7 @@ export const NobleEntrance: React.FC<NobleEntranceProps> = ({ user, onComplete }
             </div>
 
             {/* The Banner Body - Reduced in size */}
-            <div className={`relative pl-5 pr-4 py-1 rounded-full flex items-center gap-2 bg-gradient-to-r ${gradients[displayUser.tier]} shadow-[0_8px_25px_rgba(0,0,0,0.5)] border border-white/30 overflow-hidden`}>
+            <div className={`relative pl-5 pr-4 py-1 rounded-full flex items-center gap-2 bg-gradient-to-r ${gradients[displayUser.tier] || 'from-purple-500 via-indigo-500 to-blue-600'} shadow-[0_8px_25px_rgba(0,0,0,0.5)] border border-white/30 overflow-hidden`}>
               
               {/* Glossy Shine Animation */}
               <motion.div 

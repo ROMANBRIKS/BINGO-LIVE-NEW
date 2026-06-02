@@ -29,7 +29,7 @@ export default function MigrationPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const platforms = [
-    { id: 'bigo', name: 'Bigo Live', color: 'from-cyan-400 to-cyan-600', icon: '💎' },
+    { id: 'bingo', name: 'Bingo Live', color: 'from-cyan-400 to-cyan-600', icon: '💎' },
     { id: 'tiktok', name: 'TikTok', color: 'from-pink-500 to-black', icon: '🎵' },
     { id: 'tango', name: 'Tango Live', color: 'from-orange-400 to-orange-600', icon: '💃' },
     { id: 'poppo', name: 'Poppo Live', color: 'from-purple-500 to-purple-700', icon: '🎪' },
@@ -276,7 +276,7 @@ export default function MigrationPage() {
                   <ShieldCheck size={40} className="text-green-500" />
                 </div>
                 <h2 className="text-3xl font-black uppercase italic leading-none">Status Matched!</h2>
-                <p className="text-white/40 text-sm uppercase tracking-widest font-black italic">Bigo Marquis → Bingo King</p>
+                <p className="text-white/40 text-sm uppercase tracking-widest font-black italic">Bingo Marquis → Bingo King</p>
               </div>
 
               <div className="bg-gradient-to-br from-amber-400 to-orange-600 p-[1px] rounded-2xl shadow-[0_0_50px_rgba(251,191,36,0.2)]">

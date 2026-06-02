@@ -101,7 +101,7 @@ export default function TalentProfilePage() {
             </div>
             <div className="flex items-center justify-center gap-2 text-white/40 text-xs font-black uppercase tracking-widest leading-none">
               <Globe size={12} />
-              <span>Verified Bigo King • UK Region</span>
+              <span>Verified Bingo King • UK Region</span>
             </div>
           </div>
 

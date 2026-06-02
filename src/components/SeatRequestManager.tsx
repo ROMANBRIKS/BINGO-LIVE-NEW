@@ -5,6 +5,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Users, X, Check, UserPlus, Mic, Video, Bell } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { approveSeatRequest } from '../seatManagementLogic';
+import { NobleBadge } from './NobleBadge';
+
+const NOBLE_WEIGHTS: Record<string, number> = {
+  'Global God': 100,
+  'Emperor': 90,
+  'King': 85,
+  'Archduke': 80,
+  'Grand Duke': 75,
+  'Duke': 70,
+  'Baron': 60,
+  'None': 0
+};
 
 interface SeatRequestManagerProps {
   roomId: string;
@@ -20,6 +32,22 @@ export const SeatRequestManager: React.FC<SeatRequestManagerProps> = ({ roomId, 
     if (!isHost) return;
     const unsub = onSnapshot(collection(db, 'rooms', roomId, 'seatRequests'), (snap) => {
       const reqs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Sort priority Noble users first
+      reqs.sort((a: any, b: any) => {
+        const pA = NOBLE_WEIGHTS[a.nobleTier || 'None'] || 0;
+        const pB = NOBLE_WEIGHTS[b.nobleTier || 'None'] || 0;
+        if (pA !== pB) return pB - pA;
+        
+        // Secondary sort by level
+        const lvlA = a.level || 1;
+        const lvlB = b.level || 1;
+        if (lvlA !== lvlB) return lvlB - lvlA;
+
+        // Fallback to entry timestamp order
+        return (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0);
+      });
+
       setRequests(reqs);
       if (onRequestsChange) onRequestsChange(reqs.length);
     }, (error) => {
@@ -83,9 +111,16 @@ export const SeatRequestManager: React.FC<SeatRequestManagerProps> = ({ roomId, 
                       <img src={req.photoURL || `https://i.pravatar.cc/100?u=${req.uid}`} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[11px] font-black italic text-white uppercase tracking-tight truncate max-w-[100px]">
-                        {req.displayName}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-black italic text-white uppercase tracking-tight truncate max-w-[100px]">
+                          {req.displayName}
+                        </span>
+                        {req.nobleTier && req.nobleTier !== 'None' && (
+                          <div className="scale-75 origin-left shrink-0">
+                            <NobleBadge tier={req.nobleTier} size="sm" />
+                          </div>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1">
                         {req.type === 'video' ? <Video size={10} className="text-pink-500" /> : <Mic size={10} className="text-cyan-400" />}
                         <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Level {req.level}</span>

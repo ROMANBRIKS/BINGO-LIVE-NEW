@@ -19,6 +19,14 @@ service cloud.firestore {
       );
     }
 
+    function isStaff() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator')
+      );
+    }
+
     function isRecent(ts) {
       return ts is timestamp && 
              ts > request.time - duration.value(300, 's') &&
@@ -31,7 +39,14 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin() || (
+        isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['beans', 'totalBeansEarned', 'adBeans', 'totalAdBeansEarned'])
+      ) || (
+        isStaff() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['suspendedUntil', 'suspensionReason', 'appealText', 'appealStatus', 'isBanned', 'isShadowBanned', 'customFallbackSalaryRate', 'role'])
+      );
+      allow delete: if isAdmin();
       
       match /following/{followingId} {
         allow read: if isAuthenticated();
@@ -188,9 +203,36 @@ service cloud.firestore {
       allow update: if isAdmin();
     }
 
+    match /withdrawals/{withdrawalId} {
+      allow list: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /purchases/{purchaseId} {
+      allow list: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     match /agency_members/{memberId} {
       allow read: if isAuthenticated() && (resource.data.agencyId == request.auth.uid || resource.data.uid == request.auth.uid || isAdmin());
       allow write: if isAdmin();
+    }
+
+    match /ad_impressions/{impressionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.viewerUid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /suspensions/{reportId} {
+      allow read: if isStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['appealText', 'appealStatus']));
+      allow delete: if isAdmin();
     }
 
     match /{path=**}/private_calls/{callId} {

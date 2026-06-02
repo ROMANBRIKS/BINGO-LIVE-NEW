@@ -25,6 +25,7 @@ interface ChatMessageProps {
   onLike?: () => void;
   onJoinGuest?: () => void;
   onClick?: () => void;
+  onTextClick?: (displayName: string) => void;
 }
 
 export const ChatMessage = React.memo((props: ChatMessageProps) => {
@@ -51,8 +52,34 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
   const onLike = props.onLike || msg.onLike;
   const onJoinGuest = props.onJoinGuest || msg.onJoinGuest;
   const onClick = props.onClick || msg.onClick;
+  const onTextClick = props.onTextClick || msg.onTextClick;
   
   const isHighLevel = (level || 0) >= 50;
+
+  const renderMessageTextWithTags = (inputText: string | undefined) => {
+    if (!inputText) return null;
+    const parts = inputText.split(/(@[a-zA-Z0-9.\-_øøøøøø]+)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('@')) {
+        const username = part.slice(1);
+        return (
+          <span 
+            key={i} 
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onTextClick) {
+                onTextClick(username);
+              }
+            }}
+            className="text-[#00e5ff] font-bold hover:underline cursor-pointer"
+          >
+            {part}
+          </span>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
 
   const wrapWithClick = (content: React.ReactNode) => (
     <div onClick={onClick} className={cn(onClick && "cursor-pointer active:opacity-70 transition-opacity")}>
@@ -155,7 +182,7 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
       <div className="flex items-center gap-2 mb-2 animate-in fade-in slide-in-from-left-2 duration-300">
         <LevelBadge level={hostLevel || 1} />
         <p className="text-[11px] drop-shadow-md text-white">
-          <span className="font-bold text-white/80">{hostName}:</span> {text}
+          <span className="font-bold text-white/80">{hostName}:</span> {renderMessageTextWithTags(text)}
         </p>
       </div>
     );
@@ -224,24 +251,69 @@ export const ChatMessage = React.memo((props: ChatMessageProps) => {
           {text}
         </p>
         <span className="text-[14px]">🎁</span>
+        {msg.shieldAbsorbedValue > 0 && (
+          <span className="text-[9px] bg-red-600 text-white rounded-full px-1.5 py-0.5 font-black uppercase tracking-widest border border-red-500/50 animate-pulse ml-1 shrink-0 flex items-center gap-0.5">
+            🛡️ Blocked -{msg.shieldAbsorbedValue}
+          </span>
+        )}
       </div>
     );
   }
 
-  return wrapWithClick(
+  return (
     <div className="inline-flex items-center gap-1.5 mb-1 px-3 py-1 bg-black/30 backdrop-blur-md rounded-full border border-white/5 animate-in fade-in slide-in-from-left-2 duration-300 w-fit max-w-full">
-      {nobleTitle && nobleTitle !== 'None' && <NobleBadge tier={nobleTitle} size="sm" />}
-      {svipTier && <SVIPBadge tier={svipTier} size="sm" />}
-      {level && <LevelBadge level={level} />}
-      {fanClubLevel && fanClubHostName && <FanClubBadge level={fanClubLevel} hostName={fanClubHostName} />}
-      {familyName && familyLevel && <FamilyBadge familyName={familyName} familyLevel={familyLevel} />}
-      <p className="text-[11px] leading-relaxed">
-        <span className="font-bold text-[#00e5ff] mr-1">{displayName} :</span>
-        <span className={cn(
-          "drop-shadow-md",
+      {/* Small profile photo for chat messages */}
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.();
+        }}
+        className="w-5 h-5 rounded-full overflow-hidden border border-white/10 shrink-0 cursor-pointer active:scale-90 transition-transform"
+      >
+        <img 
+          src={photoURL || `https://i.pravatar.cc/100?u=${displayName || 'star'}`} 
+          className="w-full h-full object-cover" 
+          alt="" 
+          referrerPolicy="no-referrer"
+        />
+      </div>
+
+      {/* Badges & Name Zone - tapping here pops up the mini profile */}
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.();
+        }}
+        className="inline-flex items-center gap-1 flex-wrap cursor-pointer"
+      >
+        {nobleTitle && nobleTitle !== 'None' && <NobleBadge tier={nobleTitle} size="sm" />}
+        {svipTier && <SVIPBadge tier={svipTier} size="sm" />}
+        {level && <LevelBadge level={level} />}
+        {fanClubLevel && fanClubHostName && <FanClubBadge level={fanClubLevel} hostName={fanClubHostName} />}
+        {familyName && familyLevel && <FamilyBadge familyName={familyName} familyLevel={familyLevel} />}
+        
+        <span className="font-bold text-[#00e5ff] mr-0.5 text-[11px] leading-relaxed select-none">
+          {displayName} :
+        </span>
+      </div>
+
+      {/* Message Text Zone - tapping here triggers auto-tagging response! */}
+      <span 
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onTextClick && displayName) {
+            onTextClick(displayName);
+          } else {
+            onClick?.();
+          }
+        }}
+        className={cn(
+          "drop-shadow-md text-[11px] leading-relaxed cursor-pointer hover:bg-white/10 rounded px-1 -mx-1 transition-colors",
           isHighLevel ? "text-yellow-200 font-medium" : "text-white/90"
-        )}>{text}</span>
-      </p>
+        )}
+      >
+        {renderMessageTextWithTags(text)}
+      </span>
     </div>
   );
 });

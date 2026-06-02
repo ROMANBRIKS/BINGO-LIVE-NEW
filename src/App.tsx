@@ -9,9 +9,12 @@ import { RightSidebar } from './components/RightSidebar';
 import { BottomNav } from './components/BottomNav';
 import { Shield } from 'lucide-react';
 import { cn } from './lib/utils';
+import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 // Lazy load pages for better performance
 import HomePage from './pages/HomePage';
+const MoviesPage = lazy(() => import('./pages/MoviesPage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const RoomPage = lazy(() => import('./pages/RoomPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -22,6 +25,7 @@ const ChatsPage = lazy(() => import('./pages/ChatsPage'));
 const RealmatchPage = lazy(() => import('./pages/RealmatchPage'));
 const ChatDetailPage = lazy(() => import('./pages/ChatDetailPage'));
 const ComingSoonPage = lazy(() => import('./pages/ComingSoonPage'));
+const RelationshipsPage = lazy(() => import('./pages/RelationshipsPage').then(m => ({ default: m.RelationshipsPage })));
 const GoLivePage = lazy(() => import('./pages/GoLivePage'));
 const TaskCenterPage = lazy(() => import('./pages/TaskCenterPage'));
 const FansGroupPage = lazy(() => import('./pages/FansGroupPage'));
@@ -29,6 +33,7 @@ const PostsPage = lazy(() => import('./pages/PostsPage'));
 const PropsStorePage = lazy(() => import('./pages/PropsStorePage'));
 import PointsRedemptionPage from './pages/PointsRedemptionPage';
 const WalletPage = lazy(() => import('./pages/WalletPage'));
+const WithdrawalHistoryPage = lazy(() => import('./pages/WithdrawalHistoryPage'));
 const FamilyDashboardPage = lazy(() => import('./pages/FamilyDashboardPage'));
 const FanClubCenterPage = lazy(() => import('./pages/FanClubCenterPage'));
 const NobleCenterPage = lazy(() => import('./pages/NobleCenterPage'));
@@ -51,11 +56,138 @@ const LoadingFallback = () => (
 );
 
 const AppContent = () => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading, logout } = useAuth();
   const { theme } = useTheme();
   const location = useLocation();
 
   if (loading) return <LoadingFallback />;
+
+  // Absolute lock condition:
+  const isStaff = profile?.role === 'admin' || profile?.role === 'moderator';
+  const hasTargetedBans = profile?.bannedStreaming || profile?.bannedMessaging || profile?.bannedWithdrawals || profile?.bannedMovies;
+  const isSuspendedLock = !isStaff && profile?.suspendedUntil && new Date(profile.suspendedUntil) > new Date() && !hasTargetedBans;
+  const isAppLocked = !isStaff && profile && (profile.isBanned || profile.bannedApp || isSuspendedLock);
+
+  if (isAppLocked) {
+    return (
+      <div className="min-h-screen w-full bg-[#07070a] flex items-center justify-center p-6 text-zinc-100 font-sans z-[999999] relative">
+        <div className="max-w-md w-full bg-[#101015] border border-red-500/20 rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative overflow-hidden text-center mx-auto">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500 via-amber-500 to-red-500" />
+          
+          <div className="w-14 h-14 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 mx-auto animate-pulse">
+            <Shield className="text-red-500" size={26} />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-xl font-black uppercase tracking-tight text-white italic">
+              🚨 ACCOUNT TERMINATION LOCK
+            </h1>
+            <p className="text-xs text-zinc-400">
+              Access to this application and services has been restricted by the Compliance Team.
+            </p>
+          </div>
+
+          <div className="bg-black/50 border border-white/5 p-4 rounded-2xl space-y-3.5 text-left text-xs font-mono">
+            <div>
+              <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">ACCOUNT ID:</span>
+              <span className="text-zinc-300 select-all overflow-hidden text-ellipsis block">{profile.uid}</span>
+            </div>
+            <div>
+              <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">VIOLATION CONDUCT STATEMENT:</span>
+              <span className="text-red-400 font-bold">{profile.suspensionReason || 'Violation of BINGO Live community guidelines & platform standards'}</span>
+            </div>
+            {profile.suspendedUntil && (
+              <div>
+                <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">RESTRICTION EXPIRATION:</span>
+                <span className="text-amber-400 font-bold">{new Date(profile.suspendedUntil).toLocaleString()}</span>
+              </div>
+            )}
+            {(profile.isBanned || profile.bannedApp) && !profile.suspendedUntil && (
+              <div>
+                <span className="text-zinc-600 uppercase font-bold tracking-wider block text-[8px]">LOCK PERIOD:</span>
+                <span className="text-red-500 font-extrabold uppercase">PERMANENT DEBARMENT</span>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-white/5 text-left font-sans">
+            <h3 className="text-xs font-black uppercase tracking-wider text-zinc-300">Submit Compliance Appeal</h3>
+            <p className="text-[10px] text-zinc-500 leading-normal">
+              Provide an official explanation statement to request early reinstatement or contest this policy enforcement action.
+            </p>
+
+            {profile.appealStatus === 'pending' ? (
+              <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-2xl text-center space-y-1">
+                <span className="text-[9px] text-amber-500 font-black tracking-widest uppercase animate-pulse block">🕒 STATEMENT UNDER DISPATCH</span>
+                <p className="text-[10px] text-zinc-400">Your statement is being audited on the Compliance Review Board.</p>
+              </div>
+            ) : profile.appealStatus === 'rejected' ? (
+              <div className="bg-red-500/5 border border-red-500/10 p-4 rounded-2xl text-center space-y-1">
+                <span className="text-[9px] text-red-500 font-black tracking-widest uppercase block">❌ REINSTATEMENT APPEAL DENIED</span>
+                <p className="text-[10px] text-zinc-500">The moderation deck reviewed evidence logs and rejected the appeal. The lock remains active.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  placeholder="Describe your reasoning and action context..."
+                  id="app-lockout-appeal-textarea"
+                  className="w-full h-20 bg-black/40 border border-white/5 rounded-2xl p-3 text-xs text-white focus:outline-none focus:border-red-500/30 font-medium placeholder:text-zinc-600"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const el = document.getElementById('app-lockout-appeal-textarea') as HTMLTextAreaElement;
+                    if (!el || !el.value.trim()) return;
+                    try {
+                      const text = el.value.trim();
+                      await updateDoc(doc(db, 'users', profile.uid), {
+                        appealText: text,
+                        appealStatus: 'pending'
+                      });
+                      try {
+                        const q = query(
+                          collection(db, 'suspensions'),
+                          where('userId', '==', profile.uid),
+                          where('appealStatus', '==', 'none')
+                        );
+                        const snapshot = await getDocs(q);
+                        if (!snapshot.empty) {
+                          const latestDoc = snapshot.docs[0];
+                          await updateDoc(doc(db, 'suspensions', latestDoc.id), {
+                            appealText: text,
+                            appealStatus: 'pending'
+                          });
+                        }
+                      } catch (innerErr) {
+                        console.warn("Could not synchronize suspensions:", innerErr);
+                      }
+                      window.location.reload();
+                    } catch (e: any) {
+                      console.error(`Appeal failed: ${e.message}`);
+                    }
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] tracking-widest uppercase rounded-2xl shadow-lg transition-all active:scale-95 cursor-pointer"
+                >
+                  Submit Official Appeal
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              await logout();
+              window.location.reload();
+            }}
+            className="text-[10px] font-black tracking-widest uppercase text-zinc-500 hover:text-white transition-all cursor-pointer block mx-auto pt-2 bg-transparent border-0 outline-none"
+          >
+            Log Out Account
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -86,6 +218,7 @@ const AppContent = () => {
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/movies" element={<MoviesPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/room/:roomId" element={<RoomPage />} />
               <Route path="/profile" element={<ProfilePage />} />
@@ -96,11 +229,13 @@ const AppContent = () => {
               <Route path="/chats/:chatId" element={<ChatDetailPage />} />
               <Route path="/go-live" element={<GoLivePage />} />
               <Route path="/tasks" element={<TaskCenterPage />} />
-              <Route path="/fans" element={<FansGroupPage />} />
+              <Route path="/fans" element={<RelationshipsPage initialTab="fans" />} />
+              <Route path="/fan-group" element={<FansGroupPage />} />
               <Route path="/posts" element={<PostsPage />} />
               <Route path="/store" element={<PropsStorePage />} />
               <Route path="/svip" element={<PointsRedemptionPage />} />
               <Route path="/wallet" element={<WalletPage />} />
+              <Route path="/withdrawal-history" element={<WithdrawalHistoryPage />} />
               <Route path="/points-redemption" element={<PointsRedemptionPage />} />
               <Route path="/family-dashboard" element={<FamilyDashboardPage />} />
               <Route path="/fan-club-center" element={<FanClubCenterPage />} />
@@ -113,7 +248,8 @@ const AppContent = () => {
               <Route path="/agency-dashboard" element={<AgencyDashboardPage />} />
               <Route path="/news" element={<TrendsPage />} />
               <Route path="/trends" element={<TrendsPage />} />
-              <Route path="/following" element={<ComingSoonPage title="Following" />} />
+              <Route path="/following" element={<RelationshipsPage initialTab="following" />} />
+              <Route path="/friends" element={<RelationshipsPage initialTab="friends" />} />
               <Route path="/vip" element={<VIPCenterPage />} />
               <Route path="/pk" element={<ComingSoonPage title="PK Battles" />} />
               <Route path="/hot" element={<ComingSoonPage title="Hot Content" />} />
