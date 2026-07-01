@@ -8,10 +8,11 @@ import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { RightSidebar } from './components/RightSidebar';
 import { BottomNav } from './components/BottomNav';
-import { Shield } from 'lucide-react';
+import { Shield, MessageSquare, X } from 'lucide-react';
 import { cn } from './lib/utils';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { ChatBox } from './components/ChatBox';
 
 // Lazy load pages for better performance
 import HomePage from './pages/HomePage';
@@ -203,6 +204,7 @@ const AppContent = () => {
     );
   }
 
+  const [showStreamChat, setShowStreamChat] = React.useState(false);
   const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live' || location.pathname.startsWith('/talent/') || location.pathname.startsWith('/u/');
 
   return (
@@ -266,6 +268,49 @@ const AppContent = () => {
         {!isStreamPage && <RightSidebar />}
       </div>
       {!isStreamPage && <BottomNav />}
+
+      {/* Floating Real-Time Stream Chat Widget */}
+      <div className={cn(
+        "fixed z-50 transition-all duration-300 ease-out flex flex-col items-end gap-3",
+        isStreamPage ? "bottom-24 right-4" : "bottom-20 right-6 sm:bottom-24 sm:right-8"
+      )}>
+        {showStreamChat && (
+          <div className="w-[340px] sm:w-[380px] max-w-[calc(100vw-2rem)] h-[450px] bg-[#0c0c14] border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_15px_50px_rgba(0,0,0,0.8)] flex flex-col animate-in fade-in slide-in-from-bottom-5 duration-200">
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-blue-600/90 to-indigo-600/90 flex items-center justify-between border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="font-black text-xs uppercase tracking-widest text-white italic">REAL-TIME GLOBAL CHAT</span>
+              </div>
+              <button 
+                onClick={() => setShowStreamChat(false)}
+                className="w-7 h-7 rounded-full bg-black/20 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/35 cursor-pointer transition-colors active:scale-90"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            
+            {/* Chat Content */}
+            <div className="flex-1 overflow-hidden bg-slate-950/20">
+              <ChatBox channelId="global-stream-channel" />
+            </div>
+          </div>
+        )}
+        
+        {/* Toggle Button */}
+        <button
+          onClick={() => setShowStreamChat(!showStreamChat)}
+          className={cn(
+            "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white shadow-lg cursor-pointer transition-all duration-300 active:scale-105 active:scale-95",
+            showStreamChat 
+              ? "bg-zinc-800 hover:bg-zinc-700 shadow-black/40 rotate-90" 
+              : "bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 hover:scale-105 shadow-indigo-500/30"
+          )}
+          title="Open Stream Chat"
+        >
+          {showStreamChat ? <X size={20} /> : <MessageSquare size={22} />}
+        </button>
+      </div>
     </div>
   );
 };
