@@ -5,6 +5,8 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { FollowingStreamActivity } from '../components/FollowingStreamActivity';
+import { HotTakeDashboard } from '../components/HotTakeDashboard';
 
 interface MessageItem {
   id: string;
@@ -160,6 +162,7 @@ export default function ChatsPage() {
   const [spacesInvitations, setSpacesInvitations] = useState<any[]>([]);
   const [remindedIds, setRemindedIds] = useState<Record<string, boolean>>({});
   const [showSidebarDrawer, setShowSidebarDrawer] = useState(false);
+  const [activeSubView, setActiveSubView] = useState<'none' | 'hot-take' | 'following-activity'>('none');
 
   useEffect(() => {
     const qInvitations = query(collection(db, 'spaces_invitations'));
@@ -207,6 +210,14 @@ export default function ChatsPage() {
   };
 
   const currentAgencyId = profile?.role === 'agency' ? profile?.uid : profile?.agencyId;
+
+  if (activeSubView === 'hot-take') {
+    return <HotTakeDashboard onBack={() => setActiveSubView('none')} />;
+  }
+
+  if (activeSubView === 'following-activity') {
+    return <FollowingStreamActivity onBack={() => setActiveSubView('none')} />;
+  }
 
   return (
     <div className="flex flex-col bg-[#121212] h-full overflow-hidden select-none text-left">
@@ -384,81 +395,147 @@ export default function ChatsPage() {
               );
             })()}
 
+            {/* Missed Live Streams Story Row */}
+            <div className="px-4 pt-3 pb-1.5 border-b border-white/5 bg-zinc-950/20">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black text-pink-500 uppercase tracking-widest flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-pulse" />
+                  Missed Live Streams
+                </span>
+                <button 
+                  onClick={() => setActiveSubView('following-activity')}
+                  className="text-[9px] font-black uppercase text-[#00f2ff] hover:underline cursor-pointer"
+                >
+                  View All ➔
+                </button>
+              </div>
+              <div className="flex items-center gap-4 overflow-x-auto pb-1 scrollbar-hide">
+                {[
+                  { name: 'Creamy GB...', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120' },
+                  { name: '5kMIRACLE...', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120' },
+                  { name: 'bãbγfãcε...', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120' },
+                  { name: 'Sweet S...', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120' },
+                ].map((u, i) => (
+                  <div 
+                    key={i} 
+                    onClick={() => setActiveSubView('following-activity')}
+                    className="flex flex-col items-center gap-1 cursor-pointer shrink-0"
+                  >
+                    <div className="w-[42px] h-[42px] rounded-full p-[2px] bg-gradient-to-tr from-pink-500 to-purple-500">
+                      <img src={u.avatar} className="w-full h-full object-cover rounded-full border-2 border-[#121212]" alt="avatar" referrerPolicy="no-referrer" />
+                    </div>
+                    <span className="text-[8px] font-bold text-zinc-400 truncate max-w-[50px]">{u.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* General Chats List */}
             <div>
               {messages.map((msg) => (
-                <div 
-                  key={msg.id} 
-                  className="flex items-center gap-3 px-4 py-3 active:bg-white/5 transition-colors cursor-pointer border-b border-white/5"
-                  onClick={() => handleRowClick(msg)}
-                >
-                  {/* Avatar Section */}
+                <React.Fragment key={msg.id}>
                   <div 
-                    className="relative shrink-0"
-                    onClick={(e) => handleAvatarClick(e, msg)}
+                    className="flex items-center gap-3 px-4 py-3 active:bg-white/5 transition-colors cursor-pointer border-b border-white/5"
+                    onClick={() => handleRowClick(msg)}
                   >
-                    {msg.avatar ? (
-                      <div className={cn(
-                        "w-12 h-12 rounded-full overflow-hidden border-2 border-transparent",
-                        msg.isLive && "border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.3)]"
-                      )}>
-                        <img 
-                          src={msg.avatar} 
-                          alt={msg.name} 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-teal-800 flex items-center justify-center text-lg font-bold">
-                        {msg.name.charAt(0)}
-                      </div>
-                    )}
+                    {/* Avatar Section */}
+                    <div 
+                      className="relative shrink-0"
+                      onClick={(e) => handleAvatarClick(e, msg)}
+                    >
+                      {msg.avatar ? (
+                        <div className={cn(
+                          "w-12 h-12 rounded-full overflow-hidden border-2 border-transparent",
+                          msg.isLive && "border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.3)]"
+                        )}>
+                          <img 
+                            src={msg.avatar} 
+                            alt={msg.name} 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-teal-800 flex items-center justify-center text-lg font-bold">
+                          {msg.name.charAt(0)}
+                        </div>
+                      )}
 
-                    {/* Notification Badge */}
-                    {msg.unreadCount && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center border-2 border-[#121212]">
-                        <span className="text-[10px] font-bold text-white">{msg.unreadCount}</span>
-                      </div>
-                    )}
+                      {/* Notification Badge */}
+                      {msg.unreadCount && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center border-2 border-[#121212]">
+                          <span className="text-[10px] font-bold text-white">{msg.unreadCount}</span>
+                        </div>
+                      )}
 
-                    {/* Online Dot */}
-                    {msg.isOnline && !msg.isLive && (
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121212]" />
-                    )}
+                      {/* Online Dot */}
+                      {msg.isOnline && !msg.isLive && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121212]" />
+                      )}
 
-                    {/* Live Signal Icon */}
-                    {msg.isLive && (
-                      <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-[#00f2ff] rounded-full flex items-center justify-center border-2 border-[#121212]">
-                        <Signal size={9} className="text-black" />
+                      {/* Live Signal Icon */}
+                      {msg.isLive && (
+                        <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-[#00f2ff] rounded-full flex items-center justify-center border-2 border-[#121212]">
+                          <Signal size={9} className="text-black" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info Section */}
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center">
+                        <h3 className="text-sm font-bold truncate max-w-[150px] text-zinc-100">{msg.name}</h3>
+                        <div className="flex items-center">
+                          {msg.badges?.map((badge, idx) => (
+                            <Badge key={idx} badge={badge} />
+                          ))}
+                        </div>
                       </div>
-                    )}
+                      <p className="text-xs text-gray-400 truncate mt-0.5">{msg.lastMessage}</p>
+                    </div>
+
+                    {/* Right Side Section */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[10px] text-gray-600">{msg.time}</span>
+                      {msg.heartCount && (
+                        <div className="flex items-center gap-0.5 bg-pink-500/10 px-1.5 py-0.5 rounded-full border border-pink-500/20">
+                          <Heart size={8} className="text-pink-500 fill-pink-500" />
+                          <span className="text-[9px] font-bold text-pink-500">{msg.heartCount}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Info Section */}
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center">
-                      <h3 className="text-sm font-bold truncate max-w-[150px] text-zinc-100">{msg.name}</h3>
-                      <div className="flex items-center">
-                        {msg.badges?.map((badge, idx) => (
-                          <Badge key={idx} badge={badge} />
-                        ))}
+                  {/* Inject Hot Take 🔥 option directly beneath BINGO Official (msg.id === '1') */}
+                  {msg.id === '1' && (
+                    <div 
+                      onClick={() => setActiveSubView('hot-take')}
+                      className="flex items-center gap-3 px-4 py-3 bg-[#1c1c2a]/20 hover:bg-[#1c1c2a]/40 active:bg-white/5 transition-colors cursor-pointer border-b border-white/5 relative overflow-hidden group"
+                    >
+                      {/* Big Yellow speech bubble icon matching Image 1 */}
+                      <div className="relative shrink-0">
+                        <div className="w-12 h-12 bg-gradient-to-tr from-amber-400 via-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center border border-yellow-300/20 shadow-[0_4px_12px_rgba(245,158,11,0.2)] group-hover:scale-105 transition-transform">
+                          <span className="text-white text-2xl font-black italic font-mono">#</span>
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#121212] flex items-center justify-center text-[7px] font-bold">1</div>
+                      </div>
+                      
+                      {/* Hot Take Meta Info */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <div className="flex items-center gap-1">
+                          <h3 className="text-sm font-black text-zinc-100 flex items-center gap-1">
+                            Hot take <span className="text-sm">🔥</span>
+                          </h3>
+                        </div>
+                        <p className="text-xs text-zinc-400 truncate mt-0.5">World Cup 2026</p>
+                      </div>
+                      
+                      <div className="flex flex-col items-end shrink-0">
+                        <span className="text-[8px] font-black uppercase bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded tracking-wider animate-pulse">LIVE</span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 truncate mt-0.5">{msg.lastMessage}</p>
-                  </div>
-
-                  {/* Right Side Section */}
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className="text-[10px] text-gray-600">{msg.time}</span>
-                    {msg.heartCount && (
-                      <div className="flex items-center gap-0.5 bg-pink-500/10 px-1.5 py-0.5 rounded-full border border-pink-500/20">
-                        <Heart size={8} className="text-pink-500 fill-pink-500" />
-                        <span className="text-[9px] font-bold text-pink-500">{msg.heartCount}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  )}
+                </React.Fragment>
               ))}
             </div>
           </div>
