@@ -422,62 +422,17 @@ export default function PartyPage() {
     return list.sort((a, b) => (b.viewerCount || 0) - (a.viewerCount || 0));
   }, [mergedRooms, activeTab, selectedCountry]);
 
-  // Join handler: registers simulated room in Firestore dynamically on first click to provide full operational live experience
-  const handleJoinParty = async (room: any) => {
+  // Join handler: navigates to simulated / live party rooms
+  const handleJoinParty = (room: any) => {
     showToast(`Entering the Party: ${room.title}! 🥳`, 'success');
-    
-    if (room.id.startsWith('party_')) {
-      try {
-        await setDoc(doc(db, 'rooms', room.id), {
-          hostUid: room.hostUid,
-          hostName: room.hostName,
-          hostPhotoURL: room.hostPhotoURL,
-          title: room.title,
-          status: 'live',
-          type: room.type,
-          currentBeans: room.currentBeans || 1000,
-          viewerCount: room.viewerCount || 100,
-          likes: room.likes || 1500,
-          guests: room.guests || [],
-          seats: room.seats || generateMockSeats(room.type),
-          isPrivate: false,
-          pkStatus: 'idle',
-          createdAt: serverTimestamp()
-        }, { merge: true });
-      } catch (err) {
-        console.error("Error backing simulated party to firestore:", err);
-      }
-    }
-
-    navigate(`/room/${room.id}`);
+    navigate(`/room/${room.id}?from=party`);
   };
 
   // Join the currently active cycling followed streamer on the "One-Tap Mic On" trigger
-  const handleJoinFollowedStreamer = async () => {
+  const handleJoinFollowedStreamer = () => {
     const current = followedStreamers[currentFollowedIndex];
     showToast(`Connecting with followed host: ${current.name}! 🚀`, 'success');
-    
-    try {
-      await setDoc(doc(db, 'rooms', current.id), {
-        hostUid: `host_${current.id}`,
-        hostName: current.name,
-        hostPhotoURL: current.photoURL,
-        title: current.roomTitle,
-        status: 'live',
-        type: current.category === 'Voice' ? 'audio-live' : 'multi-guest-live',
-        currentBeans: 5200,
-        viewerCount: current.viewerCount,
-        likes: 2100,
-        guests: ['seat_user_1', 'seat_user_2'],
-        seats: generateMockSeats(current.category === 'Voice' ? 'audio-live' : 'multi-guest-live'),
-        isPrivate: false,
-        createdAt: serverTimestamp()
-      }, { merge: true });
-    } catch (err) {
-      console.error("Error initializing followed streamer room:", err);
-    }
-
-    navigate(`/room/${current.id}`);
+    navigate(`/room/${current.id}?from=party`);
   };
 
   const activeFollowed = followedStreamers[currentFollowedIndex];

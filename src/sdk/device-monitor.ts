@@ -3,7 +3,7 @@
  * Monitors CPU load (via PerformanceObserver / Frame Drops), Battery levels, and Network speeds.
  */
 
-export type DeviceEvent = 'cpuHigh' | 'batteryLow' | 'networkPoor';
+export type DeviceEvent = 'cpuHigh' | 'batteryLow' | 'networkPoor' | 'networkGood';
 export type DeviceCallback = (data: any) => void;
 
 export class DeviceMonitor {
@@ -11,7 +11,8 @@ export class DeviceMonitor {
   private callbacks: Record<DeviceEvent, DeviceCallback[]> = {
     cpuHigh: [],
     batteryLow: [],
-    networkPoor: []
+    networkPoor: [],
+    networkGood: []
   };
   private currentCpu = 0;
   private currentBattery = 100;
@@ -100,11 +101,22 @@ export class DeviceMonitor {
     const nav = navigator as any;
     const conn = nav.connection || nav.mozConnection || nav.webkitConnection;
     if (conn) {
+      const rtt = conn.rtt || 0;
+      const downlink = conn.downlink || 0; // in Mbps
+      const effectiveType = conn.effectiveType || '';
+
       if (conn.saveData) {
-        this.emit('networkPoor', 'saveData-enabled');
+        this.emit('networkPoor', { reason: 'saveData-enabled', rtt, downlink, effectiveType });
+        return;
       }
-      if (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g') {
-        this.emit('networkPoor', conn.effectiveType);
+
+      // Check for throttled or poor network (including 3G or heavy congestion)
+      if (effectiveType === 'slow-2g' || effectiveType === '2g' || (downlink > 0 && downlink < 1.0) || rtt > 350) {
+        this.emit('networkPoor', { reason: 'extremely-poor', rtt, downlink, effectiveType });
+      } else if (effectiveType === '3g' || (downlink > 0 && downlink < 2.5) || rtt > 200) {
+        this.emit('networkPoor', { reason: 'moderate-3g', rtt, downlink, effectiveType });
+      } else if ((effectiveType === '4g' || effectiveType === 'wifi') || downlink >= 3.0 || (rtt > 0 && rtt < 150)) {
+        this.emit('networkGood', { rtt, downlink, effectiveType });
       }
     }
   }

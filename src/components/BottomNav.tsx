@@ -1,15 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { Home as HomeIcon, Users, Video, MessageCircle, User as UserIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
+// @ts-ignore
+import partyHornImg from '../assets/images/party_horn_icon_1781205987775.jpg';
 
 export const BottomNav = React.memo(() => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isLight = theme === 'light';
+
+  const [transparentPartySrc, setTransparentPartySrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = partyHornImg;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        try {
+          const imgData = ctx.getImageData(0, 0, img.width, img.height);
+          const data = imgData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            // Remove the pitch black background
+            if (r < 28 && g < 28 && b < 28) {
+              data[i + 3] = 0;
+            } else {
+              // Edge feathering to eliminate blocky black pixels
+              const maxVal = Math.max(r, g, b);
+              if (maxVal < 55) {
+                const alpha = (maxVal - 28) / 27;
+                data[i + 3] = Math.max(0, Math.min(255, Math.floor(alpha * 255)));
+              }
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+          setTransparentPartySrc(canvas.toDataURL());
+        } catch (e) {
+          console.error("Failsafe: fallback to default image if tainted canvas/CORS triggers inside bottom nav", e);
+          setTransparentPartySrc(partyHornImg);
+        }
+      }
+    };
+  }, []);
 
   const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live';
   if (isStreamPage) return null;
@@ -35,14 +78,34 @@ export const BottomNav = React.memo(() => {
         <button 
           onClick={() => navigate('/party')}
           className={cn(
-            "flex flex-col items-center gap-0 transition-colors", 
+            "flex flex-col items-center gap-0 px-2 transition-colors", 
             location.pathname === '/party' 
-              ? (isLight ? "text-black" : "text-white") 
-              : (isLight ? "text-black/30" : "text-white/40")
+              ? "text-amber-500 font-extrabold" 
+              : (isLight ? "text-black/40" : "text-white/40")
           )}
         >
-          <Users size={20} />
-          <span className="text-[8px] font-bold">Party</span>
+          <motion.div 
+            animate={{ 
+              scale: location.pathname === '/party' ? 1.25 : 1,
+              rotate: location.pathname === '/party' ? [0, -6, 6, -3, 3, 0] : 0
+            }}
+            transition={{
+              scale: { type: 'spring', stiffness: 300, damping: 18 },
+              rotate: { duration: 0.5, ease: 'easeInOut' }
+            }}
+            className="w-[28px] h-[28px] relative shrink-0 transition-all duration-300"
+          >
+            <img 
+              src={transparentPartySrc || partyHornImg} 
+              alt="Party" 
+              className={cn(
+                "w-full h-full object-contain transition-all duration-300",
+                location.pathname === '/party' ? "brightness-115 saturate-115" : "opacity-75"
+              )}
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+          <span className="text-[8px] font-bold mt-[-1px]">Party</span>
         </button>
         <button 
           onClick={() => navigate('/go-live')}

@@ -5,6 +5,7 @@
 
 import { UnifiedStreamingSDK } from './index';
 import AgoraRTC, { IAgoraRTCClient, ILocalVideoTrack, ILocalAudioTrack } from 'agora-rtc-sdk-ng';
+import { getAgoraAudioTrackInitOptions } from '../lib/audioConfig';
 
 export type IntegrationMode = 'your-sdk' | 'agora';
 
@@ -29,6 +30,7 @@ export class UnifiedStreamingClient {
   
   private agoraVideoTrack: ILocalVideoTrack | null = null;
   private agoraAudioTrack: ILocalAudioTrack | null = null;
+  private isStopped = false;
 
   constructor() {}
 
@@ -47,7 +49,18 @@ export class UnifiedStreamingClient {
         throw new Error(`Failed to request stream config: ${response.statusText}`);
       }
 
+      if (this.isStopped) {
+        console.log('🛑 [UnifiedStreamingClient] startStream aborted: stream stopped during configuration request.');
+        return { mode: null, stream: null, client: null };
+      }
+
       const data: StreamConfigResponse = await response.json();
+      
+      if (this.isStopped) {
+        console.log('🛑 [UnifiedStreamingClient] startStream aborted: stream stopped after configuration parsing.');
+        return { mode: null, stream: null, client: null };
+      }
+
       this.mode = data.type;
 
       console.log(`📡 [UnifiedStreamingClient] Routing feed to: ${this.mode.toUpperCase()}`);
@@ -64,11 +77,19 @@ export class UnifiedStreamingClient {
           if (this.onNetworkRestriction) this.onNetworkRestriction(warning);
         };
 
+        if (this.isStopped || !this.customClient) {
+          return { mode: null, stream: null, client: null };
+        }
+
         await this.customClient.init(userId, {
           video: options.video,
           audio: options.audio,
           isHost
         });
+
+        if (this.isStopped || !this.customClient) {
+          return { mode: null, stream: null, client: null };
+        }
 
         await this.customClient.joinRoom(channelName);
         return {
@@ -81,6 +102,21 @@ export class UnifiedStreamingClient {
         this.agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
         await this.agoraClient.setClientRole(isHost ? 'host' : 'audience');
 
+        // Configure broadcaster fallbacks
+        try {
+          if (isHost) {
+            await this.agoraClient.enableDualStream();
+            await (this.agoraClient as any).setLocalPublishFallbackOption(1); // 1 = Audio-only fallback on poor uplink
+            console.log('[UnifiedStreamingClient] Enabled dual stream publishing and uplink audio-only fallback option.');
+          }
+        } catch (err) {
+          console.warn('[UnifiedStreamingClient] Local publisher fallback configs failed:', err);
+        }
+
+        if (this.isStopped || !this.agoraClient) {
+          return { mode: null, stream: null, client: null };
+        }
+
         await this.agoraClient.join(
           data.config.appId || '',
           data.config.channel || channelName,
@@ -88,18 +124,34 @@ export class UnifiedStreamingClient {
           data.config.uid || 0
         );
 
+        if (this.isStopped || !this.agoraClient) {
+          try {
+            await this.agoraClient.leave();
+          } catch (e) {}
+          return { mode: null, stream: null, client: null };
+        }
+
         let localStream: MediaStream | null = null;
 
         if (isHost) {
-          // Setup media tracks
-          this.agoraAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          // Setup media tracks with customized pin-drop / studio acoustic fidelity
+          this.agoraAudioTrack = await AgoraRTC.createMicrophoneAudioTrack(getAgoraAudioTrackInitOptions());
           
+          if (this.isStopped) {
+            if (this.agoraAudioTrack) this.agoraAudioTrack.close();
+            return { mode: null, stream: null, client: null };
+          }
+
           try {
             this.agoraVideoTrack = await AgoraRTC.createCameraVideoTrack({
               encoderConfig: '720p_1'
             });
           } catch (trackErr) {
             console.warn('[UnifiedStreamingClient] Cam access denied. Creating custom color canvas track.');
+            if (this.isStopped) {
+              if (this.agoraAudioTrack) this.agoraAudioTrack.close();
+              return { mode: null, stream: null, client: null };
+            }
             const canvas = document.createElement('canvas');
             canvas.width = 640;
             canvas.height = 480;
@@ -116,12 +168,30 @@ export class UnifiedStreamingClient {
             }
           }
 
+          if (this.isStopped) {
+            if (this.agoraAudioTrack) this.agoraAudioTrack.close();
+            if (this.agoraVideoTrack) this.agoraVideoTrack.close();
+            try {
+              await this.agoraClient.leave();
+            } catch (e) {}
+            return { mode: null, stream: null, client: null };
+          }
+
           const tracksToPublish = [];
           if (this.agoraAudioTrack) tracksToPublish.push(this.agoraAudioTrack);
           if (this.agoraVideoTrack) tracksToPublish.push(this.agoraVideoTrack);
 
           if (tracksToPublish.length > 0) {
             await this.agoraClient.publish(tracksToPublish);
+          }
+
+          if (this.isStopped) {
+            if (this.agoraAudioTrack) this.agoraAudioTrack.close();
+            if (this.agoraVideoTrack) this.agoraVideoTrack.close();
+            try {
+              await this.agoraClient.leave();
+            } catch (e) {}
+            return { mode: null, stream: null, client: null };
           }
 
           // Build standard modern MediaStream for preview compatibility
@@ -141,6 +211,9 @@ export class UnifiedStreamingClient {
         };
       }
     } catch (err) {
+      if (this.isStopped) {
+        return { mode: null, stream: null, client: null };
+      }
       console.error('[UnifiedStreamingClient] Stream setup routing failed:', err);
       // Clean fallback so UI doesn't crash on network or connection errors
       this.mode = 'your-sdk';
@@ -151,7 +224,16 @@ export class UnifiedStreamingClient {
         if (this.onNetworkRestriction) this.onNetworkRestriction(warning);
       };
 
+      if (this.isStopped || !this.customClient) {
+        return { mode: null, stream: null, client: null };
+      }
+
       const localStream = await this.customClient.init(userId, { video: options.video, audio: options.audio, isHost });
+      
+      if (this.isStopped || !this.customClient) {
+        return { mode: null, stream: null, client: null };
+      }
+
       await this.customClient.joinRoom(channelName);
       return {
         mode: this.mode,
@@ -162,6 +244,7 @@ export class UnifiedStreamingClient {
   }
 
   async stopStream() {
+    this.isStopped = true;
     console.log(`🔌 [UnifiedStreamingClient] Stopping stream and releasing allocation...`);
 
     if (this.mode === 'your-sdk' && this.customClient) {

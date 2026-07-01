@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Settings, Heart, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Settings, Heart, ChevronRight, HelpCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { FanGroupFAQModal } from '../components/FanGroupFAQModal';
 
 export default function FansGroupPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'New' | 'Hot'>('New');
   const [showSettings, setShowSettings] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
   const [autoJoin, setAutoJoin] = useState(true);
   const [autoMedal, setAutoMedal] = useState(true);
 
@@ -20,12 +22,21 @@ export default function FansGroupPage() {
             <ChevronLeft size={24} className="text-gray-800" />
           </button>
           <h1 className="text-lg font-black text-gray-800 tracking-tight">Fan group i joined</h1>
-          <button 
-            onClick={() => setShowSettings(true)}
-            className="text-sm font-bold text-gray-400 active:opacity-60 transition-opacity"
-          >
-            Manage
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setShowFaq(true)}
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors active:scale-95 cursor-pointer"
+              title="Fan Group Rules & Guide"
+            >
+              <HelpCircle size={18} strokeWidth={2.5} />
+            </button>
+            <button 
+              onClick={() => setShowSettings(true)}
+              className="text-sm font-bold text-gray-400 active:opacity-60 transition-opacity cursor-pointer"
+            >
+              Manage
+            </button>
+          </div>
         </div>
         
         <div className="flex gap-8 mt-6 px-2">
@@ -55,7 +66,17 @@ export default function FansGroupPage() {
         <p className="text-gray-400 text-sm font-bold leading-relaxed max-w-[200px]">
           You have not joined any fan groups. Go to the live room and get your first badge.
         </p>
+        <button
+          onClick={() => setShowFaq(true)}
+          className="mt-6 px-6 py-3 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-extrabold text-[11px] uppercase tracking-wider relative flex items-center gap-2 group hover:scale-102 active:scale-95 transition-all shadow-[0_4px_16px_rgba(124,58,237,0.3)] cursor-pointer"
+        >
+          <HelpCircle size={14} strokeWidth={2.5} />
+          <span>Rules & Guide FAQ</span>
+        </button>
       </div>
+
+      {/* Fan Group FAQ Rules Modal */}
+      <FanGroupFAQModal isOpen={showFaq} onClose={() => setShowFaq(false)} />
 
       {/* Settings Modal */}
       <AnimatePresence>

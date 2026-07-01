@@ -25,11 +25,11 @@ const ThreeDStar: React.FC<{
   
   // Custom text colors and shadow filters
   let textFill = "#624a00";
-  let borderFilter = "drop-shadow(0px 3px 5px rgba(245,158,11,0.45))";
+  let borderFilter = "drop-shadow(0px 3px 5px rgba(245,158,11,0.455))";
 
   if (isPurple) {
     textFill = "#3f007a";
-    borderFilter = "drop-shadow(0px 3px 5px rgba(186,104,200,0.45))";
+    borderFilter = "drop-shadow(0px 3px 5px rgba(186,104,200,0.455))";
   } else if (isSilver) {
     textFill = "#263238";
     borderFilter = "drop-shadow(0px 2px 4px rgba(144,164,174,0.35))";
@@ -124,7 +124,6 @@ const ThreeDStar: React.FC<{
         />
 
         {/* Layer 5: High-intensity wet-reflecting glass ellipsoid arcs */}
-        {/* Soft, broad light beam reflecting from upper left */}
         <ellipse 
           cx="36" 
           cy="23" 
@@ -149,30 +148,17 @@ const ThreeDStar: React.FC<{
           clipPath={`url(#chubbyStarClip-${uniqueId})`}
           className="pointer-events-none"
         />
-
-        {/* Auxiliary micro specular reflections representing studio key lighting */}
-        <circle cx="28" cy="38" r="2.5" fill="#ffffff" opacity="0.5" className="pointer-events-none" />
-        <circle cx="68" cy="38" r="2.2" fill="#ffffff" opacity="0.45" className="pointer-events-none" />
-        <circle cx="50" cy="15" r="3" fill="#ffffff" opacity="0.65" className="pointer-events-none" />
-
-        {/* Center count circle containing state number label */}
-        {number !== "" && (
-          <>
-            <circle cx="50" cy="51" r="14.5" fill="white" fillOpacity="0.88" />
-            <text 
-              x="50" 
-              y="56.5" 
-              textAnchor="middle" 
-              fill={textFill} 
-              fontSize="19" 
-              fontWeight="900" 
-              fontFamily="system-ui, sans-serif"
-            >
-              {number}
-            </text>
-          </>
-        )}
       </svg>
+      
+      {/* Absolute overlay count label strictly formatted inside the chubby center */}
+      {number !== "" && (
+        <span 
+          style={{ color: textFill }} 
+          className="absolute font-black text-[9.5px] tracking-tighter drop-shadow-sm select-none leading-none z-10 pt-1"
+        >
+          {number}
+        </span>
+      )}
     </div>
   );
 };
@@ -230,9 +216,97 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
   
   // Custom fallback exactly like original context
   const beansCurrent = roomBeans !== undefined ? roomBeans : 174;
-  
-  // Calculation based on step milestones
-  const contributionValue = Math.min(beansCurrent % 50 === 0 && beansCurrent > 0 ? 50 : beansCurrent % 50, 50);
+
+  // Fully-featured star mapping matching Bigo Live's actual reward scaling
+  const STAR_LEVELS = [
+    { level: 1, target: 50, gifter: 2, heat: 50, luckyCoins: "None", breakthrough: false },
+    { level: 2, target: 250, gifter: 3, heat: 150, luckyCoins: "10-800", breakthrough: false },
+    { level: 3, target: 1000, gifter: 4, heat: 300, luckyCoins: "10-1000", breakthrough: true,
+      rewards: [
+        { name: "Area Banner 3%", target: "Host", subText: "Host", icon: "📱", color: "from-blue-500 to-indigo-600" },
+        { name: "2-200 Coins", target: "Host", subText: "Host", icon: "🪙", color: "from-amber-400 to-yellow-600" },
+        { name: "Item fragment", target: "User", subText: "User", icon: "🧩", color: "from-purple-400 to-pink-500" },
+        { name: "Item fragment", target: "User", subText: "User", icon: "🧩", color: "from-emerald-400 to-teal-500" }
+      ]
+    },
+    { level: 4, target: 3000, gifter: 5, heat: 500, luckyCoins: "20-1000", breakthrough: true,
+      rewards: [
+        { name: "Area Banner 12%", target: "Host", subText: "Host", icon: "📱", color: "from-blue-500 to-indigo-600" },
+        { name: "10-200 Coins", target: "Host", subText: "Host", icon: "🪙", color: "from-amber-400 to-yellow-600" },
+        { name: "Item fragment x2", target: "User", subText: "User", icon: "🧩", color: "from-purple-400 to-pink-500" },
+        { name: "Item fragment x2", target: "User", subText: "User", icon: "🧩", color: "from-emerald-400 to-teal-500" }
+      ]
+    },
+    { level: 5, target: 8000, gifter: 6, heat: 1000, luckyCoins: "50-1000", breakthrough: true,
+      rewards: [
+        { name: "Area Banner 15%", target: "Host", subText: "Host", icon: "📱", color: "from-blue-500 to-indigo-600" },
+        { name: "20-200 Coins", target: "Host", subText: "Host", icon: "🪙", color: "from-amber-400 to-yellow-600" },
+        { name: "Item fragment x3", target: "User", subText: "User", icon: "🧩", color: "from-purple-400 to-pink-500" },
+        { name: "Item fragment x3", target: "User", subText: "User", icon: "🧩", color: "from-emerald-400 to-teal-500" }
+      ]
+    },
+    { level: 6, target: 15000, gifter: 8, heat: 1500, luckyCoins: "100-1000", breakthrough: true,
+      rewards: [
+        { name: "Area Banner 30%", target: "Host", subText: "Host", icon: "📱", color: "from-blue-500 to-indigo-600" },
+        { name: "40-200 Coins", target: "Host", subText: "Host", icon: "🪙", color: "from-amber-400 to-yellow-600" },
+        { name: "Approach animation", target: "User", subText: "User", icon: "🏎️", color: "from-purple-400 to-pink-500" },
+        { name: "Avatar frame X1", target: "User", subText: "User", icon: "👤", color: "from-emerald-400 to-teal-500" }
+      ],
+      userRewards: {
+        coins: 30,
+        sunHearts: 15,
+        items: ["🧩 Fragment X1", "🧩 Fragment X1", "📦 Fragment X3"]
+      }
+    },
+    { level: 10, target: 50000, gifter: 15, heat: 5000, luckyCoins: "200-1500", breakthrough: true,
+      rewards: [
+        { name: "Area Banner 30%", target: "Host", subText: "Host", icon: "📱", color: "from-blue-500 to-indigo-600" },
+        { name: "40-200 Coins", target: "Host", subText: "Host", icon: "🪙", color: "from-amber-400 to-yellow-600" },
+        { name: "Approach animation", target: "User", subText: "User", icon: "🏎️", color: "from-purple-400 to-pink-500" },
+        { name: "Avatar frame X1", target: "User", subText: "User", icon: "👤", color: "from-emerald-400 to-teal-500" }
+      ],
+      userRewards: {
+        coins: 40,
+        sunHearts: 20,
+        items: ["🧩 Fragment X2", "🧩 Fragment X1", "📦 Fragment X3"]
+      }
+    },
+    { level: 14, target: 200000, gifter: 30, heat: 15000, luckyCoins: "200-3000", breakthrough: true,
+      rewards: [
+        { name: "Area Banner 30%", target: "Host", subText: "Host", icon: "📱", color: "from-blue-500 to-indigo-600" },
+        { name: "40-200 Coins", target: "Host", subText: "Host", icon: "🪙", color: "from-amber-400 to-yellow-600" },
+        { name: "Approach animation", target: "User", subText: "User", icon: "🏎️", color: "from-purple-400 to-pink-500" },
+        { name: "Avatar frame X1", target: "User", subText: "User", icon: "👤", color: "from-emerald-400 to-teal-500" }
+      ],
+      userRewards: {
+        coins: 50,
+        sunHearts: 25,
+        items: ["🧩 Fragment X3", "🧩 Fragment X3", "📦 Fragment X5"]
+      }
+    }
+  ];
+
+  // Dynamically calculate which star challenge is underway in the room right now
+  const currentUnderwayStar = STAR_LEVELS.find(lvl => beansCurrent < lvl.target)?.level || 14;
+
+  // Track the star level currently selected for exploration (defaults to underway level when opened)
+  const [selectedStar, setSelectedStar] = useState<number>(1);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setSelectedStar(currentUnderwayStar);
+    }
+  }, [isOpen, currentUnderwayStar]);
+
+  const activeStarData = STAR_LEVELS.find(s => s.level === selectedStar) || STAR_LEVELS[0];
+
+  // Compute contribution progress
+  const contributionVal = Math.min(beansCurrent, activeStarData.target);
+  const contributionPct = (contributionVal / activeStarData.target) * 100;
+
+  // Compute realistic gifter count based on the streamer support level
+  const gifterProgress = Math.min(Math.max(1, Math.floor(beansCurrent / 120) + 1), activeStarData.gifter);
+  const gifterPct = (gifterProgress / activeStarData.gifter) * 100;
 
   // Generate date list exactly correlating to May context of screenshot
   const pastDates = ["05.18", "05.19", "05.20", "05.21", "05.22", "05.23", "05.24"];
@@ -289,9 +363,9 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                 {/* Daily Task Tab */}
                 <button 
                   onClick={() => setActiveTab('daily')}
-                  className="relative pb-2.5 pt-1.5 font-black text-sm select-none outline-none cursor-pointer"
+                  className="relative pb-2.5 pt-1.5 font-black text-xs md:text-sm select-none outline-none cursor-pointer"
                 >
-                  <span className={activeTab === 'daily' ? 'text-slate-900 text-sm font-black' : 'text-slate-400 font-bold'}>
+                  <span className={activeTab === 'daily' ? 'text-slate-900 text-xs md:text-sm font-black' : 'text-slate-400 font-bold'}>
                     Daily Task
                   </span>
                   {activeTab === 'daily' && (
@@ -305,14 +379,14 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                 {/* Real-time Heat List Tab */}
                 <button 
                   onClick={() => setActiveTab('heat')}
-                  className="relative pb-2.5 pt-1.5 font-black text-sm flex items-center gap-1.5 select-none outline-none cursor-pointer"
+                  className="relative pb-2.5 pt-1.5 font-black text-xs md:text-sm flex items-center gap-1.5 select-none outline-none cursor-pointer"
                 >
-                  <span className={activeTab === 'heat' ? 'text-slate-900 text-sm font-black' : 'text-slate-400 font-bold'}>
+                  <span className={activeTab === 'heat' ? 'text-slate-900 text-xs md:text-sm font-black' : 'text-slate-400 font-bold'}>
                     Real-time Heat List
                   </span>
                   {/* Cyan bar chart mini asset */}
-                  <span className="flex items-end gap-0.5 h-3 pb-0.5 select-none">
-                    <span className="w-[2px] h-1.5 bg-[#00e5ff] rounded-full animate-pulse" />
+                  <span className="flex items-end gap-0.5 h-3 pb-0.5 select-none animate-bounce">
+                    <span className="w-[2px] h-1.5 bg-[#00e5ff] rounded-full" />
                     <span className="w-[2px] h-3 bg-[#00e5ff] rounded-full" />
                     <span className="w-[2px] h-2 bg-[#00e5ff] rounded-full" />
                   </span>
@@ -325,7 +399,7 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                 </button>
               </div>
 
-              {/* Seamless flat X button with no circular bg */}
+              {/* Seamless flat X button */}
               <button 
                 onClick={onClose}
                 className="hover:scale-105 active:scale-90 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all p-1 cursor-pointer"
@@ -334,68 +408,92 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
               </button>
             </div>
 
-            {/* Scrollable Container with exact off-whites */}
+            {/* Scrollable Container */}
             <div className="overflow-y-auto no-scrollbar pb-6 px-4 pt-4 space-y-4 flex-1">
               
               {activeTab === 'daily' ? (
                 <>
                   {/* Starry Purple Gradient Card Banner Box */}
                   <div className="bg-gradient-to-br from-[#7e4aff] via-[#6d39fa] to-[#5926e8] rounded-[20px] p-3.5 text-white shadow-[0_8px_24px_rgba(110,57,250,0.22)] relative overflow-hidden">
-                    {/* Background glow graphics mimicking ambient stars */}
+                    {/* Background glow graphics */}
                     <div className="absolute right-[-10%] top-[-10%] w-24 h-24 bg-white/5 rounded-full blur-2xl" />
                     
                     <div className="flex items-start justify-between mb-2 relative z-10">
-                      <div className="flex items-center gap-1">
-                        <span className="font-extrabold text-xs md:text-sm tracking-tight">Challenging 1 star</span>
-                        <HelpCircle size={12} className="opacity-70 cursor-pointer hover:opacity-100" />
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-extrabold text-xs md:text-sm tracking-tight text-yellow-200">
+                            {selectedStar === currentUnderwayStar 
+                              ? `Challenging ${selectedStar} star` 
+                              : selectedStar < currentUnderwayStar 
+                                ? `Star ${selectedStar} Completed` 
+                                : `Challenge ${selectedStar} star`
+                            }
+                          </span>
+                          <HelpCircle size={12} className="opacity-70 cursor-pointer hover:opacity-100" />
+                        </div>
+                        
+                        {/* Underway notification stripe warning like Bigo */}
+                        {selectedStar !== currentUnderwayStar && (
+                          <button 
+                            onClick={() => setSelectedStar(currentUnderwayStar)}
+                            className="text-[9.5px] text-pink-200 hover:underline flex items-center gap-0.5 tracking-tight mt-0.5 outline-none font-bold"
+                          >
+                            <span>⚠️ Star {currentUnderwayStar} Challenge is underway. Go &gt;</span>
+                          </button>
+                        )}
                       </div>
                       
-                      {/* Frosted translucent circular frame enclosing the large 3D lavender star (squeezed by 30%) */}
+                      {/* Frosted frame */}
                       <div className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center shadow-[inset_0_3px_8px_rgba(255,255,255,0.18)]">
-                        <ThreeDStar color="purple" number="" size="w-9 h-9" />
+                        <ThreeDStar color={selectedStar <= currentUnderwayStar ? "yellow" : "purple"} number="" size="w-9 h-9" />
                       </div>
                     </div>
 
-                    {/* Horizontal Milestones Step timeline lines (squeezed by 30%) */}
-                    <div className="relative my-4 px-1.5">
-                      {/* Connection bar route outline */}
-                      <div className="absolute top-1/2 -translate-y-1/2 left-3 right-5 h-[2px] bg-white/15 z-0 rounded-full" />
+                    {/* Step Timeline showing all levels as clickable buttons */}
+                    <div className="relative my-4 px-1.5 bg-black/10 py-2.5 rounded-xl border border-white/5">
+                      <div className="absolute top-[28px] left-3 right-5 h-[2px] bg-white/15 z-0 rounded-full" />
                       
-                      <div className="relative flex justify-between items-center z-10 select-none">
-                        {/* Step 1 (Active Yellow Gold 3D Star) */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDStar color="yellow" number="1" size="w-6.5 h-6.5" />
-                        </div>
+                      <div className="relative flex justify-between items-center z-10 select-none overflow-x-auto no-scrollbar gap-2.5">
+                        {STAR_LEVELS.map((item) => {
+                          const isCurrent = item.level === currentUnderwayStar;
+                          const isExplored = item.level === selectedStar;
+                          const isPassed = item.level < currentUnderwayStar;
+                          const isChest = item.level >= 6;
 
-                        {/* Step 2 (Glossy Lavender 3D Star) */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDStar color="purple" number="2" size="w-5 h-5" className="opacity-80" />
-                        </div>
+                          return (
+                            <button
+                              key={item.level}
+                              onClick={() => setSelectedStar(item.level)}
+                              className={`flex flex-col items-center shrink-0 p-1.5 rounded-xl transition-all duration-200 relative focus:outline-none ${
+                                isExplored 
+                                  ? 'bg-white/20 scale-105 border border-white/30 shadow-md transform -translate-y-1' 
+                                  : 'hover:bg-white/5 active:scale-95'
+                              }`}
+                            >
+                              {/* Glowing Ring Core on underway / explored steps */}
+                              {isCurrent && (
+                                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                </span>
+                              )}
 
-                        {/* Step 3 */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDStar color="purple" number="3" size="w-5 h-5" className="opacity-80" />
-                        </div>
-
-                        {/* Step 4 */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDStar color="purple" number="4" size="w-5 h-5" className="opacity-80" />
-                        </div>
-
-                        {/* Step 5 */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDStar color="purple" number="5" size="w-5 h-5" className="opacity-80" />
-                        </div>
-
-                        {/* Milestone 6 Chest */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDChest completed={false} size="w-5 h-5" className="opacity-80" />
-                        </div>
-
-                        {/* Milestone 7 Chest (Cropped visual edge like BINGO) */}
-                        <div className="flex flex-col items-center">
-                          <ThreeDChest completed={false} size="w-5 h-5" className="opacity-45 transform translate-x-1" />
-                        </div>
+                              {isChest ? (
+                                <ThreeDChest completed={isPassed || isCurrent} size="w-5.5 h-5.5" />
+                              ) : (
+                                <ThreeDStar 
+                                  color={isPassed || isCurrent ? "yellow" : "purple"} 
+                                  number={item.level} 
+                                  size="w-5.5 h-5.5" 
+                                />
+                              )}
+                              
+                              <span className="text-[8px] mt-1 font-bold opacity-90 block tracking-tight text-white/95">
+                                {isChest ? `L${item.level}` : `S${item.level}`}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -406,39 +504,113 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                         <span className="block text-[9px] text-white/70 font-bold mb-1">Contribution value</span>
                         <div className="w-full h-1 bg-white/15 rounded-full overflow-hidden">
                           <div 
-                            style={{ width: `${(contributionValue / 50) * 100}%` }} 
-                            className="h-full bg-gradient-to-r from-violet-300 via-pink-200 to-white rounded-full" 
+                            style={{ width: `${contributionPct}%` }} 
+                            className="h-full bg-gradient-to-r from-violet-300 via-pink-200 to-white rounded-full transition-all duration-500" 
                           />
                         </div>
-                        <span className="block text-[9px] text-cyan-200 font-extrabold mt-1">
-                          {contributionValue}/50
+                        <span className="block text-[9.5px] text-cyan-200 font-extrabold mt-1 tracking-tight">
+                          {contributionVal}/{activeStarData.target} beans
                         </span>
                       </div>
 
                       {/* Gifter Box */}
                       <div className="bg-black/12 rounded-lg p-2.5 border border-white/5 pb-2">
-                        <span className="block text-[9px] text-white/70 font-bold mb-1">Gifter</span>
+                        <span className="block text-[9px] text-white/70 font-bold mb-1 font-sans">Gifter support</span>
                         <div className="w-full h-1 bg-white/15 rounded-full overflow-hidden">
                           <div 
-                            style={{ width: `${(1 / 2) * 100}%` }} 
-                            className="h-full bg-gradient-to-r from-violet-300 via-pink-200 to-white rounded-full" 
+                            style={{ width: `${gifterPct}%` }} 
+                            className="h-full bg-gradient-to-r from-violet-300 via-pink-200 to-white rounded-full transition-all duration-500" 
                           />
                         </div>
-                        <span className="block text-[9px] text-cyan-200 font-extrabold mt-1">
-                          1/2
+                        <span className="block text-[9.5px] text-cyan-200 font-extrabold mt-1 tracking-tight">
+                          {gifterProgress}/{activeStarData.gifter} gifters
                         </span>
                       </div>
                     </div>
 
-                    {/* Host's reward thin stripe with bottom reward capsule */}
-                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between">
-                      <span className="text-[10px] text-white/75 font-bold">Host's reward</span>
-                      <div className="bg-black/20 px-2 py-0.5 rounded-full text-white text-[9.5px] flex items-center gap-1 font-extrabold">
+                    {/* Host's reward and details */}
+                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between font-sans">
+                      <div className="flex flex-col">
+                        <span className="text-[9.5px] text-white/75 font-semibold leading-none">Selected level host reward:</span>
+                        {activeStarData.luckyCoins !== "None" && (
+                          <span className="text-[9px] text-yellow-200 mt-0.5 leading-none">Coins: {activeStarData.luckyCoins}</span>
+                        )}
+                      </div>
+                      <div className="bg-black/20 px-2.5 py-0.5 rounded-full text-white text-[9.5px] flex items-center gap-1 font-extrabold border border-white/10 shrink-0">
                         <span>🔥</span>
-                        <span>50</span>
+                        <span>{activeStarData.heat} Heat</span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Users' bonus reward bucket - Present on Level 6, 10, 14 */}
+                  {activeStarData.userRewards && (
+                    <div className="bg-amber-500/10 border border-amber-500/15 rounded-2xl p-3 shadow-sm text-yellow-950 font-sans">
+                      <h4 className="font-extrabold text-[10.5px] tracking-tight uppercase flex items-center gap-1 text-amber-800">
+                        <span>🎁</span> Users' breakthrough reward bonus
+                      </h4>
+                      <p className="text-[9px] text-amber-900 mt-1 leading-normal font-semibold">
+                        Supporters who assist in passing Star {activeStarData.level} will earn:
+                      </p>
+                      <div className="grid grid-cols-3 gap-1.5 mt-2">
+                        <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200 text-center flex flex-col items-center justify-center">
+                          <span className="text-xs">🪙</span>
+                          <span className="text-[9px] font-black text-amber-950 mt-0.5">{activeStarData.userRewards.coins} Lucky Coins</span>
+                        </div>
+                        <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200 text-center flex flex-col items-center justify-center">
+                          <span className="text-xs">❤️</span>
+                          <span className="text-[9px] font-black text-amber-950 mt-0.5">{activeStarData.userRewards.sunHearts} Intimacy Point</span>
+                        </div>
+                        <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200 text-center flex flex-col items-center justify-center">
+                          <span className="text-xs">📦</span>
+                          <span className="text-[9px] font-black text-amber-950 mt-0.5 truncate w-full">Fragment chest</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Breakthrough Rewards Panels (Star 3, 4, 5, 6, 10, 14) */}
+                  {activeStarData.breakthrough ? (
+                    <div className="bg-white rounded-[24px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.015)] border border-slate-100/80 font-sans">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-slate-800 font-extrabold text-[11px] tracking-wide uppercase px-1">
+                          Bonus of breaking through to {activeStarData.level} stars
+                        </h4>
+                        <span className="text-[9px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded-full select-none shrink-0 border border-indigo-100">Milestone</span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2">
+                        {activeStarData.rewards?.map((item, idx) => (
+                          <div 
+                            key={idx} 
+                            className="bg-slate-50 border border-slate-100 rounded-xl p-2 text-center flex flex-col items-center justify-between h-[82px] hover:shadow-xs transition-shadow duration-200"
+                          >
+                            <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${item.color} flex items-center justify-center text-white text-sm shadow-inner shrink-0`}>
+                              {item.icon}
+                            </div>
+                            <span className="block text-[9px] font-extrabold text-slate-800 leading-tight w-full truncate mt-1">
+                              {item.name}
+                            </span>
+                            <span className={`block text-[8px] font-black ${
+                              item.target === 'Host' ? 'text-blue-500' : 'text-purple-500'
+                            } leading-none`}>
+                              {item.target}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-[24px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.015)] border border-slate-100/80 text-center py-5 font-sans">
+                      <span className="text-xl">⭐</span>
+                      <h4 className="text-slate-700 font-black text-[11px] tracking-wide uppercase mt-1">
+                        Breakthrough bonus targets
+                      </h4>
+                      <p className="text-[9px] text-slate-400 max-w-xs mx-auto mt-1 leading-normal">
+                        Reach Star 3, 4, 5, 6, 10, or 14 to unlock incredible premium booster benefits like local Area Banners, lucky coin pools, custom user approach animations and avatars.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Last 7 day records Card Container */}
                   <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.015)] border border-slate-100">
@@ -447,17 +619,15 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                     </h4>
 
                     {/* Exactly structured 7 column items with puffy star designs */}
-                    <div className="grid grid-cols-7 gap-1">
+                    <div className="grid grid-cols-7 gap-1 font-sans">
                       {pastDates.map((date, idx) => {
                         let innerStarBadge = <ThreeDStar color="grey" number="0" size="w-8 h-8" />;
                         let cardStyle = "flex flex-col items-center py-1 rounded-xl";
 
                         if (idx === 2) {
-                          // May 20 Highlight: 2 Gold stars
                           innerStarBadge = <ThreeDStar color="yellow" number="2" size="w-8 h-8" />;
                           cardStyle = "flex flex-col items-center py-1 px-0.5 bg-amber-50/60 border border-amber-200/50 rounded-[14px]";
                         } else if (idx === 4) {
-                          // May 22 Highlight: 1 Purple star
                           innerStarBadge = <ThreeDStar color="purple" number="1" size="w-8 h-8" />;
                           cardStyle = "flex flex-col items-center py-1 px-0.5 bg-purple-50/60 border border-purple-100/50 rounded-[14px]";
                         }
@@ -483,11 +653,10 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                     </h4>
 
                     {/* Rankings List Details */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 font-sans">
                       {rankList.map((item) => (
                         <div key={item.rank} className="flex items-center justify-between p-1 bg-slate-50 border border-slate-100 rounded-2xl">
                           <div className="flex items-center gap-3">
-                            {/* Medallions formatted precisely */}
                             <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[11px] ${
                               item.rank === 1 
                                 ? 'bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-950 border border-white shadow-sm' 
@@ -496,7 +665,6 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                               {item.rank}
                             </div>
                             
-                            {/* Avatar with glossy borders */}
                             <div className={`w-8 h-8 rounded-full overflow-hidden ${
                               item.rank === 1 ? 'border-2 border-yellow-400 p-0.5' : 'border border-slate-200'
                             }`}>
@@ -508,7 +676,6 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                             </span>
                           </div>
 
-                          {/* 3D Gold Accent Star count label values */}
                           <div className="flex items-center gap-1.5 pr-3">
                             <span className="flex items-center gap-1">
                               <ThreeDStar color="yellow" number="" size="w-4 h-4" />
@@ -521,182 +688,92 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                       ))}
                     </div>
 
-                    {/* Persistent support row of current host */}
-                    <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-1 rounded">
-                          50+
-                        </span>
-                        
-                        <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200">
-                          <img src={hostAvatar} alt="Host Avatar" className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
-                        </div>
-
-                        <div className="flex flex-col">
-                          <span className="text-xs font-black text-slate-800 tracking-tight leading-none mb-1">
-                            {hostName}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-bold leading-none flex items-center gap-0.5">
-                            <ThreeDStar color="yellow" number="" size="w-3 h-3" className="translate-y-[-0.5px]" /> 0 Star
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Help the Host Action Button */}
-                      <button
-                        onClick={() => {
-                          if (onHelpHost) onHelpHost();
-                        }}
-                        className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 via-[#7e4aff] to-[#5926e8] hover:brightness-105 active:scale-95 text-white text-xs font-black rounded-full shadow-[0_4px_14px_rgba(110,57,250,0.3)] transition-all uppercase tracking-wide cursor-pointer"
-                      >
-                        Help the host
-                      </button>
-                    </div>
+                    {/* Full layout Help Button */}
+                    <button 
+                      onClick={() => {
+                        if (onHelpHost) onHelpHost();
+                      }}
+                      className="bg-gradient-to-r from-[#00cbd6] to-[#00fae6] hover:brightness-105 active:scale-98 text-white text-xs font-extrabold py-3.5 px-4 rounded-full mt-6 flex items-center justify-center shadow-lg transition-all cursor-pointer font-sans"
+                    >
+                      <span>Help the host start challenge &gt;</span>
+                    </button>
                   </div>
                 </>
               ) : (
-                /* Heat List Tab details: High-fidelity exact clone of the design */
-                <div className="flex flex-col space-y-4">
-                  {/* Small Rules Row at top right */}
-                  <div className="flex justify-end px-1 -mb-1">
-                    <button className="flex items-center gap-1 text-slate-400 font-bold text-xs select-none hover:text-slate-600 transition-colors">
-                      <HelpCircle size={13} className="text-slate-400" />
-                      Rules
-                    </button>
-                  </div>
-
-                  {/* Podium grid exactly matching rank 2, 1, 3 column style */}
-                  <div className="grid grid-cols-3 gap-2.5 items-end pt-5 pb-3 select-none">
+                /* Real-time Heat List Tab view details */
+                <div className="space-y-4">
+                  
+                  {/* Pompous Tri-Podium ranking graphics */}
+                  <div className="bg-gradient-to-br from-[#12082b] via-[#21114d] to-[#12082b] rounded-[24px] p-5 shadow-[0_8px_32px_rgba(20,10,50,0.18)] text-white relative overflow-hidden select-none border border-white/5 flex flex-col items-center">
                     
-                    {/* Rank 2 (Left) */}
-                    <div className="bg-gradient-to-b from-[#f0f9ff]/85 via-white to-white border border-[#bae6fd]/35 rounded-[22px] p-2.5 pb-4.5 flex flex-col items-center relative text-center shadow-[0_4px_12px_rgba(224,242,254,0.3)] min-h-[148px] justify-end">
-                      {/* Silver Rank Badge */}
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
-                        <div className="w-[26px] h-[26px] bg-gradient-to-br from-[#ffffff] via-[#cbd5e1] to-[#64748b] border-2 border-white flex items-center justify-center text-white text-[11px] font-black rounded-b-md shadow-[0_2px_5px_rgba(0,0,0,0.15)]">
-                          2
+                    {/* Glowing spotlight background rings */}
+                    <div className="absolute top-[10%] w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl" />
+                    <div className="absolute top-[40%] w-48 h-1 bg-gradient-to-r from-transparent via-cyan-500/15 to-transparent blur-md" />
+
+                    <span className="text-[10px] text-cyan-300 font-extrabold tracking-widest uppercase mb-1 font-sans">Stream Popularity Leaderboard</span>
+                    <h3 className="text-sm font-black text-white/95 tracking-normal mb-8 font-sans">Heat Rankings</h3>
+
+                    {/* The podium structure grids */}
+                    <div className="grid grid-cols-3 gap-0 w-full max-w-[280px] items-end relative z-10 select-none px-2 mt-4 font-sans">
+                      
+                      {/* #2 Rank podium sidebar item */}
+                      <div className="flex flex-col items-center group">
+                        <div className="relative mb-2">
+                          <div className="w-[48px] h-[48px] rounded-full overflow-hidden border-2 border-slate-350 p-0.5 shadow-[0_4px_10px_rgba(0,0,0,0.3)] bg-slate-400 shrink-0">
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop" alt="Fallon" className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
+                          </div>
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-slate-300 text-slate-900 border border-white font-black text-[8px] px-1 py-0.2 rounded-full leading-none">2</span>
                         </div>
+                        <span className="text-[9.5px] font-bold text-slate-300 truncate w-full text-center">Fallon</span>
+                        <span className="text-[8.5px] font-black text-cyan-200 mt-0.5">🔥 8.4k</span>
+                        
+                        <div className="w-full h-11 bg-gradient-to-t from-slate-400/10 to-slate-400/20 rounded-t-xl mt-2 relative border border-white/5 border-b-0" />
                       </div>
 
-                      {/* Avatar with cyan ring */}
-                      <div className="w-[54px] h-[54px] rounded-full overflow-hidden border-2 border-[#93c5fd] shadow-sm p-0.5 bg-white mb-2">
-                        <img 
-                          src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop" 
-                          alt="Sasha" 
-                          className="w-full h-full object-cover rounded-full" 
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-
-                      {/* User Display Info */}
-                      <span className="text-[11px] font-extrabold text-slate-700 leading-tight truncate max-w-[80px]">
-                        Sasha 💞
-                      </span>
-                      <div className="flex items-center gap-0.5 mt-1">
-                        <span className="text-[#ff5a5a] text-[10px] filter drop-shadow">🔥</span>
-                        <span className="text-[10px] font-black text-[#ff5a5a]">38.7k</span>
-                      </div>
-                    </div>
-
-                    {/* Rank 1 (Center) */}
-                    <div className="bg-gradient-to-b from-[#fffbeb] via-white to-white border border-[#fef3c7] rounded-[24px] p-2.5 pb-5 flex flex-col items-center relative text-center shadow-[0_8px_22px_rgba(245,158,11,0.18)] min-h-[168px] justify-end scale-105 z-10">
-                      {/* Golden Crown Badge */}
-                      <div className="absolute -top-[19px] left-1/2 -translate-x-1/2 flex flex-col items-center z-12">
-                        <span className="text-[15px] leading-none mb-0.5 animate-bounce">👑</span>
-                        <div className="w-[28px] h-[28px] bg-gradient-to-br from-[#ffe082] via-[#ffb300] to-[#f57c00] border-2 border-white flex items-center justify-center text-white text-[12px] font-black rounded-b-md shadow-[0_2px_6px_rgba(217,119,6,0.22)]">
-                          1
+                      {/* #1 Supreme rank podium middle item */}
+                      <div className="flex flex-col items-center group relative -translate-y-2 z-20 scale-105">
+                        <span className="text-[11px] mb-0.5 select-none animate-bounce">👑</span>
+                        <div className="relative mb-2">
+                          <div className="w-[56px] h-[56px] rounded-full overflow-hidden border-2 border-yellow-400 p-0.5 shadow-[0_6px_14px_rgba(245,158,11,0.4)] bg-amber-500 shrink-0">
+                            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop" alt="Winner" className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
+                          </div>
+                          <span className="absolute -bottom-1 -right-0.5 bg-yellow-400 text-amber-950 border border-white font-black text-[8.5px] w-4 h-4 rounded-full flex items-center justify-center leading-none">1</span>
                         </div>
+                        <span className="text-xs font-black text-white truncate w-full text-center tracking-tight">HBD TO ME 🎂</span>
+                        <span className="text-[9.5px] font-black text-yellow-300 mt-0.5">🔥 12.5k</span>
+                        
+                        <div className="w-full h-15 bg-gradient-to-t from-yellow-500/15 to-yellow-500/25 rounded-t-xl mt-2 relative border border-yellow-400/20 border-b-0" />
                       </div>
 
-                      {/* Large Glowing Gold Avatar */}
-                      <div className="w-[66px] h-[66px] rounded-full overflow-hidden border-[2.5px] border-[#fcd34d] shadow-[0_0_10px_rgba(251,191,36,0.35)] p-0.5 bg-white mb-2.5">
-                        <img 
-                          src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop" 
-                          alt="Lansie" 
-                          className="w-full h-full object-cover rounded-full" 
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-
-                      {/* Golden User Display Info */}
-                      <span className="text-[12px] font-black text-slate-800 leading-tight truncate max-w-[90px]">
-                        La♑sie 🔱...
-                      </span>
-                      <div className="flex items-center gap-0.5 mt-1">
-                        <span className="text-[#ff5a5a] text-[10px] filter drop-shadow">🔥</span>
-                        <span className="text-[10.5px] font-black text-[#ff5a5a]">40.0k</span>
-                      </div>
-                    </div>
-
-                    {/* Rank 3 (Right) */}
-                    <div className="bg-gradient-to-b from-[#fff7ed]/85 via-white to-white border border-[#ffedd5]/35 rounded-[22px] p-2.5 pb-4.5 flex flex-col items-center relative text-center shadow-[0_4px_12px_rgba(254,215,170,0.3)] min-h-[148px] justify-end">
-                      {/* Bronze Rank Badge */}
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex flex-col items-center z-10">
-                        <div className="w-[26px] h-[26px] bg-gradient-to-br from-[#ffedd5] via-[#ea580c] to-[#9a3412] border-2 border-white flex items-center justify-center text-white text-[11px] font-black rounded-b-md shadow-[0_2px_5px_rgba(0,0,0,0.15)]">
-                          3
+                      {/* #3 Rank podium sidebar item */}
+                      <div className="flex flex-col items-center group">
+                        <div className="relative mb-2">
+                          <div className="w-[44px] h-[44px] rounded-full overflow-hidden border-2 border-amber-600/60 p-0.5 shadow-[0_4px_10px_rgba(0,0,0,0.3)] bg-amber-700 shrink-0">
+                            <img src="https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=150&auto=format&fit=crop" alt="Sweetslim" className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
+                          </div>
+                          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber-700 text-amber-100 border border-white font-black text-[8px] px-1 py-0.2 rounded-full leading-none">3</span>
                         </div>
+                        <span className="text-[9.5px] font-bold text-slate-350 truncate w-full text-center">sweetslim</span>
+                        <span className="text-[8.5px] font-black text-cyan-200 mt-0.5">🔥 5.2k</span>
+                        
+                        <div className="w-full h-8 bg-gradient-to-t from-amber-600/10 to-amber-600/20 rounded-t-xl mt-2 relative border border-white/5 border-b-0" />
                       </div>
 
-                      {/* Avatar with gold/bronze ring */}
-                      <div className="w-[54px] h-[54px] rounded-full overflow-hidden border-2 border-[#fdba74] shadow-sm p-0.5 bg-white mb-2">
-                        <img 
-                          src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=150&auto=format&fit=crop" 
-                          alt="softRae" 
-                          className="w-full h-full object-cover rounded-full" 
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-
-                      {/* User Display Info */}
-                      <span className="text-[11px] font-extrabold text-slate-700 leading-tight truncate max-w-[80px]">
-                        softRae...
-                      </span>
-                      <div className="flex items-center gap-0.5 mt-1">
-                        <span className="text-[#ff5a5a] text-[10px] filter drop-shadow">🔥</span>
-                        <span className="text-[10px] font-black text-[#ff5a5a]">35.1k</span>
-                      </div>
                     </div>
-
                   </div>
 
-                  {/* Vertical Rankings starting from Rank 4 downwards precisely matching */}
-                  <div className="bg-white rounded-[26px] p-4 shadow-[0_2px_12px_rgba(0,0,0,0.015)] border border-slate-100 flex flex-col space-y-1 mt-1 pr-3">
+                  {/* Vertical Ranks Items list (styled cleanly using human formats) */}
+                  <div className="bg-white rounded-[24px] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.012)] border border-slate-100 flex flex-col gap-2 relative font-sans">
                     {[
-                      {
-                        rank: 4,
-                        name: "Sweet Baby 💋",
-                        heat: "27.6k",
-                        avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop"
-                      },
-                      {
-                        rank: 5,
-                        name: "ONLYHELP👑mşfèfè",
-                        heat: "24.8k",
-                        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop"
-                      },
-                      {
-                        rank: 6,
-                        name: "shan",
-                        heat: "24.6k",
-                        avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop"
-                      },
-                      {
-                        rank: 7,
-                        name: "TUXFIT🏋️",
-                        heat: "23.9k",
-                        avatar: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=150&auto=format&fit=crop"
-                      },
-                      {
-                        rank: 8,
-                        name: "Jhennaaaa✨🌸😍",
-                        heat: "22.9k",
-                        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop"
-                      }
-                    ].map((item, idx) => (
+                      { rank: 4, name: "Ziora 👑", heat: "32.8k", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop" },
+                      { rank: 5, name: "She's Tea 🎀", heat: "32.1k", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop" },
+                      { rank: 6, name: "Big Wama 🦍", heat: "27.6k", avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop" },
+                      { rank: 7, name: "Tony Starr 💎", heat: "18.3k", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop" },
+                      { rank: 8, name: "Riri 🌟", heat: "7.6k", avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop" }
+                    ].map((item) => (
                       <div 
                         key={item.rank} 
-                        className={`flex items-center justify-between py-2 px-1 hover:bg-slate-50/70 rounded-xl transition-all ${
-                          idx !== 4 ? 'border-b border-slate-50' : ''
-                        }`}
+                        className="flex items-center justify-between py-2 px-2.5 rounded-xl bg-slate-50/50 border border-slate-100/50 hover:bg-slate-50 transition-all active:scale-99"
                       >
                         <div className="flex items-center gap-3.5">
                           {/* Warm minimal Rank indicator */}
@@ -732,7 +809,7 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                   </div>
 
                   {/* Persistent Sticky Bottom Row */}
-                  <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 py-3 -mx-4 -mb-6 mt-3 shadow-[0_-6px_22px_rgba(0,0,0,0.035)] z-20 flex items-center justify-between select-none pb-5.5">
+                  <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 py-3 -mx-4 -mb-6 mt-3 shadow-[0_-6px_22px_rgba(0,0,0,0.035)] z-20 flex items-center justify-between select-none pb-5.5 font-sans">
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-black text-slate-400 w-4 text-center">
                         143
@@ -765,7 +842,7 @@ export const StarGoalModal: React.FC<StarGoalModalProps> = ({
                         onClick={() => {
                           if (onHelpHost) onHelpHost();
                         }}
-                        className="text-[10px] text-[#00cbd6] active:text-[#00adc0] font-black flex items-center gap-0.5 mt-0.5 cursor-pointer select-none leading-none hover:brightness-105"
+                        className="text-[10px] text-[#00cbd6] active:text-[#00adc0] font-black flex items-center gap-0.5 mt-0.5 cursor-pointer select-none leading-none hover:brightness-105 inline-flex"
                       >
                         <span className="flex flex-col items-end text-right mr-0.5">
                           <span>Help the host</span>

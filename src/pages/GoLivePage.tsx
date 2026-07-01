@@ -31,6 +31,9 @@ import { calculatePkResult, generatePkIncrements } from '../pkLogic';
 import { getSnipeMultiplier, calculateFinalPKResult } from '../pkEnhancedLogic';
 import { PK_SHIELDS, calculateShieldedScore } from '../pkShieldLogic';
 import { ShieldTier } from '../types';
+import { getDeviceType } from '../lib/device';
+import { getAudioConfig, saveAudioConfig, getBrowserAudioConstraints, AudioConfigSettings } from '../lib/audioConfig';
+import { RealtimeAudioVisualizer } from '../components/RealtimeAudioVisualizer';
 
 const CATEGORIES = [
   { id: 'chat', label: 'Chat', icon: MessageCircle, color: '#22c55e' },
@@ -168,6 +171,21 @@ export default function GoLivePage() {
   const { profile } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  const [isStandalonePWA, setIsStandalonePWA] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setIsStandalonePWA(e.matches || (window.navigator as any).standalone === true);
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
   const [appealText, setAppealText] = useState('');
   const [isAppealSubmitted, setIsAppealSubmitted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -344,10 +362,38 @@ export default function GoLivePage() {
   const [activeMagicTab, setActiveMagicTab] = useState('mask');
   const [activeMaskCategory, setActiveMaskCategory] = useState('hot');
   const [activeBackgroundCategory, setActiveBackgroundCategory] = useState('daily');
-  const [micVolume, setMicVolume] = useState(100);
+  const [audioSettings, setAudioSettings] = useState<AudioConfigSettings>(() => getAudioConfig());
+  const [micVolume, setMicVolume] = useState(() => getAudioConfig().micVolume);
   const [soundEnhancement, setSoundEnhancement] = useState(true);
   const [activeMusicEffect, setActiveMusicEffect] = useState('original');
   const [activeEqualizer, setActiveEqualizer] = useState('none');
+
+  const updateAudioSettings = (newSettings: Partial<AudioConfigSettings>) => {
+    setAudioSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      saveAudioConfig(updated);
+      
+      if (newSettings.micVolume !== undefined) {
+        setMicVolume(newSettings.micVolume);
+      }
+      
+      if (stream) {
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          const constraints = getBrowserAudioConstraints(updated);
+          audioTracks.forEach(track => {
+            try {
+              track.applyConstraints(constraints);
+              console.log("Successfully updated dynamic mic constraints on existing track:", constraints);
+            } catch (err) {
+              console.warn("Failed to apply track constraints online:", err);
+            }
+          });
+        }
+      }
+      return updated;
+    });
+  };
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showTransformModal, setShowTransformModal] = useState(false);
   const [showMiniGames, setShowMiniGames] = useState(false);
@@ -832,16 +878,42 @@ export default function GoLivePage() {
       // Try with audio first
       let mediaStream: MediaStream;
       try {
+        // Request higher definition ideal settings for crystal-clear starting image capture
         mediaStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user' },
-          audio: true 
+          video: { 
+            facingMode: 'user',
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 }
+          },
+          audio: getBrowserAudioConstraints(audioSettings)
         });
       } catch (audioErr) {
-        console.warn("Audio access failed, falling back to video-only:", audioErr);
-        mediaStream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user' },
-          audio: false 
-        });
+        console.warn("HD Audio-Video setup failed, falling back to audio only + standard video setup:", audioErr);
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'user' },
+            audio: getBrowserAudioConstraints(audioSettings)
+          });
+        } catch (stdAudioErr) {
+          console.warn("Standard video + audio failed, falling back to video-only:", stdAudioErr);
+          try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ 
+              video: { 
+                facingMode: 'user',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+              },
+              audio: false 
+            });
+          } catch (videoErr) {
+            console.warn("Falling back to absolute default constraints:", videoErr);
+            mediaStream = await navigator.mediaDevices.getUserMedia({ 
+              video: { facingMode: 'user' },
+              audio: false 
+            });
+          }
+        }
       }
 
       setStream(mediaStream);
@@ -1018,7 +1090,7 @@ export default function GoLivePage() {
         currentBeans: 0,
         viewerCount: initialViewerCount,
         guests: [],
-        seats: initializeSeats(),
+        seats: initializeSeats(seatCount),
         micQueue: [],
         isPrivate: roomAccess !== 'public',
         accessType: roomAccess,
@@ -1349,13 +1421,15 @@ export default function GoLivePage() {
     );
   }
 
+  const targetDeviceType = getDeviceType();
+  const isMobileOrTablet = targetDeviceType === 'mobile' || targetDeviceType === 'tablet' || window.innerWidth < 768;
+
   return (
     <div 
       className={cn(
-        "absolute inset-0 bg-gradient-to-b from-[#2e1a47] via-[#1a1a2e] to-[#0f0f1a] z-[100] flex flex-col overflow-hidden",
+        "h-screen w-screen bg-gradient-to-b from-[#2e1a47] via-[#1a1a2e] to-[#0f0f1a] overflow-hidden relative flex flex-col font-sans select-none",
         isShaking && "animate-shake"
       )}
-      style={{ height: viewportHeight }}
     >
       {/* Hidden Video for Camera Stream */}
       <video 
@@ -1386,7 +1460,21 @@ export default function GoLivePage() {
         </div>
       )}
 
-      {status === 'setup' || status === 'preparing' ? (
+      {/* Top 17% Black Safety Zone to clear Mobile Browser Chrome & Headers */}
+      {isMobileOrTablet && !isStandalonePWA && (
+        <div className="h-[17dvh] w-full bg-black flex-shrink-0 z-[40] pointer-events-none relative flex flex-col items-center justify-end pb-1 border-b border-white/[0.04]">
+          <div className="text-[8.5px] font-black tracking-[0.25em] text-cyan-400 select-none opacity-45 uppercase font-mono animate-pulse">
+            ★ Live Browser Safe-Viewport ★
+          </div>
+        </div>
+      )}
+
+      {/* Active Hosting App Feed View Container taking the remaining 83% on mobile (or full in standalone PWA mode) */}
+      <div className={cn(
+        "w-full relative overflow-hidden flex-1 flex flex-col",
+        (isMobileOrTablet && !isStandalonePWA) ? "h-[83dvh]" : "h-full"
+      )}>
+        {status === 'setup' || status === 'preparing' ? (
         <div className="relative flex-1 flex flex-col">
           {activeMode === 'game-live' ? (
             /* Game Mode Setup UI */
@@ -2255,27 +2343,7 @@ export default function GoLivePage() {
               </div>
             </div>
 
-            {/* Quick Replies */}
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1 pointer-events-auto relative z-40">
-              {['Hi 👋', '😘😘😘', 'So gorgeous!', 'Good vibes'].map((reply) => (
-                <button
-                  key={reply}
-                  onClick={() => {
-                    setMessages(prev => [...prev, { 
-                      id: Math.random().toString(), 
-                      displayName: profile?.displayName || 'Me', 
-                      text: reply, 
-                      type: 'chat' as const, 
-                      level: profile?.level || 1, 
-                      timestamp: Date.now() 
-                    }].slice(-50));
-                  }}
-                  className="whitespace-nowrap px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full text-white text-[10px] font-medium border border-white/10 active:scale-95 transition-transform"
-                >
-                  {reply}
-                </button>
-              ))}
-            </div>
+            {/* Quick Replies cleaned from main live room area */}
 
             {/* Streamer Controls */}
             <div className="flex items-center justify-between pointer-events-auto relative z-40">
@@ -2405,6 +2473,22 @@ export default function GoLivePage() {
                       alt={sticker}
                       className="w-10 h-10 object-contain"
                     />
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Replies inside Message Section */}
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2.5 mb-3.5 px-1 border-t border-slate-100">
+                {['Hi 👋', '😘😘😘', 'So gorgeous!', 'Good vibes'].map((reply) => (
+                  <button
+                    key={reply}
+                    type="button"
+                    onClick={() => {
+                      setInput(reply);
+                    }}
+                    className="whitespace-nowrap px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full text-slate-800 dark:text-slate-100 text-xs font-bold active:scale-95 transition-all outline-none border border-slate-200/50 cursor-pointer shadow-xs"
+                  >
+                    {reply}
                   </button>
                 ))}
               </div>
@@ -2826,12 +2910,155 @@ export default function GoLivePage() {
                 <X size={20} className="text-white/40" onClick={() => setShowMixerModal(false)} />
               </div>
 
-              <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2 scrollbar-hide">
-                {/* Volume */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs font-bold text-white/60">Mic Volume</span>
-                    <button onClick={() => setMicVolume(100)} className="flex items-center gap-1 text-[10px] font-bold text-cyan-400 uppercase">
+              <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 scrollbar-hide">
+                {/* Embedded Realtime Acoustic Audio Monitor */}
+                <RealtimeAudioVisualizer stream={stream} mode={audioSettings.mode} />
+
+                {/* Main Preset Selector Tabs */}
+                <div className="space-y-3">
+                  <span className="text-[10px] font-black tracking-wider text-white/40 uppercase">Acoustic Presets</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'voice', title: '🎙️ Voice Adaptive', desc: 'Hum & room noise suppression on.' },
+                      { id: 'studio', title: '⚡ Pin-Drop Hi-Fi', desc: 'Raw room acoustics. Supressors OFF.' },
+                      { id: 'custom', title: '⚙️ Pure Custom', desc: 'Fine-tune room filters manually.' }
+                    ].map(preset => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          if (preset.id === 'voice') {
+                            updateAudioSettings({ mode: 'voice', ans: true, agc: true, aec: true });
+                          } else if (preset.id === 'studio') {
+                            updateAudioSettings({ mode: 'studio', ans: false, agc: false, aec: true });
+                          } else {
+                            updateAudioSettings({ mode: 'custom' });
+                          }
+                        }}
+                        className={cn(
+                          "flex flex-col text-left p-3 rounded-2xl border transition-all justify-between h-[95px]",
+                          audioSettings.mode === preset.id
+                            ? "bg-cyan-400/10 border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
+                            : "bg-white/5 border-white/5 hover:bg-white/10"
+                        )}
+                      >
+                        <span className="text-[11px] font-black text-white">{preset.title}</span>
+                        <span className="text-[8px] text-white/40 leading-normal">{preset.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dynamic Configuration Controls based on selected mode */}
+                {audioSettings.mode === 'custom' && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black tracking-wider text-white/50 uppercase">Manual Signal Processors</span>
+                      <span className="text-[8px] text-cyan-400 font-bold uppercase tracking-widest bg-cyan-400/10 px-2 py-0.5 rounded-full">Custom Acoustics</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Active Noise Suppression (ANS) */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white block">Active Noise Suppression (ANS)</span>
+                          <span className="text-[9px] text-white/40 block">Filter out background air-conditioner or fan buzz.</span>
+                        </div>
+                        <button 
+                          onClick={() => updateAudioSettings({ ans: !audioSettings.ans })}
+                          className={cn(
+                            "w-10 h-5 rounded-full relative transition-all flex-shrink-0",
+                            audioSettings.ans ? "bg-cyan-400" : "bg-white/10"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
+                            audioSettings.ans ? "right-1" : "left-1"
+                          )} />
+                        </button>
+                      </div>
+
+                      {/* Automatic Gain Control (AGC) */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white block">Automatic Gain Control (AGC)</span>
+                          <span className="text-[9px] text-white/40 block">Flattens vocal bursts, levels volume auto-correction.</span>
+                        </div>
+                        <button 
+                          onClick={() => updateAudioSettings({ agc: !audioSettings.agc })}
+                          className={cn(
+                            "w-10 h-5 rounded-full relative transition-all flex-shrink-0",
+                            audioSettings.agc ? "bg-cyan-400" : "bg-white/10"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
+                            audioSettings.agc ? "right-1" : "left-1"
+                          )} />
+                        </button>
+                      </div>
+
+                      {/* Acoustic Echo Cancellation (AEC) */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-white block">Acoustic Echo Cancellation (AEC)</span>
+                          <span className="text-[9px] text-white/40 block">Eliminate voice feedback loops from speakers.</span>
+                        </div>
+                        <button 
+                          onClick={() => updateAudioSettings({ aec: !audioSettings.aec })}
+                          className={cn(
+                            "w-10 h-5 rounded-full relative transition-all flex-shrink-0",
+                            audioSettings.aec ? "bg-cyan-400" : "bg-white/10"
+                          )}
+                        >
+                          <div className={cn(
+                            "absolute top-1 w-3 h-3 bg-white rounded-full transition-all",
+                            audioSettings.aec ? "right-1" : "left-1"
+                          )} />
+                        </button>
+                      </div>
+
+                      {/* Stream Profile Rate Selector */}
+                      <div className="space-y-2 pt-2 border-t border-white/5">
+                        <span className="text-xs font-bold text-white block">Studio Sampling Rate Profile</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: 'speech_standard', label: '📞 Talk Standard (16kHz)', desc: 'Low bandwidth vocal core' },
+                            { id: 'music_standard', label: '🎵 Music Standard (32kHz)', desc: 'Optimized voice and background music' },
+                            { id: 'high_quality', label: '🎙️ Hi-Fi Studio (48kHz Mono)', desc: 'Ultra Clean Monophonic capture' },
+                            { id: 'high_quality_stereo', label: '🎧 Immersive CD (48kHz Stereo)', desc: 'Full stereophonic pinpoint mapping' }
+                          ].map(profile => (
+                            <button
+                              key={profile.id}
+                              onClick={() => updateAudioSettings({ profile: profile.id as any })}
+                              className={cn(
+                                "flex flex-col text-left p-2 rounded-xl border text-[10px]",
+                                audioSettings.profile === profile.id
+                                  ? "bg-cyan-400/10 border-cyan-400"
+                                  : "bg-white/5 border-transparent hover:bg-white/15"
+                              )}
+                            >
+                              <span className="font-bold text-white">{profile.label}</span>
+                              <span className="text-[8px] text-white/40">{profile.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Mic Volume */}
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold text-white">Mic Volume Level</span>
+                    <button 
+                      onClick={() => updateAudioSettings({ micVolume: 100 })} 
+                      className="flex items-center gap-1 text-[9px] font-bold text-cyan-400 uppercase tracking-widest"
+                    >
                       <RotateCw size={10} />
                       Volume Reset
                     </button>
@@ -2841,24 +3068,31 @@ export default function GoLivePage() {
                       type="range" 
                       min="0" 
                       max="100" 
-                      value={micVolume}
-                      onChange={(e) => setMicVolume(parseInt(e.target.value))}
-                      className="flex-1 accent-cyan-400"
+                      value={audioSettings.micVolume}
+                      onChange={(e) => updateAudioSettings({ micVolume: parseInt(e.target.value) })}
+                      className="flex-1 accent-cyan-400 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
                     />
-                    <span className="text-xs font-bold text-white w-8">{micVolume}</span>
+                    <span className="text-xs font-black text-white w-8 text-right">{audioSettings.micVolume}%</span>
                   </div>
                 </div>
 
-                {/* Toggles */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white/60">Preview</span>
+                {/* Preview & Enhancement Toggles */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-3.5 bg-white/5 rounded-2xl border border-white/5">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Earphone Monitor</span>
+                      <span className="text-[8px] text-white/40 block">Hear your own voice feedback.</span>
+                    </div>
                     <div className="w-10 h-5 bg-white/10 rounded-full relative">
                       <div className="absolute left-1 top-1 w-3 h-3 bg-white/40 rounded-full" />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white/60">Sound Enhancement</span>
+                  
+                  <div className="flex items-center justify-between p-3.5 bg-white/5 rounded-2xl border border-white/5">
+                    <div>
+                      <span className="text-xs font-bold text-white block">Acoustic RevAMP</span>
+                      <span className="text-[8px] text-white/40 block">Hardware-level enhancement.</span>
+                    </div>
                     <button 
                       onClick={() => setSoundEnhancement(!soundEnhancement)}
                       className={cn(
@@ -2876,21 +3110,23 @@ export default function GoLivePage() {
 
                 {/* Music Effects */}
                 <div>
-                  <span className="text-xs font-bold text-white/60 block mb-4">Music Effects</span>
-                  <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
+                  <span className="text-[10px] font-black tracking-wider text-white/40 block mb-3 uppercase">Music Effects</span>
+                  <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
                     {['Original', 'Reverb', 'Live Concert', 'KTV', 'Ethereal', 'Concert Hall'].map(effect => (
                       <button 
                         key={effect}
                         onClick={() => setActiveMusicEffect(effect.toLowerCase())}
-                        className="flex flex-col items-center gap-2 shrink-0"
+                        className="flex flex-col items-center gap-1.5 shrink-0"
                       >
                         <div className={cn(
-                          "w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all",
-                          activeMusicEffect === effect.toLowerCase() ? "border-cyan-400 bg-cyan-400/10" : "border-white/10 bg-white/5"
+                          "w-12 h-12 rounded-2xl border flex items-center justify-center transition-all",
+                          activeMusicEffect === effect.toLowerCase() 
+                            ? "border-cyan-400 bg-cyan-400/10" 
+                            : "border-white/5 bg-white/5 hover:bg-white/10"
                         )}>
-                          <Mic2 size={24} className={activeMusicEffect === effect.toLowerCase() ? "text-cyan-400" : "text-white/40"} />
+                          <Mic2 size={18} className={activeMusicEffect === effect.toLowerCase() ? "text-cyan-400 animate-bounce" : "text-white/40"} />
                         </div>
-                        <span className={cn("text-[10px] font-bold", activeMusicEffect === effect.toLowerCase() ? "text-white" : "text-white/40")}>{effect}</span>
+                        <span className={cn("text-[9px] font-bold", activeMusicEffect === effect.toLowerCase() ? "text-white" : "text-white/40")}>{effect}</span>
                       </button>
                     ))}
                   </div>
@@ -2898,21 +3134,23 @@ export default function GoLivePage() {
 
                 {/* Equalizer */}
                 <div>
-                  <span className="text-xs font-bold text-white/60 block mb-4">Equalizer</span>
-                  <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
+                  <span className="text-[10px] font-black tracking-wider text-white/40 block mb-3 uppercase">Pro Equalizer presets</span>
+                  <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
                     {['None', 'Custom', 'Electronic', 'Rock', 'Bass', 'Jazz'].map(eq => (
                       <button 
                         key={eq}
                         onClick={() => setActiveEqualizer(eq.toLowerCase())}
-                        className="flex flex-col items-center gap-2 shrink-0"
+                        className="flex flex-col items-center gap-1.5 shrink-0"
                       >
                         <div className={cn(
-                          "w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all",
-                          activeEqualizer === eq.toLowerCase() ? "border-cyan-400 bg-cyan-400/10" : "border-white/10 bg-white/5"
+                          "w-12 h-12 rounded-2xl border flex items-center justify-center transition-all",
+                          activeEqualizer === eq.toLowerCase() 
+                            ? "border-cyan-400 bg-cyan-400/10" 
+                            : "border-white/5 bg-white/5 hover:bg-white/10"
                         )}>
-                          <Columns2 size={24} className={activeEqualizer === eq.toLowerCase() ? "text-cyan-400" : "text-white/40"} />
+                          <Columns2 size={18} className={activeEqualizer === eq.toLowerCase() ? "text-cyan-400" : "text-white/40"} />
                         </div>
-                        <span className={cn("text-[10px] font-bold", activeEqualizer === eq.toLowerCase() ? "text-white" : "text-white/40")}>{eq}</span>
+                        <span className={cn("text-[9px] font-bold", activeEqualizer === eq.toLowerCase() ? "text-white" : "text-white/40")}>{eq}</span>
                       </button>
                     ))}
                   </div>
@@ -3056,6 +3294,7 @@ export default function GoLivePage() {
           </div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -38,48 +38,115 @@ export default function EarningsDashboardPage() {
   const [withdrawBeans, setWithdrawBeans] = useState<string>('');
   const [isWithdrawing, setIsWithdrawing] = useState<boolean>(false);
 
-  // Helper to calculate dynamic host salary in beans (1 USD = 210 Beans) using correct agency/solo splits
-  const calculateSalaryForTier = (beansEarned: number, targetBeans: number, normalSalaryBeans: number, isUnderAgency: boolean) => {
-    const progressFraction = Math.min(1, beansEarned / targetBeans);
-    
-    if (progressFraction >= 1.0) {
-      if (isUnderAgency) {
-        return normalSalaryBeans;
-      } else {
-        return normalSalaryBeans * 0.50;
-      }
-    } else {
-      if (isUnderAgency) {
-        return normalSalaryBeans * progressFraction * 0.50;
-      } else {
-        return normalSalaryBeans * progressFraction * 0.25;
-      }
-    }
-  };
-
   const getDynamicHostSalaryBeans = (beansEarned: number, isUnderAgency: boolean) => {
     if (beansEarned <= 0) return 0;
     
     const tiers = [
-      { target: 1000000, salary: 5000 * 210 },
-      { target: 150000, salary: 1800 * 210 },
-      { target: 50000, salary: 600 * 210 },
-      { target: 30000, salary: 350 * 210 },
-      { target: 10000, salary: 120 * 210 },
+      { target: 1600000, salary: 6400 * 210 },
+      { target: 1200000, salary: 5200 * 210 },
+      { target: 900000, salary: 4000 * 210 },
+      { target: 780000, salary: 3520 * 210 },
+      { target: 600000, salary: 2800 * 210 },
+      { target: 420000, salary: 2000 * 210 },
+      { target: 300000, salary: 1480 * 210 },
+      { target: 240000, salary: 1200 * 210 },
+      { target: 180000, salary: 920 * 210 },
+      { target: 150000, salary: 780 * 210 },
+      { target: 100000, salary: 540 * 210 },
+      { target: 70000, salary: 380 * 210 },
+      { target: 50000, salary: 280 * 210 },
+      { target: 32000, salary: 180 * 210 },
+      { target: 15000, salary: 88 * 210 },
+      { target: 8000, salary: 48 * 210 },
+      { target: 5000, salary: 32 * 210 },
+      { target: 2500, salary: 16 * 210 },
     ];
 
-    let activeTier = tiers[tiers.length - 1]; // Default to 10K target
+    // 1. Find the highest tier actually surpassed (beansEarned >= tier.target)
+    const surpassedTier = tiers.find(t => beansEarned >= t.target);
+
+    // 2. Find target tier they were aiming for (immediate tier above surpassedTier)
+    let targetTier = tiers[0];
+    if (surpassedTier) {
+      const sIdx = tiers.indexOf(surpassedTier);
+      if (sIdx > 0) {
+        targetTier = tiers[sIdx - 1];
+      } else {
+        targetTier = surpassedTier; // Already hit max tier (1.6M)
+      }
+    } else {
+      targetTier = tiers[tiers.length - 1]; // Aiming for lowest tier (2.5K)
+    }
+
+    const surpassedSalary = surpassedTier ? surpassedTier.salary : 0;
+    const surpassedTarget = surpassedTier ? surpassedTier.target : 0;
+    const targetSalary = targetTier.salary;
+    const targetBeans = targetTier.target;
+
+    // Exceeded highest tier fully
+    if (beansEarned >= tiers[0].target) {
+      return isUnderAgency ? tiers[0].salary : tiers[0].salary * 0.50;
+    }
+
+    // Fully hit targetBeans
+    if (beansEarned >= targetBeans) {
+      return isUnderAgency ? targetSalary : targetSalary * 0.50;
+    }
+
+    // Under-target performance (between surpassedTarget and targetBeans)
+    const surplusFraction = (beansEarned - surpassedTarget) / (targetBeans - surpassedTarget);
+    const potentialSurplusSalary = (targetSalary - surpassedSalary) * surplusFraction;
+
+    if (isUnderAgency) {
+      // Signed Agency Host: get 100% of fallback salary + 50% split on the potential progressive surplus on top
+      return surpassedSalary + (potentialSurplusSalary * 0.50);
+    } else {
+      // Solo Host: gets 50% of fallback salary + 25% of the potential progressive surplus on top
+      return (surpassedSalary * 0.50) + (potentialSurplusSalary * 0.25);
+    }
+  };
+
+  const getSimTarget = (beans: number) => {
+    const tiers = [
+      { target: 1600000, salary: 6400 * 210, hours: 30, label: "1.6M Target" },
+      { target: 1200000, salary: 5200 * 210, hours: 30, label: "1.2M Target" },
+      { target: 900000, salary: 4000 * 210, hours: 30, label: "900K Target" },
+      { target: 780000, salary: 3520 * 210, hours: 30, label: "780K Target" },
+      { target: 600000, salary: 2800 * 210, hours: 30, label: "600K Target" },
+      { target: 420000, salary: 2000 * 210, hours: 30, label: "420K Target" },
+      { target: 300000, salary: 1480 * 210, hours: 30, label: "300K Target" },
+      { target: 240000, salary: 1200 * 210, hours: 30, label: "240K Target" },
+      { target: 180000, salary: 920 * 210, hours: 30, label: "180K Target" },
+      { target: 150000, salary: 780 * 210, hours: 30, label: "150K Target" },
+      { target: 100000, salary: 540 * 210, hours: 30, label: "100K Target" },
+      { target: 70000, salary: 380 * 210, hours: 30, label: "70K Target" },
+      { target: 50000, salary: 280 * 210, hours: 30, label: "50K Target" },
+      { target: 32000, salary: 180 * 210, hours: 30, label: "32K Target" },
+      { target: 15000, salary: 88 * 210, hours: 25, label: "15K Target" },
+      { target: 8000, salary: 48 * 210, hours: 20, label: "8K Target" },
+      { target: 5000, salary: 32 * 210, hours: 15, label: "5K Target" },
+      { target: 2500, salary: 16 * 210, hours: 10, label: "2.5K Target" },
+    ];
+
+    let activeTier = tiers[0];
     for (let i = 0; i < tiers.length; i++) {
-      if (beansEarned >= tiers[i].target) {
+      if (beans >= tiers[i].target) {
         activeTier = tiers[i];
         break;
-      } else if (i < tiers.length - 1 && beansEarned >= tiers[i + 1].target) {
+      } else if (i < tiers.length - 1 && beans >= tiers[i + 1].target) {
         activeTier = tiers[i];
         break;
       }
     }
-
-    return calculateSalaryForTier(beansEarned, activeTier.target, activeTier.salary, isUnderAgency);
+    if (beans < tiers[tiers.length - 1].target) {
+      activeTier = tiers[tiers.length - 1];
+    }
+    return {
+      label: activeTier.label,
+      targetBeans: activeTier.target,
+      baseBonus: activeTier.salary / 210,
+      hours: activeTier.hours,
+    };
   };
 
   const handleConfirmWithdrawal = async () => {
@@ -418,7 +485,7 @@ export default function EarningsDashboardPage() {
                   <span className="text-[10px] font-black uppercase tracking-widest">Conversion Rate Overview</span>
                 </div>
                 <p className="text-sm text-white/80 leading-relaxed italic">
-                  Standard Cashout Payout Peg: 210 Beans = $1.00 USD. Meeting official agency targets (minimum 10K/30K/50K/150K Beans + 30 active hours across 15 qualifying days) triggers the official Base Salary Bonus, automatically added to your aggregate wallet under-the-hood.
+                  Standard Cashout Payout Peg: 210 Beans = $1.00 USD. Meeting official agency targets (from 2.5K up to 1.6M Beans + matching hours targets over 15 qualifying days) triggers the official Base Salary Bonus, automatically added to your aggregate wallet under-the-hood.
                 </p>
               </div>
 
@@ -565,292 +632,263 @@ export default function EarningsDashboardPage() {
                   <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Interactive Calculator</span>
                 </div>
 
-                {/* Symmetrical Controls */}
-                <div className="space-y-4">
-                  {/* Beans Slider */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-bold text-white/60">Estimated Monthly Beans</span>
-                      <span className="font-black text-cyan-400 italic">{(simBeans).toLocaleString()} Beans</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="160000" 
-                      step="2500"
-                      value={simBeans} 
-                      onChange={(e) => setSimBeans(Number(e.target.value))}
-                      className="w-full accent-cyan-400 bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex gap-2">
-                      {[10000, 30000, 50000, 150000].map((val) => (
-                        <button
-                          key={val}
-                          onClick={() => setSimBeans(val)}
-                          className={cn(
-                            "px-3 py-1 text-[8px] font-bold rounded-lg uppercase transition-all",
-                            simBeans === val ? "bg-cyan-500 text-black font-black" : "bg-white/5 text-white/40 hover:bg-white/10"
-                          )}
-                        >
-                          {(val / 1000).toFixed(0)}K Target
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Hours Selector */}
-                  <div className="space-y-2 pt-2 border-t border-white/5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-bold text-white/60">Streaming Contact Hours</span>
-                      <span className={cn("font-black italic", simHours >= 30 ? "text-emerald-400" : "text-pink-400")}>
-                        {simHours} Hours {simHours < 30 ? "(Failed)" : "(Met)"}
-                      </span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="40" 
-                      value={simHours} 
-                      onChange={(e) => setSimHours(Number(e.target.value))}
-                      className="w-full accent-emerald-400 bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[8px] font-bold text-white/20 uppercase">
-                      <span>0h</span>
-                      <span className="text-emerald-500/60 font-black">⭐ 30h Required</span>
-                      <span>40h</span>
-                    </div>
-                  </div>
-
-                  {/* Days Selector */}
-                  <div className="space-y-2 pt-2 border-t border-white/5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-bold text-white/60">Active Streaming Days</span>
-                      <span className={cn("font-black italic", simDays >= 15 ? "text-emerald-400" : "text-pink-400")}>
-                        {simDays} Days {simDays < 15 ? "(Failed)" : "(Met)"}
-                      </span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="20" 
-                      value={simDays} 
-                      onChange={(e) => setSimDays(Number(e.target.value))}
-                      className="w-full accent-teal-400 bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[8px] font-bold text-white/20 uppercase">
-                      <span>0d</span>
-                      <span className="text-teal-500/60 font-black">⭐ 15d Required</span>
-                      <span>20d</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Target Requirements Audit checklist */}
-                <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs">
-                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Contract Validation Checks</div>
-                  
-                  {/* Beans Check */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">1. Beans target for level:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-white/80">{simBeans.toLocaleString()} / {
-                        simBeans >= 150000 ? "150,000" :
-                        simBeans >= 50000 ? "50,000" :
-                        simBeans >= 30000 ? "30,000" : "10,000"
-                      }</span>
-                      {simBeans >= (simBeans >= 150000 ? 150000 : simBeans >= 50000 ? 50000 : simBeans >= 30000 ? 30000 : 10000) ? (
-                        <span className="text-emerald-400 font-extrabold text-[10px]">✔ PASS</span>
-                      ) : (
-                        <span className="text-pink-400 font-extrabold text-[10px]">✘ FAIL</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Hours Check */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">2. Active Broadcaster hours:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-white/80">{simHours} / 30 hrs</span>
-                      {simHours >= 30 ? (
-                        <span className="text-emerald-400 font-extrabold text-[10px]">✔ PASS</span>
-                      ) : (
-                        <span className="text-pink-400 font-extrabold text-[10px]">✘ FAIL ({30 - simHours}h short)</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Days Check */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/60">3. Active broadcasting days:</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-white/80">{simDays} / 15 days</span>
-                      {simDays >= 15 ? (
-                        <span className="text-emerald-400 font-extrabold text-[10px]">✔ PASS</span>
-                      ) : (
-                        <span className="text-pink-400 font-extrabold text-[10px]">✘ FAIL ({15 - simDays}d short)</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Calculation Outputs: Target Met vs Fallback Cliff */}
                 {(() => {
-                  const getSimTarget = (beans: number) => {
-                    if (beans >= 1000000) return { label: "High Tier (1M+)", targetBeans: 1000000, baseBonus: 5000 };
-                    if (beans >= 150000) return { label: "Tier 4 (150K)", targetBeans: 150000, baseBonus: 1800 };
-                    if (beans >= 50000) return { label: "Tier 3 (50K)", targetBeans: 50000, baseBonus: 600 };
-                    if (beans >= 30000) return { label: "Tier 2 (30K)", targetBeans: 30000, baseBonus: 350 };
-                    return { label: "Tier 1 (10K)", targetBeans: 10000, baseBonus: 120 };
-                  };
-
                   const target = getSimTarget(simBeans);
-                  const isQualified = simBeans >= target.targetBeans && simHours >= 30 && simDays >= 15;
+                  const isQualified = simBeans >= target.targetBeans && simHours >= target.hours && simDays >= 15;
                   
-                  const gifterDollarSpend = simBeans * 0.025; // 40 diamonds per $1, 1 diamond sent = 1 bean received -> cost is $0.025 per bean
+                  const gifterDollarSpend = simBeans * 0.025; // 40 diamonds per $1
                   const standardCashoutValue = simBeans / 210;
                   
-                  // Side-by-Side: Agency vs. Solo Calculations
-                  const progressFraction = Math.min(1, simBeans / target.targetBeans);
-                  const agencyBonusUSD = isQualified ? target.baseBonus : (target.baseBonus * progressFraction * 0.50);
-                  const soloBonusUSD = isQualified ? (target.baseBonus * 0.50) : (target.baseBonus * progressFraction * 0.25);
+                  // Side-by-Side: Agency vs. Solo Calculations using the Bigo Fallback + progressive surplus model
+                  const simTiers = [
+                    { target: 1600000, salary: 6400 * 210 },
+                    { target: 1200000, salary: 5200 * 210 },
+                    { target: 900000, salary: 4000 * 210 },
+                    { target: 780000, salary: 3520 * 210 },
+                    { target: 600000, salary: 2800 * 210 },
+                    { target: 420000, salary: 2000 * 210 },
+                    { target: 300000, salary: 1480 * 210 },
+                    { target: 240000, salary: 1200 * 210 },
+                    { target: 180000, salary: 920 * 210 },
+                    { target: 150000, salary: 780 * 210 },
+                    { target: 100000, salary: 540 * 210 },
+                    { target: 70000, salary: 380 * 210 },
+                    { target: 50000, salary: 280 * 210 },
+                    { target: 32000, salary: 180 * 210 },
+                    { target: 15000, salary: 88 * 210 },
+                    { target: 8000, salary: 48 * 210 },
+                    { target: 5000, salary: 32 * 210 },
+                    { target: 2500, salary: 16 * 210 },
+                  ];
+
+                  const surpassed = simTiers.find(t => simBeans >= t.target);
+                  let targetT = simTiers[0];
+                  if (surpassed) {
+                    const idx = simTiers.indexOf(surpassed);
+                    if (idx > 0) {
+                      targetT = simTiers[idx - 1];
+                    } else {
+                      targetT = surpassed;
+                    }
+                  } else {
+                    targetT = simTiers[simTiers.length - 1];
+                  }
+
+                  const sSalaryUSD = surpassed ? surpassed.salary / 210 : 0;
+                  const sTargetBeans = surpassed ? surpassed.target : 0;
+                  const tSalaryUSD = targetT.salary / 210;
+                  const tTargetBeans = targetT.target;
+
+                  let baseAgencySalaryUSD = 0;
+                  let baseSoloSalaryUSD = 0;
+
+                  if (simBeans >= simTiers[0].target) {
+                    baseAgencySalaryUSD = simTiers[0].salary / 210;
+                    baseSoloSalaryUSD = (simTiers[0].salary / 210) * 0.50;
+                  } else if (simBeans >= tTargetBeans) {
+                    baseAgencySalaryUSD = tSalaryUSD;
+                    baseSoloSalaryUSD = tSalaryUSD * 0.50;
+                  } else {
+                    const surplusFrac = (simBeans - sTargetBeans) / (tTargetBeans - sTargetBeans);
+                    const potentialSurplusSalaryUSD = (tSalaryUSD - sSalaryUSD) * surplusFrac;
+                    baseAgencySalaryUSD = sSalaryUSD + (potentialSurplusSalaryUSD * 0.50);
+                    baseSoloSalaryUSD = (sSalaryUSD * 0.50) + (potentialSurplusSalaryUSD * 0.25);
+                  }
+
+                  // Apply qualifier check penalty (halved on failure)
+                  const agencyBonusUSD = isQualified ? baseAgencySalaryUSD : baseAgencySalaryUSD * 0.50;
+                  const soloBonusUSD = isQualified ? baseSoloSalaryUSD : baseSoloSalaryUSD * 0.50;
+
                   const guaranteedBonus = agencyBonusUSD;
                   const finalPayoutUSD = standardCashoutValue + guaranteedBonus;
                   const totalAgencyPayout = standardCashoutValue + agencyBonusUSD;
                   const totalSoloPayout = standardCashoutValue + soloBonusUSD;
-                  const effectiveSplitRate = gifterDollarSpend > 0 ? (finalPayoutUSD / gifterDollarSpend) * 100 : 0;
+                  
                   return (
-                    <div className="space-y-4 pt-4 border-t border-white/5">
-                      <div className="text-[10px] font-black text-white/20 uppercase tracking-widest font-mono">Comparative Visualizer</div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Option A: Agency Streamer */}
-                        <div className={cn("p-5 rounded-3xl space-y-3 border", isQualified ? "bg-emerald-500/10 border-emerald-500/20" : "bg-cyan-500/10 border-cyan-500/20")}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black uppercase text-cyan-400">Registered Agency Host</span>
-                            <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", isQualified ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400")}>
-                              {isQualified ? "100% Base Secured" : "Split Penalty (50% Off)"}
-                            </span>
+                    <div className="space-y-4">
+                      {/* Symmetrical Controls */}
+                      <div className="space-y-4">
+                        {/* Beans Slider */}
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-bold text-white/60">Estimated Monthly Beans</span>
+                            <span className="font-black text-cyan-400 italic">{(simBeans).toLocaleString()} Beans</span>
                           </div>
-                          
-                          <div className="bg-black/40 p-3 rounded-2xl border border-white/5 space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-white/40">Standard Wallet Co:</span>
-                              <span className="font-bold text-slate-200">${standardCashoutValue.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-white/40">Contract Base Salary:</span>
-                              <span className="font-bold text-cyan-400 font-mono">+${agencyBonusUSD.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-white/5 pt-1 font-black text-white">
-                              <span>Total Agency Pay:</span>
-                              <span className="text-cyan-400">${totalAgencyPayout.toFixed(2)} USD</span>
-                            </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="1600000" 
+                            step="2500"
+                            value={simBeans} 
+                            onChange={(e) => setSimBeans(Number(e.target.value))}
+                            className="w-full accent-cyan-400 bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            {[2500, 10000, 50000, 150000, 300000, 600000, 1200000, 1600000].map((val) => (
+                              <button
+                                key={val}
+                                onClick={() => setSimBeans(val)}
+                                className={cn(
+                                  "px-2.5 py-1 text-[8px] font-bold rounded-lg uppercase transition-all",
+                                  simBeans === val ? "bg-cyan-500 text-black font-black" : "bg-white/5 text-white/40 hover:bg-white/10"
+                                )}
+                              >
+                                {val >= 1000000 ? (val / 1000000).toFixed(1) + 'M' : (val / 1000).toFixed(val === 2500 ? 1 : 0) + 'K'} Target
+                              </button>
+                            ))}
                           </div>
                         </div>
 
-                        {/* Option B: Solo Streamer */}
-                        <div className="bg-[#121213] border border-white/5 p-5 rounded-3xl space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black uppercase text-pink-400">Independent/Solo Host</span>
-                            <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", isQualified ? "bg-purple-500/20 text-purple-400" : "bg-rose-500/20 text-rose-500")}>
-                              {isQualified ? "50% Base Cap" : "Split Penalty (25% Cap)"}
+                        {/* Hours Selector */}
+                        <div className="space-y-2 pt-2 border-t border-white/5">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-bold text-white/60">Streaming Contact Hours</span>
+                            <span className={cn("font-black italic", simHours >= target.hours ? "text-emerald-400" : "text-pink-400")}>
+                              {simHours} Hours {simHours < target.hours ? "(Failed)" : "(Met)"}
                             </span>
                           </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="40" 
+                            value={simHours} 
+                            onChange={(e) => setSimHours(Number(e.target.value))}
+                            className="w-full accent-emerald-400 bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-[8px] font-bold text-white/20 uppercase">
+                            <span>0h</span>
+                            <span className="text-emerald-500/60 font-black">⭐ {target.hours}h Required</span>
+                            <span>40h</span>
+                          </div>
+                        </div>
 
-                          <div className="bg-black/40 p-3 rounded-2xl border border-white/5 space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-[#a1a1aa]">Standard Wallet Co:</span>
-                              <span className="font-bold text-slate-200">${standardCashoutValue.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-[#a1a1aa]">Solo Base Salary:</span>
-                              <span className="font-bold text-pink-400 font-mono">+${soloBonusUSD.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-white/5 pt-1 font-black text-white">
-                              <span>Total Independent Pay:</span>
-                              <span className="text-pink-400">${totalSoloPayout.toFixed(2)} USD</span>
-                            </div>
+                        {/* Days Selector */}
+                        <div className="space-y-2 pt-2 border-t border-white/5">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-bold text-white/60">Active Streaming Days</span>
+                            <span className={cn("font-black italic", simDays >= 15 ? "text-emerald-400" : "text-pink-400")}>
+                              {simDays} Days {simDays < 15 ? "(Failed)" : "(Met)"}
+                            </span>
+                          </div>
+                          <input 
+                            type="range" 
+                            min="0" 
+                            max="20" 
+                            value={simDays} 
+                            onChange={(e) => setSimDays(Number(e.target.value))}
+                            className="w-full accent-teal-400 bg-white/10 h-1.5 rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-[8px] font-bold text-white/20 uppercase">
+                            <span>0d</span>
+                            <span className="text-teal-500/60 font-black">⭐ 15d Required</span>
+                            <span>20d</span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="text-[10px] text-zinc-400 italic leading-snug font-mono">
-                        ⚠️ Streamers registered with an agency keep 100% of their base salary on success. Under-target performers under agencies receive on-target progress cut in half. Solo streamers receive a flat 50% target cap on success, and a 25% progress coefficient on miss. No unannounced penalties apply.
+                      {/* Target Requirements Audit checklist */}
+                      <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2 text-xs mt-4">
+                        <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Contract Validation Checks</div>
+                        
+                        {/* Beans Check */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/60">1. Beans target ({target.label}):</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-white/80">{simBeans.toLocaleString()} / {target.targetBeans.toLocaleString()}</span>
+                            {simBeans >= target.targetBeans ? (
+                              <span className="text-emerald-400 font-extrabold text-[10px]">✔ PASS</span>
+                            ) : (
+                              <span className="text-pink-400 font-extrabold text-[10px]">✘ FAIL</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Hours Check */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/60">2. Active Broadcaster hours:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-white/80">{simHours} / {target.hours} hrs</span>
+                            {simHours >= target.hours ? (
+                              <span className="text-emerald-400 font-extrabold text-[10px]">✔ PASS</span>
+                            ) : (
+                              <span className="text-pink-400 font-extrabold text-[10px]">✘ FAIL ({target.hours - simHours}h short)</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Days Check */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-white/60">3. Active broadcasting days:</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-white/80">{simDays} / 15 days</span>
+                            {simDays >= 15 ? (
+                              <span className="text-emerald-400 font-extrabold text-[10px]">✔ PASS</span>
+                            ) : (
+                              <span className="text-pink-400 font-extrabold text-[10px]">✘ FAIL ({15 - simDays}d short)</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      
-                      {false && isQualified ? (
-                        <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-3xl space-y-3">
-                          <div className="flex items-center gap-2 text-emerald-400">
-                            <CheckCircle2 size={16} />
-                            <span className="text-xs font-black uppercase tracking-wider">Official Salary Secured</span>
+
+                      <div className="space-y-4 pt-4 border-t border-white/5 mt-4">
+                        <div className="text-[10px] font-black text-white/20 uppercase tracking-widest font-mono">Comparative Visualizer</div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Option A: Agency Streamer */}
+                          <div className={cn("p-5 rounded-3xl space-y-3 border", isQualified ? "bg-emerald-500/10 border-emerald-500/20" : "bg-cyan-500/10 border-cyan-500/20")}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black uppercase text-cyan-400 font-sans">Registered Agency Host</span>
+                              <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", isQualified ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400")}>
+                                {isQualified ? "100% Base Secured" : "Split Penalty (50% Off)"}
+                              </span>
+                            </div>
+                            
+                            <div className="bg-black/40 p-3 rounded-2xl border border-white/5 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-white/40">Standard Wallet Co:</span>
+                                <span className="font-bold text-slate-200">${standardCashoutValue.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/40 font-bold">Contract Base Salary:</span>
+                                <span className="font-bold text-cyan-400 font-mono">+${agencyBonusUSD.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between border-t border-white/5 pt-1 font-black text-white">
+                                <span>Total Agency Pay:</span>
+                                <span className="text-cyan-400">${totalAgencyPayout.toFixed(2)} USD</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <span className="block text-[8px] font-bold text-white/40 uppercase tracking-widest">Diamonds Cost (Gifters)</span>
-                              <span className="text-sm font-black text-white">${gifterDollarSpend.toFixed(2)} USD</span>
+
+                          {/* Option B: Solo Streamer */}
+                          <div className="bg-[#121213] border border-white/5 p-5 rounded-3xl space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-black uppercase text-pink-400">Independent/Solo Host</span>
+                              <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded-full", isQualified ? "bg-purple-500/20 text-purple-400" : "bg-rose-500/20 text-rose-500")}>
+                                {isQualified ? "50% Base Cap" : "Split Penalty (25% Cap)"}
+                              </span>
                             </div>
-                            <div>
-                              <span className="block text-[8px] font-bold text-white/40 uppercase tracking-widest">Broadcaster Status</span>
-                              <span className="text-sm font-black text-emerald-400">Active Partner</span>
-                            </div>
-                          </div>
-                          <div className="bg-black/40 p-3 rounded-2xl border border-white/5 space-y-1 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-white/60">Standard Wallet Cash-out:</span>
-                              <span className="font-black text-slate-200">${standardCashoutValue.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-white/60">Guaranteed Base Salary:</span>
-                              <span className="font-black text-emerald-400">+${guaranteedBonus.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-white/5 pt-1 font-bold">
-                              <span className="text-white">Total Host Payout:</span>
-                              <span className="text-emerald-400">${finalPayoutUSD.toFixed(2)} USD</span>
+
+                            <div className="bg-black/40 p-3 rounded-2xl border border-white/5 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-[#a1a1aa]">Standard Wallet Co:</span>
+                                <span className="font-bold text-slate-200">${standardCashoutValue.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[#a1a1aa]">Solo Base Salary:</span>
+                                <span className="font-bold text-pink-400 font-mono">+${soloBonusUSD.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between border-t border-white/5 pt-1 font-black text-white">
+                                <span>Total Independent Pay:</span>
+                                <span className="text-pink-400">${totalSoloPayout.toFixed(2)} USD</span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      ) : (
-                        <div className="bg-pink-500/10 border border-pink-500/20 p-5 rounded-3xl space-y-3">
-                          <div className="flex items-center gap-2 text-pink-400">
-                            <AlertTriangle size={16} />
-                            <span className="text-xs font-black uppercase tracking-wider">Salary Forfeated (Cliff Triggered)</span>
-                          </div>
-                          
-                          <p className="text-[11px] text-pink-300 leading-tight italic">
-                            ⚠️ Incomplete target requirements disqualify you from the Base Salary Bonus. You are dropped to the casual 210:1 withdrawal rate.
-                          </p>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <span className="block text-[8px] font-bold text-white/40 uppercase tracking-widest">Gifter Diamonds Cost</span>
-                              <span className="text-sm font-black text-white">${gifterDollarSpend.toFixed(2)} USD</span>
-                            </div>
-                            <div>
-                              <span className="block text-[8px] font-bold text-white/40 uppercase tracking-widest">Broadcaster Status</span>
-                              <span className="text-sm font-black text-pink-400">Casual Account</span>
-                            </div>
-                          </div>
-
-                          <div className="bg-black/40 p-3 rounded-2xl border border-white/5 space-y-1 text-xs text-white/80">
-                            <div className="flex justify-between text-pink-400 font-bold">
-                              <span>Lost Base Salary Reward:</span>
-                              <span>-${target.baseBonus.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-slate-400">
-                              <span>Standard Wallet Cash-out:</span>
-                              <span>+${standardCashoutValue.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-white/5 pt-1 font-bold text-white flex-wrap">
-                              <span>Total Net Payout:</span>
-                              <span>${standardCashoutValue.toFixed(2)} USD</span>
-                            </div>
-                          </div>
-
-                          <div className="text-[9px] text-white/40 leading-snug">
-                            Broadcasters have the option to withdraw at the standard casual 210:1 payout rate to cover store distributions and operational margins.
-                          </div>
+                        <div className="text-[10px] text-zinc-400 italic leading-snug font-mono mt-2">
+                          ⚠️ Streamers registered with an agency keep 100% of their base salary on success. Under-target performers under agencies receive on-target progress cut in half. Solo streamers receive a flat 50% target cap on success, and a 25% progress coefficient on miss. No unannounced penalties apply.
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })()}

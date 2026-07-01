@@ -396,47 +396,72 @@ export default function WalletPage() {
               className="space-y-4"
             >
               {(() => {
-                const calculateSalaryForTier = (beansEarned: number, targetBeans: number, normalSalaryBeans: number, isUnderAgency: boolean) => {
-                  const progressFraction = Math.min(1, beansEarned / targetBeans);
-                  
-                  if (progressFraction >= 1.0) {
-                    if (isUnderAgency) {
-                      return normalSalaryBeans;
-                    } else {
-                      return normalSalaryBeans * 0.50;
-                    }
-                  } else {
-                    if (isUnderAgency) {
-                      return normalSalaryBeans * progressFraction * 0.50;
-                    } else {
-                      return normalSalaryBeans * progressFraction * 0.25;
-                    }
-                  }
-                };
-
                 const getDynamicHostSalaryBeans = (beansEarned: number, isUnderAgency: boolean) => {
                   if (beansEarned <= 0) return 0;
                   
                   const tiers = [
-                    { target: 1000000, salary: 5000 * 210 },
-                    { target: 150000, salary: 1800 * 210 },
-                    { target: 50000, salary: 600 * 210 },
-                    { target: 30000, salary: 350 * 210 },
-                    { target: 10000, salary: 120 * 210 },
+                    { target: 1600000, salary: 6400 * 210 },
+                    { target: 1200000, salary: 5200 * 210 },
+                    { target: 900000, salary: 4000 * 210 },
+                    { target: 780000, salary: 3520 * 210 },
+                    { target: 600000, salary: 2800 * 210 },
+                    { target: 420000, salary: 2000 * 210 },
+                    { target: 300000, salary: 1480 * 210 },
+                    { target: 240000, salary: 1200 * 210 },
+                    { target: 180000, salary: 920 * 210 },
+                    { target: 150000, salary: 780 * 210 },
+                    { target: 100000, salary: 540 * 210 },
+                    { target: 70000, salary: 380 * 210 },
+                    { target: 50000, salary: 280 * 210 },
+                    { target: 32000, salary: 180 * 210 },
+                    { target: 15000, salary: 88 * 210 },
+                    { target: 8000, salary: 48 * 210 },
+                    { target: 5000, salary: 32 * 210 },
+                    { target: 2500, salary: 16 * 210 },
                   ];
 
-                  let activeTier = tiers[tiers.length - 1]; // Default to 10K target
-                  for (let i = 0; i < tiers.length; i++) {
-                    if (beansEarned >= tiers[i].target) {
-                      activeTier = tiers[i];
-                      break;
-                    } else if (i < tiers.length - 1 && beansEarned >= tiers[i + 1].target) {
-                      activeTier = tiers[i];
-                      break;
+                  // 1. Find the highest tier actually surpassed (beansEarned >= tier.target)
+                  const surpassedTier = tiers.find(t => beansEarned >= t.target);
+
+                  // 2. Find target tier they were aiming for (immediate tier above surpassedTier)
+                  let targetTier = tiers[0];
+                  if (surpassedTier) {
+                    const sIdx = tiers.indexOf(surpassedTier);
+                    if (sIdx > 0) {
+                      targetTier = tiers[sIdx - 1];
+                    } else {
+                      targetTier = surpassedTier; // Already hit max tier (1.6M)
                     }
+                  } else {
+                    targetTier = tiers[tiers.length - 1]; // Aiming for lowest tier (2.5K)
                   }
 
-                  return calculateSalaryForTier(beansEarned, activeTier.target, activeTier.salary, isUnderAgency);
+                  const surpassedSalary = surpassedTier ? surpassedTier.salary : 0;
+                  const surpassedTarget = surpassedTier ? surpassedTier.target : 0;
+                  const targetSalary = targetTier.salary;
+                  const targetBeans = targetTier.target;
+
+                  // Exceeded highest tier fully
+                  if (beansEarned >= tiers[0].target) {
+                    return isUnderAgency ? tiers[0].salary : tiers[0].salary * 0.50;
+                  }
+
+                  // Fully hit targetBeans
+                  if (beansEarned >= targetBeans) {
+                    return isUnderAgency ? targetSalary : targetSalary * 0.50;
+                  }
+
+                  // Under-target performance (between surpassedTarget and targetBeans)
+                  const surplusFraction = (beansEarned - surpassedTarget) / (targetBeans - surpassedTarget);
+                  const potentialSurplusSalary = (targetSalary - surpassedSalary) * surplusFraction;
+
+                  if (isUnderAgency) {
+                    // Signed Agency Host: get 100% of fallback salary + 50% split on the potential progressive surplus on top
+                    return surpassedSalary + (potentialSurplusSalary * 0.50);
+                  } else {
+                    // Solo Host: gets 50% of fallback salary + 25% of the potential progressive surplus on top
+                    return (surpassedSalary * 0.50) + (potentialSurplusSalary * 0.25);
+                  }
                 };
 
                 const giftBeans = profile?.beans || 0;

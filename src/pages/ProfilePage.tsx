@@ -6,6 +6,7 @@ import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation, LANGUAGES, LanguageCode } from '../context/LanguageContext';
 import { cn } from '../lib/utils';
 import { 
   Settings as SettingsIcon, Wallet, Briefcase, Calendar, ShoppingBag, FileText, Star, CheckCircle, 
@@ -28,6 +29,7 @@ export default function ProfilePage() {
   const { profile, user, logout } = useAuth();
   const { showToast } = useToast();
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage, t } = useTranslation();
   const navigate = useNavigate();
   
   const [showGoLive, setShowGoLive] = useState(false);
@@ -173,7 +175,7 @@ export default function ProfilePage() {
             <div className="p-0.5 bg-cyan-400 rounded-full">
               <Eye size={8} className="text-black" />
             </div>
-            <span className="text-[9px] font-black text-cyan-400 uppercase">visitor: 42</span>
+            <span className="text-[9px] font-black text-cyan-400 uppercase">{t('visitors', 'visitors')}: 42</span>
           </div>
 
           <div className="flex items-center gap-4 mb-6">
@@ -221,7 +223,7 @@ export default function ProfilePage() {
           {/* XP Progress Bar */}
           <div className="space-y-1.5">
             <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-cyan-400/50">
-              <span className="italic">Level Progress</span>
+              <span className="italic">{t('level_progress', 'Level Progress')}</span>
               <span>75%</span>
             </div>
             <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -288,11 +290,7 @@ export default function ProfilePage() {
           {/* Family Card */}
           <div 
             onClick={() => {
-              if (profile.familyId) {
-                setShowFamilyDetails(true);
-              } else {
-                setShowCreateFamily(true);
-              }
+              navigate('/family-leaderboard');
             }}
             className={cn(
               "relative aspect-[4/3] rounded-2xl border flex flex-col items-center justify-center gap-1 overflow-hidden group cursor-pointer active:scale-95 transition-all text-center px-1",
@@ -572,7 +570,7 @@ export default function ProfilePage() {
               )}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black italic uppercase tracking-wider">Account Settings</h3>
+                <h3 className="text-lg font-black italic uppercase tracking-wider">{t('account_settings', 'Account Settings')}</h3>
                 <button 
                   onClick={() => setShowSettingsModal(false)}
                   className="p-1.5 rounded-full hover:bg-white/10"
@@ -582,7 +580,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Display Name</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('display_name', 'Display Name')}</label>
                 <input 
                   type="text"
                   value={editingDisplayName}
@@ -593,6 +591,29 @@ export default function ProfilePage() {
                     isLight ? "bg-slate-100 border-black/10 focus:ring-orange-500" : "bg-black/40 border-white/10 focus:ring-[#2af5ff]"
                   )}
                 />
+              </div>
+
+              {/* Dynamic Translation Language Selector */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('choose_language', 'App Language')}</label>
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    const selected = e.target.value as LanguageCode;
+                    setLanguage(selected);
+                    showToast(`Language modified successfully! 🌐`, "success");
+                  }}
+                  className={cn(
+                    "w-full p-3.5 rounded-2xl outline-none font-bold text-xs border focus:ring-2 cursor-pointer",
+                    isLight ? "bg-slate-100 border-black/10 focus:ring-orange-500" : "bg-black/40 border-white/10 focus:ring-[#2af5ff]"
+                  )}
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code} className="text-black bg-white">
+                      {lang.flag} {lang.name} {lang.code === 'ar' ? ' (RTL)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-3">
@@ -633,9 +654,9 @@ export default function ProfilePage() {
                       setSavingSettings(false);
                     }
                   }}
-                  className="flex-1 py-3 px-4 rounded-2xl text-xs font-black uppercase bg-[#2af5ff] text-black hover:scale-105 active:scale-95 transition-all"
+                  className="flex-1 py-3 px-4 rounded-2xl text-xs font-black uppercase bg-[#2af5ff] text-black hover:scale-105 active:scale-95 transition-all text-center"
                 >
-                  {savingSettings ? "Saving..." : "Save Settings"}
+                  {savingSettings ? "Saving..." : t('save_settings', 'Save Settings')}
                 </button>
               </div>
             </motion.div>

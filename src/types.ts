@@ -23,6 +23,7 @@ export interface UserProfile {
   agencyId?: string;
   familyId?: string;
   region?: string;
+  regionRank?: number;
   totalDiamondsSpent: number;
   totalBeansEarned: number;
   giftBeans?: number;
@@ -172,6 +173,7 @@ export interface Room {
   level?: number;
   participants?: string[];
   tag?: string;
+  popularity?: number;
   countryCode?: string;
   countryName?: string;
 }

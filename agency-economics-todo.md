@@ -77,10 +77,12 @@ Under the hood, we have successfully replaced all mock or inaccurate elements wi
 We will refine the following policies in our custom platform rules logic:
 
 ### 🌟 Project Task List:
-- [ ] **Task 1: The "Grace/Safety Net" Failed Target Policy**
-  * *Option A (Default Bigo Rules):* If the host streaming hours are met but they fell short on beans (e.g. 8,500 instead of 10,000), they get **$0 base salary** and are reverted to standard $47.61 cash-out.
-  * *Option B (Our Proposed Grace Rate):* Introduce a "Pro-Rata" tier. If they hit **80%+ of the target**, they still receive **50% of the guaranteed base salary bonus** to prevent complete discouragement.
-  * *Option C (The Basic Safety Payout):* Allow low-tier accounts to exchange beans for small gift codes or props with no minimum payout barrier if they are active 10+ days.
+- [x] **Task 1: The "Grace/Safety Net" Failed Target Policy (IMPLEMENTED)**
+  * *What We Implemented*: We departed from standard Bigo cliffs (where missing a target by even 1 Bean results in a $0 salary drop-off).
+  * *Our Progressive Model*:
+    * Signed Agency Hosts get **100% of the salary of the highest tier surpassed**, plus a **50% split on the progressive surplus** of the upper target they were aiming for (beating Bigo's step cliff completely!).
+    * Solo/Unsigned Hosts get 50% of the surpassed tier salary plus a 25% split on the progressive surplus.
+  * *Math verified and live* in `WalletPage.tsx` and `EarningsDashboardPage.tsx`.
 - [ ] **Task 2: Region-Specific Adjustments (UK vs other areas)**
   * *Payout Thresholds:* Establish custom threshold scales (e.g. higher cash-out requirements for UK hosts but with lower tax-deduction rates).
   * *Agency Commission Rebate:* Model regional bonuses for the signing agency (increasing contract rates dynamically based on the region's overall Monthly Gifting volume).
@@ -89,4 +91,7 @@ We will refine the following policies in our custom platform rules logic:
 - [ ] **Task 4: Platform-Provided Agency-Streamer Standard Contract Formulation**
   * *Revisit Topic:* Revisit the specific fees that must be paid, contractual lock-ins, and standard cancellation/buyout formulas.
   * *The System-Enforced Structure:* Formulate an exact standard digital contract provided on our application that regulates relations between **The Agency** and **The Streamer (us)**, removing the need for creators to create or import external agreements.
+- [ ] **Task 5: Non-Contract Streamers & In-App Digital Agreement Framework**
+  * *The Agenda:* Refine how we handle payout calculations for non-contract creators, keeping in mind that on Bigo, casual/non-contract streamers receive **$0 base salary** and must cash out purely at the standard 210 Beans = $1 USD conversion rate.
+  * *Digital Contract Delivery:* Design a standardized, user-friendly portal inside the Creator Center where non-contract streamers can sign up, review, and legally sign an digital agency contract directly inside the app to join an agency. We will build out this flow once the user completes their external research.
 

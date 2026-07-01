@@ -4,6 +4,8 @@ import { ChevronLeft, Search, Heart, Star, Users, Award, Shield, Sparkles } from
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { useTheme } from '../context/ThemeContext';
+// @ts-ignore
+import followedHeartWingsImg from '../assets/images/followed_heart_wings_1781210010399.jpg';
 
 export interface RelationshipUser {
   id: string;
@@ -720,24 +722,31 @@ export function RelationshipsPage({ initialTab = 'friends' }: { initialTab?: 'fr
                       </div>
                     )}
 
-                    {/* Highly responsive interactive state toggle capsule button */}
-                    <button
-                      onClick={() => handleActionClick(user)}
-                      className={cn(
-                        "text-[11px] font-[800] px-4.5 py-1.5 rounded-full shadow-sm select-none transition-all active:scale-[0.96] border cursor-pointer uppercase tracking-tight",
-                        user.relationship === 'friend' 
-                          ? (isLight 
-                              ? "bg-stone-200/60 border-stone-200 text-stone-705" 
-                              : "bg-[#252528] border-transparent text-[#9a9aa8]")
-                          : user.relationship === 'following'
-                            ? (isLight 
-                                ? "bg-stone-200/60 border-stone-201 text-stone-705" 
-                                : "bg-[#252528] border-transparent text-[#9a9aa8]")
-                            : "bg-cyan-400 border-transparent text-zinc-950 font-black hover:brightness-110 shadow-cyan-400/10"
-                      )}
-                    >
-                      {user.relationship === 'friend' ? 'Friends' : user.relationship === 'following' ? 'Following' : 'Follow'}
-                    </button>
+                    {/* Highly responsive interactive state toggle capsule button/image */}
+                    {user.relationship === 'following' || user.relationship === 'friend' ? (
+                      <button
+                        onClick={() => handleActionClick(user)}
+                        className="w-[64px] h-[51px] flex items-center justify-center transition-all duration-300 active:scale-95 relative shrink-0 cursor-pointer"
+                        title={user.relationship === 'friend' ? 'Friends' : 'Following'}
+                      >
+                        <img 
+                          src={followedHeartWingsImg} 
+                          alt="Following" 
+                          className="w-[55px] h-[46px] object-contain drop-shadow-[0_1.5px_3.5px_rgba(244,63,94,0.35)] hover:scale-105 transition-transform" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleActionClick(user)}
+                        className={cn(
+                          "text-[11px] font-[800] px-4.5 py-1.5 rounded-full shadow-sm select-none transition-all active:scale-[0.96] border cursor-pointer uppercase tracking-tight",
+                          "bg-cyan-400 border-transparent text-zinc-950 font-black hover:brightness-110 shadow-cyan-400/10"
+                        )}
+                      >
+                        Follow
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               ))

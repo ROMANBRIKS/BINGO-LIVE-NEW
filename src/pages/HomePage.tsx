@@ -19,6 +19,7 @@ import { UserProfile } from '../types';
 import { getDocs, getDoc, doc } from 'firebase/firestore';
 import { SEOHeaders } from '../components/SEOHeaders';
 import { UserDiscoveryPopup } from '../components/UserDiscoveryPopup';
+import { SpacesTabContent } from '../components/SpacesTabContent';
 
 interface CountryItem {
   name: string;
@@ -934,12 +935,14 @@ const RoomCard = React.memo(({
   room, 
   aiReason, 
   onShowProfile,
-  layoutMode = 'grid'
+  layoutMode = 'grid',
+  fromTab = 'popular'
 }: { 
   room: Room, 
   aiReason?: string, 
   onShowProfile?: (uid: string) => void,
-  layoutMode?: 'grid' | 'list'
+  layoutMode?: 'grid' | 'list',
+  fromTab?: string
 }) => {
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -990,7 +993,7 @@ const RoomCard = React.memo(({
           "relative flex items-center justify-between p-3.5 mx-3.5 rounded-2xl border mb-2.5 cursor-pointer transition-colors duration-300 z-10",
           isLight ? "bg-white border-zinc-100 hover:bg-zinc-50" : "bg-[#18181b]/95 border-zinc-800 hover:bg-[#202024]"
         )}
-        onClick={() => navigate(`/room/${room.id}`)}
+        onClick={() => navigate(`/room/${room.id}?from=${fromTab}`)}
       >
         <div className="flex items-center gap-4 min-w-0">
           {/* Left: Square Cover image preview with neon indicator overlay */}
@@ -1084,88 +1087,103 @@ const RoomCard = React.memo(({
   }
 
   // Grid style
+  const hashVal = room.id ? room.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+  const isNewHost = room.title?.toLowerCase().includes('new') || room.id?.includes('babyface') || (hashVal % 7 === 1);
+  const isVideoRoom = !isNewHost && (room.title?.toLowerCase().includes('multi') || room.title?.toLowerCase().includes('party') || (hashVal % 7 === 3));
+  const isPK = !isNewHost && !isVideoRoom && (room.title?.toLowerCase().includes('pk') || room.id?.startsWith('party_followed_') || (hashVal % 7 === 5));
+
+  const getCustomSticker = (hostUidStr: string, titleStr: string) => {
+    const lowercase = titleStr.toLowerCase();
+    if (hostUidStr === 'host_agency') return '💼 Agency Rec';
+    if (hostUidStr === 'host_wtwww') return '❤️ Wtwww Vibe 👑';
+    if (hostUidStr === 'host_shyne') return '✨ Top Gifter 💎';
+    if (hostUidStr.includes('bigs')) return '🏠 Savage Mode ⚔️ 🪙';
+    if (hostUidStr === 'host_saveme' || lowercase.includes('save me')) return '🥺 Goals: 10k left!';
+    if (lowercase.includes('target') || lowercase.includes('to go') || lowercase.includes('beans')) {
+      return `🎯 Target: ${titleStr.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD00-\uDFFF]/g, '')}`;
+    }
+    // Occasional simulated premium stickers
+    if (hashVal % 6 === 2) return '🔥 Target Hunt 🎯';
+    if (hashVal % 6 === 3) return '💖 Squad Boss 💎';
+    return null;
+  };
+
+  const customSticker = getCustomSticker(room.hostUid || '', room.title || '');
+
   return (
     <motion.div 
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       className={cn(
-        "relative aspect-[1/1] overflow-hidden cursor-pointer group transition-colors duration-300 border border-zinc-900/10",
-        isLight ? "bg-white" : "bg-[#1a1a1a]"
+        "relative aspect-[3/4] rounded-[18px] overflow-hidden cursor-pointer group transition-all duration-300 shadow-md",
+        isLight ? "bg-white border border-stone-200/50" : "bg-[#18181b]"
       )}
     >
       {/* Background Click navigates to room */}
-      <div className="absolute inset-0 z-0" onClick={() => navigate(`/room/${room.id}`)} />
+      <div className="absolute inset-0 z-0" onClick={() => navigate(`/room/${room.id}?from=${fromTab}`)} />
 
       <img 
-        src={`https://picsum.photos/seed/${room.id}/400/400`} 
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 pointer-events-none"
+        src={`https://picsum.photos/seed/${room.id}/400/530`} 
+        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
         referrerPolicy="no-referrer"
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/25 pointer-events-none" />
       
-      {/* Top Left: Category with waveform visual status */}
-      <div className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full border border-white/10 z-10 pointer-events-none">
-        {/* Beautiful real-time concurrent green lines visualizer */}
-        <span className="flex items-end gap-[1.5px] h-[9px] pb-[0.5px] select-none shrink-0 origin-bottom mr-1 bg-transparent">
-          <motion.span 
-            animate={{ height: ["2px", "8px", "4px", "7px", "2px"] }}
-            transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
-            className="w-[1.5px] bg-[#00ff66] rounded-full origin-bottom"
-          />
-          <motion.span 
-            animate={{ height: ["8px", "3px", "7px", "2px", "8px"] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            className="w-[1.5px] bg-[#00ff66] rounded-full origin-bottom"
-          />
-          <motion.span 
-            animate={{ height: ["4px", "7px", "2px", "9px", "4px"] }}
-            transition={{ repeat: Infinity, duration: 1.0, ease: "easeInOut" }}
-            className="w-[1.5px] bg-[#00ff66] rounded-full origin-bottom"
-          />
-        </span>
-        <span className="text-[8px] font-black uppercase tracking-tight text-[#00ff66]">{category}</span>
+      {/* Top Left Status Badge */}
+      <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none flex items-center gap-1.5 select-none scale-90 sm:scale-100 origin-top-left">
+        <div className="flex items-center gap-1.5 bg-black/45 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/5">
+          {/* Real-time equalizing live frequency bars */}
+          <span className="flex items-end gap-[1.5px] h-[9px] pb-[0.5px] shrink-0 origin-bottom">
+            <motion.span 
+              animate={{ height: ["2px", "8px", "4px", "7px", "2px"] }}
+              transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
+              className="w-[1.5px] bg-[#00ff66] rounded-full origin-bottom"
+            />
+            <motion.span 
+              animate={{ height: ["8px", "3px", "7px", "2px", "8px"] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              className="w-[1.5px] bg-[#00ff66] rounded-full origin-bottom"
+            />
+            <motion.span 
+              animate={{ height: ["4px", "7px", "2px", "9px", "4px"] }}
+              transition={{ repeat: Infinity, duration: 1.0, ease: "easeInOut" }}
+              className="w-[1.5px] bg-[#00ff66] rounded-full origin-bottom"
+            />
+          </span>
+          {isVideoRoom ? (
+            <span className="text-[10px] font-bold text-white tracking-tight">Video Room</span>
+          ) : isPK ? (
+            <span className="text-[10px] font-bold text-white tracking-tight">PK</span>
+          ) : null}
+        </div>
       </div>
 
-      {/* Top Right: Viewer count of members */}
-      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-0.5 rounded-full border border-white/10 z-10 pointer-events-none">
-        <Users size={10} className="text-[#00e1cf]" />
-        <span className="text-[9px] font-black font-mono text-white">{room.viewerCount || Math.floor(Math.random() * 100)}</span>
+      {/* Top Right: Viewer count */}
+      <div className="absolute top-2.5 right-2.5 z-10 pointer-events-none drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.85)] flex items-center gap-1 select-none text-white/95 font-bold tracking-tight text-[11px] scale-90 sm:scale-100 origin-top-right">
+        <Users size={11} strokeWidth={2.5} className="opacity-90 shrink-0" />
+        <span>{room.viewerCount || Math.floor(hashVal % 120 + 35)}</span>
       </div>
 
       {/* Bottom Info details */}
-      <div className="absolute bottom-2 left-2.5 right-2.5 flex flex-col gap-1 z-10">
-        {aiReason && (
-          <div className="bg-cyan-500/80 backdrop-blur-md px-1.5 py-0.5 rounded-md flex items-center gap-1 mb-0.5 border border-cyan-400/30">
-            <BrainCircuit size={8} className="text-white" />
-            <span className="text-[7.5px] font-black text-white uppercase truncate">{aiReason}</span>
+      <div className="absolute bottom-2.5 left-2.5 right-2.5 flex flex-col gap-1 z-10 pointer-events-none">
+        {isNewHost && (
+          <div className="inline-flex items-center gap-1 bg-[#00d8ca] px-2 py-0.5 rounded-full text-[9px] font-black text-[#121214] w-max select-none shadow-[0_2px_8px_rgba(0,216,202,0.4)]">
+            <span className="text-[8px] font-black">✦</span>
+            <span className="uppercase tracking-wider font-extrabold">New</span>
           </div>
         )}
-        <div 
-          onClick={(e) => {
-            e.stopPropagation();
-            onShowProfile?.(room.hostUid);
-          }}
-          className="flex items-center gap-1.5 group/info"
-        >
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-1.5 py-0.5 rounded-full flex items-center gap-1 border border-white/20 shadow-lg group-hover/info:scale-110 transition-transform shrink-0">
-            <UserIcon size={8} className="text-white" />
-            <span className="text-[8px] font-black text-white uppercase tracking-tighter">Lv.{getConsistentLevel(room.hostUid)}</span>
-          </div>
-          <span className="text-[10px] font-black text-white truncate drop-shadow-md uppercase tracking-tight group-hover/info:text-cyan-400 transition-colors">
-            {room.title || "Welcome to my live stream!"}
-          </span>
-        </div>
 
-        <div className="flex items-center gap-1 select-none flex-wrap">
-          <span className="px-1.5 py-0.5 rounded-md bg-[#ff407f]/90 text-white font-extrabold text-[7px] uppercase tracking-tight shadow-sm scale-90 origin-left">
-            👾 Challenger
+        {customSticker && (
+          <div className="inline-flex items-center gap-1 bg-[#121214e0] border border-white/5 px-2 py-0.5 rounded-md text-[8.5px] font-extrabold text-white w-max mb-0.5 select-none backdrop-blur-xs scale-95 origin-left">
+            <span>{customSticker}</span>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[12px] font-black text-white leading-tight uppercase drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.9)] max-w-[95%] truncate select-none">
+            {room.title || "Welcome to my live room!"}
           </span>
-          {(room.hostUid?.startsWith('host_') || room.hostUid?.includes('featured') || room.isPopular) && (
-            <span className="px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black text-[7px] uppercase tracking-tight shadow-sm scale-90 origin-left flex items-center gap-0.5">
-              👑 IDOL
-            </span>
-          )}
         </div>
       </div>
     </motion.div>
@@ -1294,7 +1312,7 @@ export function FeaturedTabContent({
   useEffect(() => {
     if (progress >= 100) {
       showToast(`Countdown complete! Entering ${stream.displayName}'s show 🎙️💎`, 'success');
-      navigate(`/room/${stream.id}`);
+      navigate(`/room/${stream.id}?from=featured`);
     }
   }, [progress, stream, navigate, showToast]);
 
@@ -1464,7 +1482,7 @@ export function FeaturedTabContent({
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              navigate(`/room/${stream.id}`);
+              navigate(`/room/${stream.id}?from=featured`);
               showToast(`Entering ${stream.displayName}'s Special Room! 🎙️💎`, "success");
             }}
             className="absolute inset-0 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center gap-2 text-white shadow-[0_8px_32px_rgba(0,0,0,0.45)] z-20 cursor-pointer pointer-events-auto border-none"
@@ -1597,8 +1615,13 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
 
   useEffect(() => {
-    if (location.state && (location.state as any).returnToFeatured) {
-      setActiveTab('Featured');
+    if (location.state) {
+      const stateObj = location.state as any;
+      if (stateObj.returnTab) {
+        setActiveTab(stateObj.returnTab);
+      } else if (stateObj.returnToFeatured) {
+        setActiveTab('Featured');
+      }
     }
   }, [location]);
   
@@ -1620,6 +1643,7 @@ export default function HomePage() {
   // Explore Tab custom states
   const [exploreCountryPage, setExploreCountryPage] = useState(0);
   const [showLuckyBox, setShowLuckyBox] = useState(false);
+  const [showLiveMarketBag, setShowLiveMarketBag] = useState(false);
   const [isLuckDrawing, setIsLuckDrawing] = useState(false);
   const [drawnHistory, setDrawnHistory] = useState<string[]>([]);
   const [lastPrize, setLastPrize] = useState<string | null>(null);
@@ -1689,7 +1713,7 @@ export default function HomePage() {
     } as any
   });
 
-  const tabs = ['Nearby', 'Popular', 'Featured', 'Explore'];
+  const tabs = ['Nearby', 'Popular', 'Featured', 'Explore', 'Spaces'];
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const fetchHostProfile = async (uid: string) => {
@@ -2198,6 +2222,23 @@ export default function HomePage() {
             <Film size={11} className="stroke-[3] shrink-0" />
             <span>Movies</span>
           </button>
+
+          <button
+            id="homepage-spaces-quick-button"
+            onClick={() => {
+              setActiveTab('Spaces');
+              showToast("Switched to audio-live Spaces feed! 🎙️💎", "info");
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black transition-all uppercase tracking-wider shadow-sm border",
+              activeTab === 'Spaces'
+                ? (isLight ? "bg-stone-900 text-white border-stone-900" : "bg-cyan-500/10 text-cyan-400 border-cyan-400/90")
+                : (isLight ? "bg-stone-50 text-stone-900 border-stone-200 hover:bg-stone-100" : "bg-neutral-800/80 text-cyan-400 border border-cyan-400/30 hover:border-cyan-400/60")
+            )}
+          >
+            <Signal size={11} className={cn("stroke-[3] shrink-0 animate-pulse", activeTab === 'Spaces' ? "text-cyan-400" : "text-cyan-400/80")} />
+            <span>Spaces</span>
+          </button>
         </div>
 
         {/* Floor 2: Scrollable Tabs Row */}
@@ -2318,7 +2359,7 @@ export default function HomePage() {
                   whileHover={{ scale: 1.015 }}
                   whileTap={{ scale: 0.985 }}
                   onClick={() => {
-                    navigate(`/room/${room.id}`);
+                    navigate(`/room/${room.id}?from=${activeTab.toLowerCase()}`);
                     showToast(`Entering room: ${room.title} 🎙️`, 'info');
                   }}
                   className="relative aspect-[3/4] bg-zinc-950 overflow-hidden cursor-pointer group rounded-sm"
@@ -2373,6 +2414,16 @@ export default function HomePage() {
               </div>
             )}
           </div>
+        ) : activeTab === 'Spaces' ? (
+          <SpacesTabContent 
+            isLight={isLight}
+            profile={profile}
+            onShowProfile={fetchHostProfile}
+            navigate={navigate}
+            showToast={showToast}
+            firebaseRooms={rooms}
+            setActiveTab={setActiveTab}
+          />
         ) : activeTab === 'Featured' ? (
           <FeaturedTabContent 
             isLight={isLight} 
@@ -2462,7 +2513,8 @@ export default function HomePage() {
                           room={room} 
                           layoutMode="grid"
                           aiReason={rec.reason} 
-                          onShowProfile={fetchHostProfile} 
+                          onShowProfile={fetchHostProfile}
+                          fromTab={activeTab.toLowerCase()}
                         />
                       );
                     })}
@@ -2478,7 +2530,8 @@ export default function HomePage() {
                           room={room} 
                           layoutMode="list"
                           aiReason={rec.reason} 
-                          onShowProfile={fetchHostProfile} 
+                          onShowProfile={fetchHostProfile}
+                          fromTab={activeTab.toLowerCase()}
                         />
                       );
                     })}
@@ -2507,14 +2560,15 @@ export default function HomePage() {
             </div>
 
             {layoutMode === 'grid' ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-0.5 px-0.5 pb-24">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 px-2 pb-24">
                 {filteredRooms.map(room => (
                   <RoomCard 
                     key={room.id} 
                     room={room} 
                     layoutMode="grid"
                     onShowProfile={fetchHostProfile}
-                    aiReason={aiRecs.find(rec => rec.recommendedRoomId === room.id)?.reason} 
+                    aiReason={aiRecs.find(rec => rec.recommendedRoomId === room.id)?.reason}
+                    fromTab={activeTab.toLowerCase()}
                   />
                 ))}
               </div>
@@ -2526,7 +2580,8 @@ export default function HomePage() {
                     room={room} 
                     layoutMode="list"
                     onShowProfile={fetchHostProfile}
-                    aiReason={aiRecs.find(rec => rec.recommendedRoomId === room.id)?.reason} 
+                    aiReason={aiRecs.find(rec => rec.recommendedRoomId === room.id)?.reason}
+                    fromTab={activeTab.toLowerCase()}
                   />
                 ))}
               </div>
@@ -3197,6 +3252,144 @@ export default function HomePage() {
           <span className="text-[6.5px] font-black text-zinc-950 uppercase tracking-tighter leading-none -mt-0.5 select-none font-sans">Lucky Box</span>
         </motion.button>
       )}
+
+      {/* Floating Checkmarked Live Market Bag on the homepage itself */}
+      <motion.button
+        id="homepage-live-market-bag"
+        whileHover={{ scale: 1.1, rotate: -3 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => {
+          setShowLiveMarketBag(true);
+          showToast("Entering Live Gifting Store & Mall! 🛍️✨", "info");
+        }}
+        className="fixed bottom-26 right-5 z-40 w-14 h-14 bg-white rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.3)] flex items-center justify-center border-2 border-stone-200/40 select-none active:scale-95 transition-all outline-none"
+      >
+        <div className="relative flex items-center justify-center w-11 h-11 bg-gradient-to-tr from-teal-50 to-[#e0fbfc] rounded-full">
+          <span className="text-[25px] drop-shadow-sm select-none">🛍️</span>
+          <span className="absolute bottom-0 right-0 flex h-4 w-4 bg-[#00ff66] rounded-full items-center justify-center border border-white text-[9px] font-black text-black">
+            ✓
+          </span>
+        </div>
+      </motion.button>
+
+      {/* Immersive Live Gifting Store & Mall Dialog Overlay */}
+      <AnimatePresence>
+        {showLiveMarketBag && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLiveMarketBag(false)}
+              className="absolute inset-0 bg-black/85 backdrop-blur-md"
+            />
+
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 30 }}
+              transition={{ type: "spring", damping: 25, stiffness: 350 }}
+              className="relative w-full max-w-sm bg-[#161618] rounded-3xl border-2 border-[#00e1cf]/40 shadow-[0_0_50px_rgba(0,225,207,0.25)] overflow-hidden flex flex-col p-6 pointer-events-auto text-white"
+            >
+              {/* Header */}
+              <div className="flex flex-col items-center text-center space-y-1 select-none pb-2">
+                <span className="text-[10px] font-black uppercase text-[#00e1cf] tracking-[0.25em] bg-[#00e1cf]/10 px-3 py-1 rounded-full border border-[#00e1cf]/20">
+                  🛍️ BINGO LIVE STORE
+                </span>
+                <h4 className="text-lg font-black italic text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-300 to-amber-300 tracking-tight uppercase mt-2">
+                  Live Gifting & Mall
+                </h4>
+                <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Acquire exclusive high-end VIP cosmetics!</p>
+              </div>
+
+              {/* Items List */}
+              <div className="my-4 space-y-2 max-h-[280px] overflow-y-auto scrollbar-hide pr-1">
+                {[
+                  {
+                    id: 'ride_lambo',
+                    title: 'Gold Lamborghini Ride',
+                    desc: 'VIP fly-in entrance tracks when entering any room.',
+                    cost: 5000,
+                    icon: '🏎️',
+                    rarity: 'Legendary',
+                    color: 'from-amber-400 to-yellow-500'
+                  },
+                  {
+                    id: 'effect_phoenix',
+                    title: 'Golden Phoenix Flight',
+                    desc: 'Splashes gold wings & fireworks overlays.',
+                    cost: 8500,
+                    icon: '🐉',
+                    rarity: 'Legendary',
+                    color: 'from-orange-500 to-red-600'
+                  },
+                  {
+                    id: 'bubble_cyber',
+                    title: 'Cyberpunk Neon Bubble',
+                    desc: 'A permanent glowing chat frame stream bubble.',
+                    cost: 1200,
+                    icon: '💬',
+                    rarity: 'Epic',
+                    color: 'from-purple-500 to-pink-500'
+                  },
+                  {
+                    id: 'shield_family',
+                    title: 'Gifting Booster Shield',
+                    desc: 'Protects family streak levels + 1.5x fan level XP.',
+                    cost: 400,
+                    icon: '🛡️',
+                    rarity: 'Rare',
+                    color: 'from-cyan-500 to-blue-500'
+                  }
+                ].map(item => (
+                  <div key={item.id} className="relative p-3 bg-zinc-900/80 border border-zinc-800/60 rounded-2xl flex items-center justify-between gap-3 group transition-all hover:bg-zinc-800/90 hover:border-zinc-700/60">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-11 h-11 rounded-xl bg-zinc-850 flex items-center justify-center text-2xl shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                        {item.icon}
+                      </div>
+                      <div className="min-w-0 text-left">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[11.5px] font-black tracking-tight text-white leading-none">{item.title}</span>
+                          <span className={cn(
+                            "text-[7px] font-black uppercase px-1 rounded bg-gradient-to-r",
+                            item.rarity === 'Legendary' ? 'from-amber-500/20 to-yellow-500/20 text-yellow-400' :
+                            item.rarity === 'Epic' ? 'from-purple-500/20 to-pink-500/20 text-pink-400' : 'from-cyan-500/20 to-blue-500/20 text-cyan-400'
+                          )}>
+                            {item.rarity}
+                          </span>
+                        </div>
+                        <p className="text-[9.5px] text-zinc-400 mt-1 leading-snug line-clamp-2 pr-2">{item.desc}</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        showToast(`Acquired: "${item.title}" successfully! 💎🎉`, "success");
+                      }}
+                      className="px-2.5 py-1.5 bg-[#00e1cf] text-zinc-950 font-black text-[9.5px] rounded-lg tracking-wider uppercase shrink-0 transition-all active:scale-90 hover:brightness-110 flex items-center gap-0.5"
+                    >
+                      <span>{item.cost}</span>
+                      <span className="text-[8px]">💎</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Close Button */}
+              <div className="pt-2 flex items-center justify-center">
+                <button
+                  onClick={() => {
+                    setShowLiveMarketBag(false);
+                  }}
+                  className="w-full py-3 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 font-black text-[11px] rounded-2xl uppercase tracking-widest active:scale-95 transition-all text-center"
+                >
+                  Close Store
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Immersive Bigo 10th Anniversary Lucky Box Draw Dialog Overlay */}
       <AnimatePresence>

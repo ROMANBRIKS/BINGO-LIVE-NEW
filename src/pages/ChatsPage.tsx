@@ -155,9 +155,22 @@ export default function ChatsPage() {
   const { profile } = useAuth();
   
   // Tab control inside private communications dashboard
-  const [inboxTab, setInboxTab] = useState<'chats' | 'agency'>('chats');
+  const [inboxTab, setInboxTab] = useState<'chats' | 'family' | 'agency' | 'fans'>('chats');
   const [agencyNotices, setAgencyNotices] = useState<any[]>([]);
+  const [spacesInvitations, setSpacesInvitations] = useState<any[]>([]);
+  const [remindedIds, setRemindedIds] = useState<Record<string, boolean>>({});
   const [showSidebarDrawer, setShowSidebarDrawer] = useState(false);
+
+  useEffect(() => {
+    const qInvitations = query(collection(db, 'spaces_invitations'));
+    const unsub = onSnapshot(qInvitations, (snap) => {
+      const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSpacesInvitations(docs);
+    }, (err) => {
+      console.warn("Could not load spaces invitations: ", err);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     const agencyId = profile?.role === 'agency' ? profile?.uid : profile?.agencyId;
@@ -226,113 +239,369 @@ export default function ChatsPage() {
         </div>
 
         {/* Tab selector to keep corporate communications separated */}
-        <div className="flex bg-[#161616] border-t border-white/5">
-          <button
-            onClick={() => setInboxTab('chats')}
-            className={cn(
-              "flex-1 py-3 text-center text-xs font-black uppercase tracking-widest border-b-2 transition-all",
-              inboxTab === 'chats' ? "border-[#00f2ff] text-[#00f2ff]" : "border-transparent text-white/40 hover:text-white"
-            )}
-          >
-            Direct Chats 💬
-          </button>
-          <button
-            onClick={() => setInboxTab('agency')}
-            className={cn(
-              "flex-1 py-3 text-center text-xs font-black uppercase tracking-widest border-b-2 transition-all flex items-center justify-center gap-1.5",
-              inboxTab === 'agency' ? "border-rose-500 text-rose-400" : "border-transparent text-white/40 hover:text-white"
-            )}
-          >
-            Agency Board 🛡️
-            {agencyNotices.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[8px] font-black uppercase border border-rose-500/15">
-                {agencyNotices.length}
-              </span>
-            )}
-          </button>
+        <div className="flex bg-[#161616] border-t border-white/5 overflow-x-auto scrollbar-hide">
+          {[
+            { id: 'chats', label: 'Direct 💬', activeColor: 'border-[#00f2ff] text-[#00f2ff]' },
+            { id: 'family', label: 'Family 🏠', activeColor: 'border-emerald-500 text-emerald-400' },
+            { id: 'agency', label: 'Agency 🛡️', activeColor: 'border-rose-500 text-rose-400' },
+            { id: 'fans', label: 'Fans 💖', activeColor: 'border-purple-500 text-purple-400' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setInboxTab(tab.id as any)}
+              className={cn(
+                "flex-1 min-w-[80px] py-3 text-center text-[10px] font-black uppercase tracking-wider border-b-2 transition-all shrink-0 cursor-pointer",
+                inboxTab === tab.id ? tab.activeColor : "border-transparent text-white/40 hover:text-white"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
       {/* Main content viewport */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {inboxTab === 'chats' ? (
-          <div>
-            {messages.map((msg) => (
-              <div 
-                key={msg.id} 
-                className="flex items-center gap-3 px-4 py-3 active:bg-white/5 transition-colors cursor-pointer border-b border-white/5"
-                onClick={() => handleRowClick(msg)}
-              >
-                {/* Avatar Section */}
-                <div 
-                  className="relative shrink-0"
-                  onClick={(e) => handleAvatarClick(e, msg)}
-                >
-                  {msg.avatar ? (
-                    <div className={cn(
-                      "w-12 h-12 rounded-full overflow-hidden border-2 border-transparent",
-                      msg.isLive && "border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.3)]"
-                    )}>
-                      <img 
-                        src={msg.avatar} 
-                        alt={msg.name} 
-                        className="w-full h-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-teal-800 flex items-center justify-center text-lg font-bold">
-                      {msg.name.charAt(0)}
-                    </div>
-                  )}
+          <div className="space-y-4">
+            {/* Direct Spaces / Meetings Section */}
+            {(() => {
+              const directInvites = [
+                ...spacesInvitations.filter(i => i.category === 'direct'),
+                {
+                  id: "default-inv-1",
+                  senderName: "👄BratzDollz💋",
+                  senderPhoto: "https://picsum.photos/seed/bratz/200",
+                  title: "Chitchat with BratzDollz 💋 🎙️ (#GirlsTalk)",
+                  category: "direct",
+                  isScheduled: true,
+                  scheduledTime: "Today @ 21:00",
+                  meetingAccess: "private",
+                  roomId: "bratz-private-meet",
+                  status: "pending"
+                }
+              ];
+              return directInvites.length > 0 && (
+                <div className="px-4 pt-4 border-b border-white/5 pb-4 space-y-2">
+                  <span className="text-[10px] font-black uppercase text-[#00f2ff] tracking-widest block">🎙️ Direct Spaces & Meeting Invitations</span>
+                  <div className="space-y-2.5">
+                    {directInvites.map((invite: any) => {
+                      const isReminded = remindedIds[invite.id];
+                      const isLive = invite.status === 'live';
+                      return (
+                        <div 
+                          key={invite.id} 
+                          className={cn(
+                            "p-3.5 rounded-2xl border transition-all relative overflow-hidden text-left",
+                            isLive 
+                              ? "bg-cyan-950/10 border-cyan-400/40 shadow-md shadow-cyan-950/20 animate-pulse-subtle" 
+                              : "bg-[#18181f] border-zinc-800"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={invite.senderPhoto || "https://picsum.photos/seed/avatar/150"} 
+                                className="w-8 h-8 rounded-full border border-white/10 object-cover shrink-0" 
+                                alt="host"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div>
+                                <span className="text-[11px] font-black text-white flex items-center gap-1 leading-none">
+                                  {invite.senderName}
+                                  {isLive && <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping" />}
+                                </span>
+                                <span className="text-[7.5px] text-zinc-500 uppercase font-black leading-none">Spaces Participant</span>
+                              </div>
+                            </div>
+                            <span className={cn(
+                              "text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded",
+                              isLive ? "bg-red-500/10 text-red-400" : "bg-zinc-800 text-zinc-400"
+                            )}>
+                              {isLive ? "LIVE" : "SCHEDULED"}
+                            </span>
+                          </div>
 
-                  {/* Notification Badge */}
-                  {msg.unreadCount && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center border-2 border-[#121212]">
-                      <span className="text-[10px] font-bold text-white">{msg.unreadCount}</span>
-                    </div>
-                  )}
+                          <div className="mt-2.5 space-y-2">
+                            <p className="text-[11.5px] font-extrabold text-[#00f2ff]/90 leading-snug">{invite.title}</p>
+                            
+                            <div className="flex items-center justify-between text-[10px] bg-black/30 p-2 rounded-xl border border-white/5">
+                              <span className="text-zinc-500 text-[8px] font-black uppercase tracking-wider">Planned Timing:</span>
+                              <span className="font-mono text-cyan-400 font-extrabold">{invite.scheduledTime || 'Instant'}</span>
+                            </div>
+                          </div>
 
-                  {/* Online Dot */}
-                  {msg.isOnline && !msg.isLive && (
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121212]" />
-                  )}
-
-                  {/* Live Signal Icon */}
-                  {msg.isLive && (
-                    <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-[#00f2ff] rounded-full flex items-center justify-center border-2 border-[#121212]">
-                      <Signal size={9} className="text-black" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Info Section */}
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-bold truncate max-w-[150px] text-zinc-100">{msg.name}</h3>
-                    <div className="flex items-center">
-                      {msg.badges?.map((badge, idx) => (
-                        <Badge key={idx} badge={badge} />
-                      ))}
-                    </div>
+                          {/* CTAs */}
+                          <div className="mt-3 flex items-center gap-2">
+                            {!isLive ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setRemindedIds(prev => ({ ...prev, [invite.id]: !isReminded }));
+                                  }}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border flex-1 text-center",
+                                    isReminded 
+                                      ? "bg-transparent text-green-400 border-green-500/30" 
+                                      : "bg-cyan-400 text-black border-cyan-400 shadow-md"
+                                  )}
+                                >
+                                  {isReminded ? "Reminded ✓" : "Remind Me 🔔"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSpacesInvitations(prev => 
+                                      prev.map(i => i.id === invite.id ? { ...i, status: 'live' } : i)
+                                    );
+                                    // if static, force status to live locally
+                                    if (invite.id.startsWith("default-")) {
+                                      invite.status = 'live';
+                                      // Trigger re-render by bumping state
+                                      setRemindedIds(prev => ({ ...prev }));
+                                    }
+                                  }}
+                                  className="px-2.5 py-1.5 border border-[#00f2ff]/30 text-[#00f2ff] hover:bg-[#00f2ff]/5 rounded-xl text-[8px] font-black uppercase tracking-widest text-center"
+                                >
+                                  Start Early
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => navigate(`/room/${invite.roomId}?from=spaces`)}
+                                className="w-full py-2 bg-[#00f2ff] hover:bg-cyan-300 text-black font-black uppercase text-[10px] tracking-widest rounded-xl flex items-center justify-center gap-1 shadow-lg active:scale-[0.99] transition-all animate-bounce"
+                              >
+                                Join Live Talk Now 🎙️➔
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p className="text-xs text-gray-500 truncate mt-0.5">{msg.lastMessage}</p>
                 </div>
+              );
+            })()}
 
-                {/* Right Side Section */}
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className="text-[10px] text-gray-600">{msg.time}</span>
-                  {msg.heartCount && (
-                    <div className="flex items-center gap-0.5 bg-pink-500/10 px-1.5 py-0.5 rounded-full border border-pink-500/20">
-                      <Heart size={8} className="text-pink-500 fill-pink-500" />
-                      <span className="text-[9px] font-bold text-pink-500">{msg.heartCount}</span>
+            {/* General Chats List */}
+            <div>
+              {messages.map((msg) => (
+                <div 
+                  key={msg.id} 
+                  className="flex items-center gap-3 px-4 py-3 active:bg-white/5 transition-colors cursor-pointer border-b border-white/5"
+                  onClick={() => handleRowClick(msg)}
+                >
+                  {/* Avatar Section */}
+                  <div 
+                    className="relative shrink-0"
+                    onClick={(e) => handleAvatarClick(e, msg)}
+                  >
+                    {msg.avatar ? (
+                      <div className={cn(
+                        "w-12 h-12 rounded-full overflow-hidden border-2 border-transparent",
+                        msg.isLive && "border-[#00f2ff] shadow-[0_0_10px_rgba(0,242,255,0.3)]"
+                      )}>
+                        <img 
+                          src={msg.avatar} 
+                          alt={msg.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-teal-800 flex items-center justify-center text-lg font-bold">
+                        {msg.name.charAt(0)}
+                      </div>
+                    )}
+
+                    {/* Notification Badge */}
+                    {msg.unreadCount && (
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center border-2 border-[#121212]">
+                        <span className="text-[10px] font-bold text-white">{msg.unreadCount}</span>
+                      </div>
+                    )}
+
+                    {/* Online Dot */}
+                    {msg.isOnline && !msg.isLive && (
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#121212]" />
+                    )}
+
+                    {/* Live Signal Icon */}
+                    {msg.isLive && (
+                      <div className="absolute bottom-0 right-0 w-4.5 h-4.5 bg-[#00f2ff] rounded-full flex items-center justify-center border-2 border-[#121212]">
+                        <Signal size={9} className="text-black" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info Section */}
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-bold truncate max-w-[150px] text-zinc-100">{msg.name}</h3>
+                      <div className="flex items-center">
+                        {msg.badges?.map((badge, idx) => (
+                          <Badge key={idx} badge={badge} />
+                        ))}
+                      </div>
                     </div>
-                  )}
+                    <p className="text-xs text-gray-400 truncate mt-0.5">{msg.lastMessage}</p>
+                  </div>
+
+                  {/* Right Side Section */}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="text-[10px] text-gray-600">{msg.time}</span>
+                    {msg.heartCount && (
+                      <div className="flex items-center gap-0.5 bg-pink-500/10 px-1.5 py-0.5 rounded-full border border-pink-500/20">
+                        <Heart size={8} className="text-pink-500 fill-pink-500" />
+                        <span className="text-[9px] font-bold text-pink-500">{msg.heartCount}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : inboxTab === 'family' ? (
+          /* FAMILY EXCLUSIVE COMMUNICATIONS PANEL */
+          <div className="p-4 space-y-4">
+            <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-3xl space-y-3 relative overflow-hidden">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500/10 rounded-xl text-emerald-400">
+                  <HomeIcon size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400">Golden Family Circle</h4>
+                  <p className="text-[8px] text-zinc-500">Coordinate and support your inner streaming household</p>
                 </div>
               </div>
-            ))}
+              
+              {/* Family Memos Block */}
+              <div className="p-2.5 bg-black/45 rounded-xl border border-white/5 space-y-1 text-[9.5px]">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-zinc-400">👑 Family Leader:</span>
+                  <span className="text-amber-400 font-mono">Family.Boss</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500">Daily Gifting Points:</span>
+                  <span className="text-zinc-300 font-bold">489,500</span>
+                </div>
+                <p className="text-[8px] text-emerald-400/80 italic mt-1 leading-snug">
+                  "Notice: Sunday streak review is mandatory for all co-hosts!"
+                </p>
+              </div>
+            </div>
+
+            {/* Family Spaces List */}
+            {(() => {
+              const familyInvites = [
+                ...spacesInvitations.filter(i => i.category === 'family'),
+                {
+                  id: "default-inv-2",
+                  senderName: "Family Boss",
+                  senderPhoto: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+                  title: "Sunday Family Gist & Daily Streaks 🏠 🎙️ (#Family)",
+                  category: "family",
+                  isScheduled: true,
+                  scheduledTime: "Tomorrow @ 15:30",
+                  meetingAccess: "public",
+                  roomId: "family-boss-meet",
+                  status: "pending"
+                }
+              ];
+              return (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/5">
+                    <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">🎙️ Family Voice Rooms ({familyInvites.length})</span>
+                  </div>
+
+                  {familyInvites.map((invite: any) => {
+                    const isReminded = remindedIds[invite.id];
+                    const isLive = invite.status === 'live';
+                    return (
+                      <div 
+                        key={invite.id} 
+                        className={cn(
+                          "p-3.5 rounded-2xl border transition-all relative overflow-hidden text-left",
+                          isLive 
+                            ? "bg-emerald-950/10 border-emerald-400/40 shadow-inner" 
+                            : "bg-[#141816]/70 border-zinc-800"
+                        )}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <img src={invite.senderPhoto} className="w-8 h-8 rounded-full object-cover border border-[#22c55e]/20" alt="avatar" />
+                            <div>
+                              <div className="text-[10px] font-black text-neutral-100 flex items-center gap-1.5 leading-none">
+                                {invite.senderName}
+                                {isLive && <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping" />}
+                              </div>
+                              <span className="text-[6.5px] font-mono text-zinc-500 uppercase tracking-widest leading-none font-bold">Family Household</span>
+                            </div>
+                          </div>
+                          <span className={cn(
+                            "text-[8px] font-black uppercase px-2 py-0.5 rounded",
+                            isLive ? "bg-green-500/10 text-green-400 animate-pulse" : "bg-zinc-800 text-zinc-400"
+                          )}>
+                            {isLive ? "LIVE" : "PENDING"}
+                          </span>
+                        </div>
+
+                        <p className="text-[11.5px] font-extrabold text-emerald-400/90 mt-2 leading-snug">{invite.title}</p>
+                        
+                        <div className="flex items-center justify-between text-[10px] bg-black/45 p-2 rounded-xl mt-2 border border-white/5">
+                          <span className="text-zinc-500 text-[8px] font-mono font-black uppercase">Schedule Hour:</span>
+                          <span className="font-mono text-emerald-400 font-extrabold">{invite.scheduledTime}</span>
+                        </div>
+
+                        <div className="mt-3.5 flex gap-2">
+                          {!isLive ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setRemindedIds(prev => ({ ...prev, [invite.id]: !isReminded }))}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border flex-1 text-center",
+                                  isReminded 
+                                    ? "bg-transparent text-green-400 border-green-500/35" 
+                                    : "bg-emerald-500 text-black border-emerald-500"
+                                )}
+                              >
+                                {isReminded ? "Reminded ✓" : "Remind Me 🔔"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSpacesInvitations(prev => 
+                                    prev.map(i => i.id === invite.id ? { ...i, status: 'live' } : i)
+                                  );
+                                  if (invite.id.startsWith("default-")) {
+                                    invite.status = 'live';
+                                    setRemindedIds(prev => ({ ...prev }));
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/5 rounded-xl text-[8px] font-black uppercase tracking-widest text-center"
+                              >
+                                Start Early
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => navigate(`/room/${invite.roomId}?from=spaces`)}
+                              className="w-full py-2 bg-emerald-500 text-black font-black uppercase text-[10px] tracking-widest rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                            >
+                              Join Family Parlor Now ➔
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
-        ) : (
+        ) : inboxTab === 'agency' ? (
           /* AGENCY EXCLUSIVE BULLETIN BOARD */
           <div className="p-4 space-y-4">
             {!currentAgencyId ? (
@@ -351,109 +620,372 @@ export default function ChatsPage() {
                   </button>
                 </div>
               </div>
-            ) : agencyNotices.length === 0 ? (
-              <div className="p-12 text-center bg-white/5 border border-white/5 rounded-3xl space-y-2">
-                <Bell size={28} className="mx-auto text-rose-500/40 animate-bounce" />
-                <h4 className="text-xs font-black uppercase text-white/40">Clean Slate</h4>
-                <p className="text-[10px] text-zinc-500 leading-relaxed">
-                  There are no official messages or spaces scheduled right now. Check back later!
-                </p>
-              </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                  <span className="text-[9px] font-black uppercase text-rose-400 tracking-wider">🔒 Corporate Directives ({agencyNotices.length})</span>
-                  <span className="text-[8px] bg-rose-500/15 border border-rose-500/20 px-2 py-0.5 text-rose-400 uppercase font-bold rounded-full">Secure Inbox</span>
-                </div>
-
-                {agencyNotices.map((notice) => {
-                  const isLiveSpace = notice.type === 'instant';
+                {/* Agency Scheduled voice rooms */}
+                {(() => {
+                  const agencyInvites = [
+                    ...spacesInvitations.filter(i => i.category === 'agency'),
+                    {
+                      id: "default-inv-3",
+                      senderName: "Director Stella",
+                      senderPhoto: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
+                      title: "Official Agency Target Planning 🎖️ 🎙️ (#CoreBriefing)",
+                      category: "agency",
+                      isScheduled: false,
+                      scheduledTime: "Live Now",
+                      meetingAccess: "private",
+                      roomId: "agency-live-stellar",
+                      status: "live"
+                    }
+                  ];
                   return (
-                    <div 
-                      key={notice.id} 
-                      className={cn(
-                        "p-4 bg-white/5 border rounded-3xl text-left space-y-3 relative overflow-hidden transition-all",
-                        isLiveSpace ? "border-rose-500/30 bg-rose-950/5 shadow-lg shadow-rose-950/10" : "border-white/10"
-                      )}
-                    >
-                      {/* Background branding flair */}
-                      <div className="absolute right-0 top-0 opacity-[0.03] rotate-12 pointer-events-none">
-                        <Shield size={100} />
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between pb-1 border-b border-white/5">
+                        <span className="text-[10px] font-black uppercase text-rose-400 tracking-wider">🎙️ Agency Strategic Meetings ({agencyInvites.length})</span>
                       </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={notice.creatorPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${notice.creatorUid}`} 
-                            className="w-8 h-8 rounded-full border border-white/10 object-cover" 
-                            alt="director"
-                          />
-                          <div>
-                            <div className="text-xs font-extrabold text-neutral-200 flex items-center gap-1">
-                              {notice.creatorName}
-                              <span className="text-[8px] text-rose-400 font-extrabold tracking-widest font-sans">[DIRECTOR]</span>
+                      {agencyInvites.map((invite: any) => {
+                        const isReminded = remindedIds[invite.id];
+                        const isLive = invite.status === 'live';
+                        return (
+                          <div 
+                            key={invite.id} 
+                            className={cn(
+                              "p-3.5 rounded-2xl border transition-all relative overflow-hidden text-left",
+                              isLive 
+                                ? "bg-rose-950/10 border-rose-500/40 shadow-inner" 
+                                : "bg-[#1c1414]/70 border-zinc-850"
+                            )}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-2">
+                                <img src={invite.senderPhoto} className="w-8 h-8 rounded-full object-cover border border-rose-500/25" alt="host" />
+                                <div>
+                                  <div className="text-[10px] font-black text-neutral-100 flex items-center gap-1 leading-none">
+                                    {invite.senderName}
+                                    {isLive && <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />}
+                                  </div>
+                                  <span className="text-[6.5px] font-mono text-rose-400 uppercase tracking-widest leading-none font-bold">Agency Owner</span>
+                                </div>
+                              </div>
+                              <span className={cn(
+                                "text-[8px] font-black uppercase px-2 py-0.5 rounded",
+                                isLive ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-400"
+                              )}>
+                                {isLive ? "LIVE" : "PENDING"}
+                              </span>
                             </div>
-                            <span className="text-[8.5px] uppercase font-bold text-white/40 leading-none">
-                              {notice.agencyName}
-                            </span>
+
+                            <p className="text-[11.5px] font-black text-rose-400/90 mt-2 leading-snug">{invite.title}</p>
+                            
+                            <div className="flex items-center justify-between text-[10px] bg-black/45 p-2 rounded-xl mt-2 border border-white/5">
+                              <span className="text-zinc-500 text-[8px] font-mono font-black uppercase">Meeting Hour:</span>
+                              <span className="font-mono text-rose-400 font-extrabold">{invite.scheduledTime}</span>
+                            </div>
+
+                            <div className="mt-3 flex gap-2">
+                              {!isLive ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setRemindedIds(prev => ({ ...prev, [invite.id]: !isReminded }))}
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border flex-1 text-center",
+                                      isReminded 
+                                        ? "bg-transparent text-green-400 border-green-500/35" 
+                                        : "bg-rose-500 text-black border-rose-500"
+                                    )}
+                                  >
+                                    {isReminded ? "Reminded ✓" : "Remind Me 🔔"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSpacesInvitations(prev => 
+                                        prev.map(i => i.id === invite.id ? { ...i, status: 'live' } : i)
+                                      );
+                                      if (invite.id.startsWith("default-")) {
+                                        invite.status = 'live';
+                                        setRemindedIds(prev => ({ ...prev }));
+                                      }
+                                    }}
+                                    className="px-2.5 py-1.5 border border-rose-500/20 text-rose-450 hover:bg-rose-500/5 rounded-xl text-[8px] font-black uppercase tracking-widest text-center"
+                                  >
+                                    Start Early
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => navigate(`/room/${invite.roomId}?from=spaces`)}
+                                  className="w-full py-2 bg-rose-500 text-black font-black uppercase text-[10px] tracking-widest rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform"
+                                >
+                                  Join Agency Meeting Space Now ➔
+                                </button>
+                              )}
+                            </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {/* Legacy notice list */}
+                <div className="flex items-center justify-between border-b border-white/5 pb-1 mt-4">
+                  <span className="text-[10px] font-black uppercase text-[#00f2ff] tracking-wider">🔒 Corporate Bulletin Archive ({agencyNotices.length})</span>
+                </div>
+
+                {agencyNotices.length === 0 ? (
+                  <div className="p-8 text-center bg-white/5 border border-white/5 rounded-3xl space-y-1">
+                    <Bell size={20} className="mx-auto text-rose-500/30" />
+                    <h4 className="text-[10px] font-black uppercase text-white/40">No corporate notices</h4>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {agencyNotices.map((notice) => {
+                      const isLiveSpace = notice.type === 'instant';
+                      return (
+                        <div 
+                          key={notice.id} 
+                          className={cn(
+                            "p-4 bg-white/5 border rounded-3xl text-left space-y-3 relative overflow-hidden transition-all",
+                            isLiveSpace ? "border-rose-500/30 bg-rose-950/5 shadow-lg shadow-rose-950/10" : "border-white/10"
+                          )}
+                        >
+                          <div className="absolute right-0 top-0 opacity-[0.03] rotate-12 pointer-events-none">
+                            <Shield size={100} />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <img 
+                                src={notice.creatorPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${notice.creatorUid}`} 
+                                className="w-8 h-8 rounded-full border border-white/10 object-cover" 
+                                alt="director"
+                              />
+                              <div>
+                                <div className="text-xs font-extrabold text-neutral-200 flex items-center gap-1">
+                                  {notice.creatorName}
+                                  <span className="text-[8px] text-rose-400 font-extrabold tracking-widest font-sans">[DIRECTOR]</span>
+                                </div>
+                                <span className="text-[8.5px] uppercase font-bold text-white/40 leading-none">
+                                  {notice.agencyName}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div>
+                              {isLiveSpace ? (
+                                <span className="px-2 py-0.5 text-[8.5px] font-black uppercase text-rose-400 bg-rose-950/30 border border-rose-500/20 rounded animate-pulse">
+                                  LIVE MEETING 🎙️
+                                </span>
+                              ) : notice.type === 'scheduled' ? (
+                                <span className="px-2 py-0.5 text-[8.5px] font-black uppercase text-amber-400 bg-amber-955/20 border border-amber-500/15 rounded">
+                                  SHEDULED MEETING
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 text-[8.5px] font-black uppercase text-zinc-400 bg-neutral-900 border border-white/5 rounded">
+                                  MEMO NOTICE
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <h4 className="text-xs font-black text-white px-0.5 uppercase tracking-wide leading-tight">
+                              {notice.title}
+                            </h4>
+                            <p className="text-xs text-neutral-300 leading-normal font-sans font-medium">
+                              {notice.content}
+                            </p>
+                          </div>
+
+                          {notice.privacy === 'private' && (
+                            <div className="p-2 bg-black/40 rounded-2xl flex items-center justify-between border border-white/5 text-[9.5px]">
+                              <span className="font-extrabold text-[#00f2ff]/30 uppercase tracking-widest text-[8px]">🔐 CLOSED GATED PASSCODE</span>
+                              <span className="font-mono font-black text-[#00f2ff] tracking-[0.2em]">{notice.passcode || '1234'}</span>
+                            </div>
+                          )}
+
+                          {notice.type === 'scheduled' && notice.scheduledAt && (
+                            <div className="p-2 bg-black/40 rounded-2xl flex items-center justify-between border border-white/5 text-[9.5px]">
+                              <span className="font-extrabold text-amber-500/30 uppercase tracking-widest text-[8px]">⏰ CALENDAR TIME</span>
+                              <span className="font-mono font-black text-amber-400">{notice.scheduledAt.replace('T', ' ')}</span>
+                            </div>
+                          )}
+
+                          {/* Direct meeting space call CTA link to jump standard broadcaster center */}
+                          {isLiveSpace && (
+                            <button
+                              onClick={() => navigate(`/room/${notice.creatorUid}`)}
+                              className="w-full py-2.5 bg-rose-500 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl flex items-center justify-center gap-1 shadow-lg shadow-rose-500/10 active:scale-[0.99] transition-transform animate-bounce"
+                            >
+                              <Video size={13} />
+                              Join Live Agency Space Now ➔
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* FANS EXCLUSIVE LOUNGE PANEL */
+          <div className="p-4 space-y-4">
+            <div className="p-4 bg-purple-500/5 border border-purple-500/10 rounded-3xl space-y-3 relative overflow-hidden text-left">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-purple-500/10 rounded-xl text-purple-400">
+                  <Heart size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-purple-400">Fans Club Core</h4>
+                  <p className="text-[8px] text-zinc-500 font-bold">Review warm support letters and host interactive spaces</p>
+                </div>
+              </div>
+
+              {/* Static fan board details */}
+              <div className="p-2.5 bg-black/40 rounded-xl border border-white/5 space-y-1 text-[9.5px]">
+                <div className="flex items-center justify-between text-zinc-400">
+                  <span>Total Active Supporters:</span>
+                  <span className="text-purple-400 font-mono font-black">24,800 Users</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Monthly Stars Contributed:</span>
+                  <span className="text-amber-400 font-black">Lv.4 Diamond Club ✨</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Fan Invitations Cards List */}
+            {(() => {
+              const fanInvites = [
+                ...spacesInvitations.filter(i => i.category === 'fans'),
+                {
+                  id: "default-inv-4",
+                  senderName: "Fanatic88",
+                  senderPhoto: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150",
+                  title: "Lighter Fans Monthly Appreciation 💖 🎙️ (#FansClub)",
+                  category: "fans",
+                  isScheduled: true,
+                  scheduledTime: "Today @ 18:00",
+                  meetingAccess: "public",
+                  roomId: "fans-live-meet-today",
+                  status: "pending"
+                }
+              ];
+              return (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-white/5">
+                    <span className="text-[10px] font-black uppercase text-purple-450 tracking-wider">🎙️ Interactive Fans Spaces ({fanInvites.length})</span>
+                  </div>
+
+                  {fanInvites.map((invite: any) => {
+                    const isReminded = remindedIds[invite.id];
+                    const isLive = invite.status === 'live';
+                    return (
+                      <div 
+                        key={invite.id} 
+                        className={cn(
+                          "p-4 rounded-2xl border transition-all relative overflow-hidden text-left",
+                          isLive 
+                            ? "bg-purple-950/10 border-purple-500/40 shadow-inner animate-pulse-subtle" 
+                            : "bg-[#18141c]/70 border-zinc-850"
+                        )}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <img src={invite.senderPhoto} className="w-8 h-8 rounded-full object-cover border border-purple-500/25 animate-pulse" alt="host" />
+                            <div>
+                              <div className="text-[10px] font-bold text-neutral-100 flex items-center gap-1 leading-none">
+                                {invite.senderName}
+                                {isLive && <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping" />}
+                              </div>
+                              <span className="text-[6.5px] font-mono text-zinc-500 uppercase tracking-widest leading-none font-black block">Star Supporter</span>
+                            </div>
+                          </div>
+                          <span className={cn(
+                            "text-[8px] font-black uppercase px-2 py-0.5 rounded",
+                            isLive ? "bg-purple-500/10 text-purple-400" : "bg-zinc-800 text-zinc-400"
+                          )}>
+                            {isLive ? "LIVE" : "PENDING"}
+                          </span>
                         </div>
 
-                        <div>
-                          {isLiveSpace ? (
-                            <span className="px-2 py-0.5 text-[8.5px] font-black uppercase text-rose-400 bg-rose-950/30 border border-rose-500/20 rounded animate-pulse">
-                              LIVE MEETING 🎙️
-                            </span>
-                          ) : notice.type === 'scheduled' ? (
-                            <span className="px-2 py-0.5 text-[8.5px] font-black uppercase text-amber-400 bg-amber-950/20 border border-amber-500/15 rounded">
-                              SHEDULED MEETING
-                            </span>
+                        <p className="text-[11.5px] font-black text-purple-400/90 mt-2 leading-snug">{invite.title}</p>
+                        
+                        <div className="flex items-center justify-between text-[10px] bg-black/45 p-2 rounded-xl mt-2 border border-white/5">
+                          <span className="text-zinc-500 text-[8px] font-mono font-black uppercase">Schedule Hour:</span>
+                          <span className="font-mono text-purple-400 font-extrabold">{invite.scheduledTime}</span>
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
+                          {!isLive ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setRemindedIds(prev => ({ ...prev, [invite.id]: !isReminded }))}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border flex-1 text-center font-bold",
+                                  isReminded 
+                                    ? "bg-transparent text-green-400 border-green-500/35" 
+                                    : "bg-purple-500 text-black border-purple-500"
+                                )}
+                              >
+                                {isReminded ? "Reminded ✓" : "Remind Me 🔔"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSpacesInvitations(prev => 
+                                    prev.map(i => i.id === invite.id ? { ...i, status: 'live' } : i)
+                                  );
+                                  if (invite.id.startsWith("default-")) {
+                                    invite.status = 'live';
+                                    setRemindedIds(prev => ({ ...prev }));
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 border border-purple-500/20 text-purple-400 hover:bg-purple-500/5 rounded-xl text-[8px] font-black uppercase tracking-widest text-center"
+                              >
+                                Start Early
+                              </button>
+                            </>
                           ) : (
-                            <span className="px-2 py-0.5 text-[8.5px] font-black uppercase text-zinc-400 bg-neutral-900 border border-white/5 rounded">
-                              MEMO NOTICE
-                            </span>
+                            <button
+                              onClick={() => navigate(`/room/${invite.roomId}?from=spaces`)}
+                              className="w-full py-2 bg-purple-500 text-black font-black uppercase text-[10px] tracking-widest rounded-xl flex items-center justify-center gap-1 active:scale-95 transition-transform font-bold"
+                            >
+                              Join Fans Lounge Space Now ➔
+                            </button>
                           )}
                         </div>
                       </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
-                      <div className="space-y-1">
-                        <h4 className="text-xs font-black text-white px-0.5 uppercase tracking-wide leading-tight">
-                          {notice.title}
-                        </h4>
-                        <p className="text-xs text-neutral-300 leading-normal font-sans font-medium">
-                          {notice.content}
-                        </p>
-                      </div>
-
-                      {notice.privacy === 'private' && (
-                        <div className="p-2 bg-black/40 rounded-2xl flex items-center justify-between border border-white/5 text-[9.5px]">
-                          <span className="font-extrabold text-[#00f2ff]/30 uppercase tracking-widest text-[8px]">🔐 CLOSED GATED PASSCODE</span>
-                          <span className="font-mono font-black text-[#00f2ff] tracking-[0.2em]">{notice.passcode || '1234'}</span>
-                        </div>
-                      )}
-
-                      {notice.type === 'scheduled' && notice.scheduledAt && (
-                        <div className="p-2 bg-black/40 rounded-2xl flex items-center justify-between border border-white/5 text-[9.5px]">
-                          <span className="font-extrabold text-amber-500/30 uppercase tracking-widest text-[8px]">⏰ CALENDAR TIME</span>
-                          <span className="font-mono font-black text-amber-400">{notice.scheduledAt.replace('T', ' ')}</span>
-                        </div>
-                      )}
-
-                      {/* Direct meeting space call CTA link to jump standard broadcaster center */}
-                      {isLiveSpace && (
-                        <button
-                          onClick={() => navigate(`/room/${notice.creatorUid}`)}
-                          className="w-full py-2.5 bg-rose-500 text-black font-black uppercase text-[10px] tracking-widest rounded-2xl flex items-center justify-center gap-1 shadow-lg shadow-rose-500/10 active:scale-[0.99] transition-transform animate-bounce"
-                        >
-                          <Video size={13} />
-                          Join Live Agency Space Now ➔
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Fan Messages Feed */}
+            <div className="space-y-1 block mt-4 border-t border-white/5 pt-3">
+              <span className="text-[10px] font-black text-[#00f2ff] uppercase tracking-widest block pb-1 text-left">✉️ Fan Support Mails</span>
+              {[
+                { name: "Fanatic88", text: "Can't wait for your next PK! You're going to win! ⚔️🔥", time: "12m ago" },
+                { name: "ActiveStalker", text: "I bought 50 coins today to drop gifts on you! 💎💎", time: "1h ago" },
+                { name: "SuperLighter", text: "Your acoustic jam session yesterday was the absolute best! 🎸💤", time: "5h ago" }
+              ].map((mail, i) => (
+                <div key={i} className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between text-left">
+                  <div>
+                    <span className="font-extrabold text-[10px] text-zinc-350 block leading-none">{mail.name}</span>
+                    <p className="text-[11px] text-zinc-400 mt-1 font-sans">{mail.text}</p>
+                  </div>
+                  <span className="text-[7.5px] font-mono font-medium text-zinc-600 shrink-0">{mail.time}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

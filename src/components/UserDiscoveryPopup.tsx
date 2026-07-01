@@ -20,6 +20,9 @@ import { FamilyCreatePopup } from './FamilyCreatePopup';
 import { Family } from '../types';
 import { getFamilyRankInfo } from '../lib/familyLogic';
 import { useToast } from '../context/ToastContext';
+import { CategoryTagsModal } from './CategoryTagsModal';
+import { ContractedStreamerModal } from './ContractedStreamerModal';
+import { FanGroupFAQModal } from './FanGroupFAQModal';
 
 interface UserDiscoveryPopupProps {
   user: UserProfile | null;
@@ -48,6 +51,9 @@ export const UserDiscoveryPopup: React.FC<UserDiscoveryPopupProps> = ({
   const navigate = useNavigate();
   const [showFamilyDetails, setShowFamilyDetails] = React.useState(false);
   const [showCreateFamily, setShowCreateFamily] = React.useState(false);
+  const [showCategoryTagsModal, setShowCategoryTagsModal] = React.useState(false);
+  const [showContractedModal, setShowContractedModal] = React.useState(false);
+  const [showFaqModal, setShowFaqModal] = React.useState(false);
   const [familyData, setFamilyData] = React.useState<Family | null>(null);
   const [agencyData, setAgencyData] = React.useState<any>(null);
   const [localFollowState, setLocalFollowState] = React.useState<boolean | null>(null);
@@ -227,7 +233,11 @@ export const UserDiscoveryPopup: React.FC<UserDiscoveryPopupProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-[1px]"
+          onTouchStart={(e) => {
+            e.preventDefault();
+            onClose();
+          }}
+          className="absolute inset-0 bg-black/60 backdrop-blur-[1px] cursor-pointer pointer-events-auto"
         />
         
         {/* High Fidelity Bingo Bottom Drawer Component (CLONE TO THE LAST DETAIL) */}
@@ -238,6 +248,15 @@ export const UserDiscoveryPopup: React.FC<UserDiscoveryPopupProps> = ({
           transition={{ type: 'spring', damping: 25, stiffness: 220 }}
           className="relative w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[28px] shadow-2xl flex flex-col font-sans pb-5 overflow-visible z-10"
         >
+          {/* Explicit Mobile-friendly Close / Minimize Button in Top Right */}
+          <button
+            onClick={onClose}
+            className="absolute top-3.5 right-4 z-20 text-slate-400 hover:text-slate-600 active:scale-95 transition-all p-1.5 hover:bg-slate-100 rounded-full cursor-pointer flex items-center justify-center border border-slate-100/50 bg-slate-50/50 select-none"
+            aria-label="Close"
+          >
+            <X size={16} strokeWidth={3} />
+          </button>
+
           {/* Header Controls (Report & Challenge box) */}
           <div className="flex items-center justify-between px-6 pt-3.5 pb-0.5">
             <button 
@@ -342,8 +361,8 @@ export const UserDiscoveryPopup: React.FC<UserDiscoveryPopupProps> = ({
               <Copy size={10} className="text-[#bbb]" />
             </button>
 
-            {/* Sub Labels Badges Row */}
-            <div className="flex items-center gap-1.5 flex-wrap justify-center max-w-[90%] mt-1">
+            {/* Sub Labels Badges Row 1 */}
+            <div className="flex items-center gap-1.5 flex-wrap justify-center max-w-[95%] mt-1">
               {agencyData && (
                 <div className="flex items-center gap-1 bg-cyan-50 border border-cyan-100 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold text-cyan-600 shadow-sm animate-pulse">
                   <Briefcase size={10} className="stroke-[2.5]" />
@@ -372,8 +391,41 @@ export const UserDiscoveryPopup: React.FC<UserDiscoveryPopupProps> = ({
                 💃 Dancing
               </span>
 
+              {/* Blue Singing category tag with Mic - Tappable trigger */}
+              <button
+                type="button"
+                onClick={() => setShowCategoryTagsModal(true)}
+                className="px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold text-[10px] uppercase tracking-normal shadow-sm flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+              >
+                🎤 Singing
+              </button>
+
               {/* Lips emoji */}
               <span className="text-[14px]">💋</span>
+            </div>
+
+            {/* Sub Labels Badges Row 2 (Signed Host & Larger Wings Heart Badge) */}
+            <div className="flex items-center gap-3.5 justify-center mt-2.5">
+              {/* Gold Signed Host badge - trigger for Platform Contracted Streamer popup */}
+              <button
+                type="button"
+                onClick={() => setShowContractedModal(true)}
+                className="px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-black text-[11px] uppercase tracking-normal shadow-md flex items-center gap-1 active:scale-95 transition-transform cursor-pointer"
+              >
+                📝 Signed Host
+              </button>
+
+              {/* Pink Heart with Golden Wings badge - trigger for Fan Group FAQ (Text deleted, heart double size) */}
+              <button
+                type="button"
+                onClick={() => setShowFaqModal(true)}
+                className="px-3.5 py-1 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 text-white font-black shadow-md flex items-center gap-1 active:scale-95 transition-all cursor-pointer border border-amber-300/30 relative overflow-hidden shrink-0"
+                title="Fan Group FAQ"
+              >
+                <span className="text-[11px] text-yellow-300 font-extrabold -scale-x-100 transform inline-block pb-0.5 select-none">🪶</span>
+                <span className="text-[20px] leading-none animate-pulse filter drop-shadow-[0_1px_3px_rgba(244,63,94,0.4)]">💝</span>
+                <span className="text-[11px] text-yellow-300 font-extrabold pb-0.5 select-none">🪶</span>
+              </button>
             </div>
 
             {/* Statistics Row (compact formatted metrics) */}
@@ -509,6 +561,24 @@ export const UserDiscoveryPopup: React.FC<UserDiscoveryPopupProps> = ({
             </div>
           </div>
         </motion.div>
+
+        {/* Certified Category Tags Pop-up Dialog */}
+        <CategoryTagsModal 
+          isOpen={showCategoryTagsModal} 
+          onClose={() => setShowCategoryTagsModal(false)} 
+        />
+
+        {/* Platform Contracted Streamer Badge Dialog */}
+        <ContractedStreamerModal 
+          isOpen={showContractedModal} 
+          onClose={() => setShowContractedModal(false)} 
+        />
+
+        {/* Fan Group FAQ Rules and Battle Modal */}
+        <FanGroupFAQModal 
+          isOpen={showFaqModal} 
+          onClose={() => setShowFaqModal(false)} 
+        />
       </div>
     </AnimatePresence>
   );

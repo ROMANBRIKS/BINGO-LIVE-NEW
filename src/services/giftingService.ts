@@ -45,17 +45,58 @@ export const processGiftTransaction = async (
   const isSimulatedRoom = !roomId || roomId === 'shyne_featured' || roomId.startsWith('host_') || roomId.startsWith('sim_') || roomId.includes('featured');
   if (isSimulatedRoom) {
     const totalCost = Math.floor(gift.cost * quantity * (1 - svipDiscount / 100));
-    return {
-      success: true,
-      totalCost,
-      giftingPower: gift.cost * quantity,
-      newSenderDiamonds: 100000, // Simulated plenty of diamonds since offline mock
-      fanClubLevel: 1,
-      isNewJoinFanClub: false,
-      treasureGoalCompleted: false,
-      completedTreasureGoal: null,
-      shieldAbsorbedValue: 0
-    };
+    
+    // Deduct real diamonds from user's persistent balance in Firestore for complete database sync!
+    const userRef = doc(db, 'users', senderUid);
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const senderSnap = await transaction.get(userRef);
+        if (!senderSnap.exists()) {
+          throw new Error("Sender user profile does not exist in database.");
+        }
+        const senderData = senderSnap.data() as UserProfile;
+        const senderDiamonds = senderData.diamonds || 0;
+
+        if (senderDiamonds < totalCost) {
+          throw new Error("Insufficient diamonds to complete gifting transaction.");
+        }
+
+        const newTotalSpent = (senderData.totalDiamondsSpent || 0) + totalCost;
+        const newWealthLvl = calculateWealthLevel(newTotalSpent);
+        const finalDiamonds = senderDiamonds - totalCost;
+
+        transaction.update(userRef, {
+          diamonds: finalDiamonds,
+          totalDiamondsSpent: newTotalSpent,
+          level: newWealthLvl
+        });
+
+        // If a mock host document is in range, update its beans persistently too!
+        if (hostUid && hostUid !== senderUid) {
+          const hostRef = doc(db, 'users', hostUid);
+          transaction.set(hostRef, {
+            beans: increment(totalCost),
+            totalBeansEarned: increment(totalCost)
+          }, { merge: true });
+        }
+
+        return {
+          success: true,
+          totalCost,
+          giftingPower: gift.cost * quantity,
+          newSenderDiamonds: finalDiamonds,
+          fanClubLevel: 1,
+          isNewJoinFanClub: false,
+          treasureGoalCompleted: false,
+          completedTreasureGoal: null,
+          shieldAbsorbedValue: 0
+        };
+      });
+      return result;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `giftingService/processGiftTransaction/simulated/${senderUid}`);
+      throw error;
+    }
   }
 
   const userRef = doc(db, 'users', senderUid);
@@ -192,18 +233,28 @@ export const processGiftTransaction = async (
       }
 
       // 8. WRITE STAGE (MUTATIONS)
-      // A. Update Sender Diamonds and Wealth level
-      transaction.update(userRef, {
-        diamonds: increment(-totalCost),
-        totalDiamondsSpent: increment(totalCost),
-        level: newWealthLvl
-      });
+      // A. Update Sender Diamonds, Wealth level, and Host Beans safely if self or other
+      if (senderUid === hostUid) {
+        transaction.update(userRef, {
+          diamonds: increment(-totalCost),
+          totalDiamondsSpent: increment(totalCost),
+          level: newWealthLvl,
+          beans: increment(totalCost),
+          totalBeansEarned: increment(totalCost)
+        });
+      } else {
+        transaction.update(userRef, {
+          diamonds: increment(-totalCost),
+          totalDiamondsSpent: increment(totalCost),
+          level: newWealthLvl
+        });
 
-      // B. Update Host Beans and general earnings
-      transaction.set(hostRef, {
-        beans: increment(totalCost),
-        totalBeansEarned: increment(totalCost)
-      }, { merge: true });
+        // B. Update Host Beans and general earnings
+        transaction.set(hostRef, {
+          beans: increment(totalCost),
+          totalBeansEarned: increment(totalCost)
+        }, { merge: true });
+      }
 
       // C. Update Room statistics & Active Shields
       const roomUpdates: any = {

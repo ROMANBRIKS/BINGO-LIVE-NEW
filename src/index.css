@@ -36,6 +36,14 @@
   .animate-shake {
     animation: shake-anim 0.2s ease-in-out infinite;
   }
+  .animate-wiggle-heart {
+    animation: wiggle-heart 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes wiggle-heart {
+  0%, 100% { transform: scale(1) rotate(-6deg); }
+  50% { transform: scale(1.08) rotate(6deg); }
 }
 
 @keyframes shake-anim {
@@ -49,4 +57,38 @@
   70% { transform: translate(2px, -3px) rotate(1deg); }
   80% { transform: translate(-3px, 2px) rotate(-1.5deg); }
   90% { transform: translate(4px, -1px) rotate(0deg); }
+}
+
+/* Google Translate UI Cleanup Overrides */
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame,
+.goog-te-banner,
+.goog-te-balloon-frame,
+#goog-gt-tt,
+.goog-tooltip,
+.goog-tooltip\:hover,
+.goog-text-highlight,
+iframe.goog-te-menu-frame,
+div.goog-te-gadget-simple,
+div.goog-te-gadget-icon,
+div.skiptranslate,
+#google_translate_element,
+.goog-te-combo {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+body {
+  top: 0px !important;
+  margin-top: 0px !important;
+  position: static !important;
+}
+
+html {
+  top: 0px !important;
+  margin-top: 0px !important;
 }

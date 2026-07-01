@@ -7,6 +7,7 @@ import { DeviceMonitor } from './device-monitor';
 import { AdaptiveEngine, QualityProfile } from './adaptive-engine';
 import { SignalingClient } from './signaling-client';
 import AgoraRTC, { IAgoraRTCClient, ILocalVideoTrack, IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
+import { getAgoraAudioTrackInitOptions } from '../lib/audioConfig';
 
 export interface TURNConfig {
   urls: string | string[];
@@ -431,6 +432,18 @@ export class UnifiedStreamingSDK {
       this.agoraClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
       await this.agoraClient.setClientRole(this.isHost ? 'host' : 'audience');
 
+      // Configure publisher fallbacks for the streamer
+      try {
+        if (this.isHost) {
+          await this.agoraClient.enableDualStream();
+          // Configures uplink fallback: fall back to publishing audio-only under poor internet uplink
+          await (this.agoraClient as any).setLocalPublishFallbackOption(1);
+          console.log('[UnifiedStreamingSDK] Configured dual-stream publishing and uplink audio fallback for Host.');
+        }
+      } catch (err) {
+        console.warn('[UnifiedStreamingSDK] Failed to configure broadcaster fallback: ', err);
+      }
+
       // Connect to Agora Channel
       await this.agoraClient.join(
         this.config.agoraAppId,
@@ -445,7 +458,7 @@ export class UnifiedStreamingSDK {
         const videoTrack = this.localStream.getVideoTracks()[0];
 
         if (audioTrack) {
-          this.agoraAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+          this.agoraAudioTrack = await AgoraRTC.createMicrophoneAudioTrack(getAgoraAudioTrackInitOptions());
         }
         if (videoTrack) {
           this.agoraVideoTrack = await AgoraRTC.createCustomVideoTrack({
@@ -466,6 +479,15 @@ export class UnifiedStreamingSDK {
       this.agoraClient.on('user-published', async (user, mediaType) => {
         if (this.agoraClient) {
           await this.agoraClient.subscribe(user, mediaType);
+
+          // Configure stream fallback of subscribed remote user: prioritizes clean audio over video chunk drops
+          try {
+            await this.agoraClient.setStreamFallbackOption(user.uid, 2);
+            console.log(`[UnifiedStreamingSDK] Configured audio-priority downlink fallback for user ${user.uid}`);
+          } catch (err) {
+            console.warn('[UnifiedStreamingSDK] Failed to set receiver fallback option for user:', user.uid, err);
+          }
+
           if (mediaType === 'video' && this.onRemoteStream && user.videoTrack) {
             const remoteStream = new MediaStream();
             const nativeVideoTrack = (user.videoTrack as any)._track || user.videoTrack.getMediaStreamTrack();

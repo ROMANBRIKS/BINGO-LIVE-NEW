@@ -153,7 +153,7 @@ export function LiveAdPlayer({ roomId, hostUid, isHost }: LiveAdPlayerProps) {
 
   return (
     <>
-      <div className="absolute z-[100] top-[calc(env(safe-area-inset-top,0px)+125px)] md:top-[85px] right-1.5 w-[94px] md:w-[110px] transition-all duration-300 ease-out pointer-events-auto">
+      <div className="absolute z-[100] top-[calc(env(safe-area-inset-top,0px)+65px)] md:top-[65px] right-1.5 w-[94px] md:w-[110px] transition-all duration-300 ease-out pointer-events-auto">
         <motion.div 
           layout
           className="bg-gradient-to-br from-[#1b1408] via-[#241c0e] to-[#120e06] border-2 border-amber-500/60 shadow-[0_0_12px_rgba(245,158,11,0.25)] rounded-2xl p-2 overflow-hidden relative group"

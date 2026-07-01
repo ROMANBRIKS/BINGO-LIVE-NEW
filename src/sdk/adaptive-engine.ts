@@ -29,7 +29,18 @@ export class AdaptiveEngine {
     this.videoTrack = localStream.getVideoTracks()[0] || null;
 
     this.deviceMonitor.on('cpuHigh', () => this.downgradeQuality());
-    this.deviceMonitor.on('networkPoor', () => this.downgradeQuality());
+    this.deviceMonitor.on('networkPoor', (data: any) => {
+      console.log('📶 [AdaptiveEngine] Streamer connection bottleneck detected. Adapting profile:', data);
+      if (data && (data.reason === 'extremely-poor' || data.reason === 'saveData-enabled')) {
+        this.setQuality('veryLow');
+      } else {
+        this.downgradeQuality();
+      }
+    });
+    this.deviceMonitor.on('networkGood', (data: any) => {
+      console.log('📶 [AdaptiveEngine] Streamer connection recovered. Boosting profile:', data);
+      this.upgradeQuality();
+    });
   }
 
   setSender(sender: RTCRtpSender) {

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { RightSidebar } from './components/RightSidebar';
@@ -40,6 +41,7 @@ const NobleCenterPage = lazy(() => import('./pages/NobleCenterPage'));
 const HonorHallPage = lazy(() => import('./pages/HonorHallPage'));
 const VisitorsPage = lazy(() => import('./pages/VisitorsPage'));
 const FamilyLeaderboardPage = lazy(() => import('./pages/FamilyLeaderboardPage'));
+const FamilyListPage = lazy(() => import('./pages/FamilyListPage'));
 const VIPCenterPage = lazy(() => import('./pages/VIPCenterPage'));
 const EarningsDashboardPage = lazy(() => import('./pages/EarningsDashboardPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
@@ -243,6 +245,7 @@ const AppContent = () => {
               <Route path="/honor-hall" element={<HonorHallPage />} />
               <Route path="/visitors" element={<VisitorsPage />} />
               <Route path="/family-leaderboard" element={<FamilyLeaderboardPage />} />
+              <Route path="/family-list" element={<FamilyListPage />} />
               <Route path="/earnings-dashboard" element={<EarningsDashboardPage />} />
               <Route path="/admin" element={<AdminDashboardPage />} />
               <Route path="/agency-dashboard" element={<AgencyDashboardPage />} />
@@ -310,13 +313,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <Router>
-              <AppContent />
-            </Router>
-          </AuthProvider>
-        </ToastProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <Router>
+                <AppContent />
+              </Router>
+            </AuthProvider>
+          </ToastProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

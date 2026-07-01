@@ -19,6 +19,9 @@ import { FamilyDetailsPopup } from './FamilyDetailsPopup';
 import { FamilyCreatePopup } from './FamilyCreatePopup';
 import { getFamilyRankInfo } from '../lib/familyLogic';
 import { useToast } from '../context/ToastContext';
+import { CategoryTagsModal } from './CategoryTagsModal';
+import { ContractedStreamerModal } from './ContractedStreamerModal';
+import { FanGroupFAQModal } from './FanGroupFAQModal';
 
 export const PublicPortfolio: React.FC = () => {
   const { uid } = useParams<{ uid: string }>();
@@ -31,10 +34,68 @@ export const PublicPortfolio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'status' | 'dino'>('status');
   const [showFamilyDetails, setShowFamilyDetails] = useState(false);
   const [showCreateFamily, setShowCreateFamily] = useState(false);
+  const [showCategoryTagsModal, setShowCategoryTagsModal] = useState(false);
+  const [showContractedModal, setShowContractedModal] = useState(false);
+  const [showFaqModal, setShowFaqModal] = useState(false);
   const [showThreeDots, setShowThreeDots] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   
   const isOwner = auth.currentUser?.uid === user?.uid;
+
+  const posts = React.useMemo(() => [
+    { id: 1, type: 'video', views: '24.5k', likes: '1.2k', thumbnail: 'https://picsum.photos/seed/p1/600/800', date: '1 month ago' },
+    { id: 2, type: 'video', views: '18.2k', likes: '942', thumbnail: 'https://picsum.photos/seed/p2/600/800', date: '2 months ago' },
+  ], []);
+
+  const galleryThumbnails = React.useMemo(() => [
+    'https://picsum.photos/seed/g1/200/200',
+    'https://picsum.photos/seed/g2/200/200',
+    'https://picsum.photos/seed/g3/200/200',
+    'https://picsum.photos/seed/g4/200/200',
+  ], []);
+
+  const allImages = React.useMemo(() => {
+    const list: string[] = [];
+    if (user?.photoURL) {
+      list.push(user.photoURL);
+    }
+    galleryThumbnails.forEach(t => {
+      if (t && !list.includes(t)) {
+        list.push(t);
+      }
+    });
+    posts.forEach(p => {
+      if (p.thumbnail && !list.includes(p.thumbnail)) {
+        list.push(p.thumbnail);
+      }
+    });
+    return list;
+  }, [user?.photoURL, galleryThumbnails, posts]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.nativeEvent.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.nativeEvent.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart === null || touchEnd === null) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 40;
+    const isRightSwipe = distance < -40;
+    
+    if (isLeftSwipe) {
+      setActiveImageIndex((prev) => (prev + 1) % allImages.length);
+    } else if (isRightSwipe) {
+      setActiveImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    }
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
   
   useEffect(() => {
     let userUnsub: (() => void) | undefined;
@@ -68,11 +129,16 @@ export const PublicPortfolio: React.FC = () => {
             } else {
               setAgency(null);
             }
+          } else {
+            setUser(null);
           }
+          setLoading(false);
+        }, (error) => {
+          console.error("Snapshot error:", error);
+          setLoading(false);
         });
       } catch (error) {
         console.error("Error fetching public profile:", error);
-      } finally {
         setLoading(false);
       }
     }
@@ -122,18 +188,6 @@ export const PublicPortfolio: React.FC = () => {
     );
   }
 
-  const posts = [
-    { id: 1, type: 'video', views: '24.5k', likes: '1.2k', thumbnail: 'https://picsum.photos/seed/p1/600/800', date: '1 month ago' },
-    { id: 2, type: 'video', views: '18.2k', likes: '942', thumbnail: 'https://picsum.photos/seed/p2/600/800', date: '2 months ago' },
-  ];
-
-  const galleryThumbnails = [
-    'https://picsum.photos/seed/g1/200/200',
-    'https://picsum.photos/seed/g2/200/200',
-    'https://picsum.photos/seed/g3/200/200',
-    'https://picsum.photos/seed/g4/200/200',
-  ];
-
   const DEFAULT_FAMILY: Family = {
     id: '2much-ic3',
     name: '2 MUCH IC3',
@@ -153,21 +207,53 @@ export const PublicPortfolio: React.FC = () => {
   return (
     <div className="min-h-screen bg-white font-roboto pb-24 max-w-lg mx-auto shadow-2xl">
       {/* Cover & Gallery Area */}
-      <div className="relative">
-        <div className="h-64 overflow-hidden relative">
-          <img 
-            src={generateEnhancedImageUrl({ url: user.photoURL, width: 800, quality: 90 })} 
-            className="w-full h-full object-cover blur-2xl scale-110 opacity-40" 
-            alt="Cover Blur"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-white" />
+      <div 
+        className="relative overflow-hidden select-none bg-neutral-950"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="h-[360px] w-full relative flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            <motion.img 
+              key={activeImageIndex}
+              src={allImages[activeImageIndex]} 
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="w-full h-full object-cover cursor-grab active:cursor-grabbing" 
+              alt="Profile Cover"
+            />
+          </AnimatePresence>
+          {/* Elegant top and bottom gradient fades for clear contrast on text/button overlays */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-white" />
+
+          {/* Swipe Indicator Dots */}
+          <div className="absolute bottom-18 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/45 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-lg">
+            {allImages.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setActiveImageIndex(idx)}
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                  activeImageIndex === idx ? "bg-[#2af5ff] scale-125 w-3" : "bg-white/40 hover:bg-white/70"
+                )}
+              />
+            ))}
+          </div>
+
+          <div className="absolute bottom-18 right-4 z-20 pointer-events-none bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white/80 border border-white/5 animate-pulse">
+            Swipe ✦
+          </div>
         </div>
 
         {/* Global Action Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-20">
           <button 
             onClick={() => navigate(-1)}
-            className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+            className="w-10 h-10 bg-black/30 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform border border-white/10 shadow-lg"
           >
             <ChevronLeft size={24} />
           </button>
@@ -178,13 +264,13 @@ export const PublicPortfolio: React.FC = () => {
                 navigator.clipboard.writeText(link);
                 showToast("Profile link copied to clipboard! 🔗", "success");
               }}
-              className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+              className="w-10 h-10 bg-black/30 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform border border-white/10 shadow-lg"
             >
               <Share2 size={20} />
             </button>
             <button 
               onClick={() => setShowThreeDots(prev => !prev)}
-              className="w-10 h-10 bg-black/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
+              className="w-10 h-10 bg-black/30 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform border border-white/10 shadow-lg"
             >
               <MoreHorizontal size={20} />
             </button>
@@ -250,18 +336,27 @@ export const PublicPortfolio: React.FC = () => {
 
         {/* Top Floating Gallery - Cloned from Video */}
         <div className="absolute bottom-2 left-4 right-4 flex items-center gap-1.5 z-10 overflow-x-auto pb-1 scrollbar-hide">
-          {galleryThumbnails.map((thumb, i) => (
-            <motion.div 
-              key={i}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-              onClick={() => setSelectedImage(thumb)}
-              className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white shadow-lg flex-shrink-0 cursor-pointer active:scale-95 transition-all hover:border-[#2af5ff]"
-            >
-              <img src={thumb} className="w-full h-full object-cover" alt="Album" />
-            </motion.div>
-          ))}
+          {galleryThumbnails.map((thumb, i) => {
+            const isImageActive = allImages[activeImageIndex] === thumb;
+            return (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.1 }}
+                onClick={() => {
+                  const idx = allImages.indexOf(thumb);
+                  if (idx !== -1) setActiveImageIndex(idx);
+                }}
+                className={cn(
+                  "w-14 h-14 rounded-lg overflow-hidden border-2 shadow-lg flex-shrink-0 cursor-pointer active:scale-95 transition-all",
+                  isImageActive ? "border-[#2af5ff] ring-2 ring-[#2af5ff]/30 scale-105" : "border-white hover:border-[#2af5ff]"
+                )}
+              >
+                <img src={thumb} className="w-full h-full object-cover" alt="Album" />
+              </motion.div>
+            );
+          })}
           <div className="w-24 h-14 bg-black/40 backdrop-blur-md rounded-xl border border-white/20 flex flex-col items-center justify-center gap-1 flex-shrink-0 ml-auto">
             <div className="flex items-center gap-1">
               <div className="w-3.5 h-3.5 bg-[#2af5ff] rounded-sm flex items-center justify-center">
@@ -306,7 +401,17 @@ export const PublicPortfolio: React.FC = () => {
               transition={{ duration: 4, repeat: Infinity }}
               className="absolute -inset-2 bg-gradient-to-br from-yellow-400/30 via-transparent to-purple-500/30 blur-xl opacity-60 rounded-full"
             />
-            <div className="w-20 h-20 rounded-full p-0.5 bg-gradient-to-br from-[#ffd700] via-[#fff] to-[#ffd700] shadow-xl relative z-10">
+            <div 
+              onClick={() => {
+                const idx = allImages.indexOf(user.photoURL);
+                if (idx !== -1) {
+                  setActiveImageIndex(idx);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  showToast("Profile identity photo loaded!", "success");
+                }
+              }}
+              className="w-20 h-20 rounded-full p-0.5 bg-gradient-to-br from-[#ffd700] via-[#fff] to-[#ffd700] shadow-xl relative z-10 cursor-pointer active:scale-95 transition-all hover:ring-2 hover:ring-[#ffd700]/50"
+            >
               <img 
                 src={generateEnhancedImageUrl({ url: user.photoURL, width: 200, quality: 95 })} 
                 className="w-full h-full rounded-full object-cover"
@@ -336,8 +441,8 @@ export const PublicPortfolio: React.FC = () => {
           ))}
         </div>
 
-        {/* Status/Accolade Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {/* Status/Accolade Row 1 */}
+        <div className="flex items-center gap-2 flex-wrap pb-1 justify-center">
           {agency && (
             <div className="flex items-center gap-1 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-100 shrink-0">
               <Briefcase size={10} className="text-cyan-500 stroke-[2.5]" />
@@ -353,6 +458,37 @@ export const PublicPortfolio: React.FC = () => {
             <span className="text-[10px]">🎨</span>
             <span className="text-[10px] font-black text-gray-500 uppercase">Artist</span>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowCategoryTagsModal(true)}
+            className="flex items-center gap-1 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+          >
+            <span className="text-[10px]">🎤</span>
+            <span className="text-[10px] font-black text-blue-600 uppercase tracking-tight">Singing</span>
+          </button>
+        </div>
+
+        {/* Status/Accolade Row 2 (Signed Host & Double-Sized Wings Heart Badge) */}
+        <div className="flex items-center gap-3.5 justify-center mt-2.5">
+          <button
+            type="button"
+            onClick={() => setShowContractedModal(true)}
+            className="flex items-center gap-1 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 hover:bg-amber-100 transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
+          >
+            <span className="text-[11px]">📝</span>
+            <span className="text-[11px] font-black text-amber-600 uppercase tracking-tight">Signed Host</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setShowFaqModal(true)}
+            className="flex items-center gap-1 bg-pink-50 px-3 py-1 rounded-full border border-pink-200 hover:bg-pink-100 transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
+            title="Fan Group FAQ"
+          >
+            <span className="text-[11px] text-yellow-500 font-extrabold -scale-x-100 transform inline-block pb-0.5 select-none">🪶</span>
+            <span className="text-[18px] leading-none animate-pulse filter drop-shadow-[0_1px_2px_rgba(244,63,94,0.3)]">💝</span>
+            <span className="text-[11px] text-yellow-500 font-extrabold pb-0.5 select-none">🪶</span>
+          </button>
         </div>
 
         {/* Interaction Cards (The Big Buttons) */}
@@ -487,7 +623,14 @@ export const PublicPortfolio: React.FC = () => {
                     </div>
                   </div>
                   <div 
-                    onClick={() => setSelectedImage(post.thumbnail)}
+                    onClick={() => {
+                      const idx = allImages.indexOf(post.thumbnail);
+                      if (idx !== -1) {
+                        setActiveImageIndex(idx);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        showToast("Cover updated to status photo! ✦", "success");
+                      }
+                    }}
                     className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-slate-100 shadow-xl group cursor-pointer"
                   >
                     <img src={post.thumbnail} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -531,62 +674,23 @@ export const PublicPortfolio: React.FC = () => {
         {showCreateFamily && (
           <FamilyCreatePopup onClose={() => setShowCreateFamily(false)} />
         )}
-        {selectedImage && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 z-[9999] flex flex-col items-center justify-center p-4 select-none"
-          >
-            {/* Top Close Button & Controls */}
-            <div className="absolute top-6 left-0 right-0 px-6 flex items-center justify-between z-10">
-              <button 
-                onClick={() => setSelectedImage(null)}
-                className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
-              >
-                <X size={20} />
-              </button>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedImage);
-                    showToast("Photo link copied! ✨", "success");
-                  }}
-                  className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 transition-transform"
-                >
-                  <Share2 size={18} />
-                </button>
-                <button 
-                  onClick={() => {
-                    showToast("Saving high resolution artwork image...", "success");
-                  }}
-                  className="w-10 h-10 bg-[#2af5ff] rounded-full flex items-center justify-center text-black active:scale-95 transition-transform font-bold"
-                >
-                  <Download size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* Display Image */}
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="max-h-[75vh] max-w-full rounded-2xl overflow-hidden shadow-2xl border border-white/5 relative bg-[#111]"
-            >
-              <img 
-                src={selectedImage} 
-                className="max-h-[75vh] max-w-full object-contain mx-auto"
-                alt="Fullscreen Portfolio Viewer"
-              />
-            </motion.div>
-            
-            {/* Legend / Tip */}
-            <p className="text-white/40 text-[10px] uppercase font-black tracking-widest mt-6">
-              Tap anywhere outside or close to exit
-            </p>
-            <div className="absolute inset-0 -z-10" onClick={() => setSelectedImage(null)} />
-          </motion.div>
+        {showCategoryTagsModal && (
+          <CategoryTagsModal 
+            isOpen={showCategoryTagsModal} 
+            onClose={() => setShowCategoryTagsModal(false)} 
+          />
+        )}
+        {showContractedModal && (
+          <ContractedStreamerModal 
+            isOpen={showContractedModal} 
+            onClose={() => setShowContractedModal(false)} 
+          />
+        )}
+        {showFaqModal && (
+          <FanGroupFAQModal 
+            isOpen={showFaqModal} 
+            onClose={() => setShowFaqModal(false)} 
+          />
         )}
       </AnimatePresence>
 

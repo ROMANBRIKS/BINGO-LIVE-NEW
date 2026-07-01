@@ -12,8 +12,91 @@ This file tracks unimplemented and researched architectural concepts within the 
 
 ### 2. [UPCOMING] Moderator & Admin Access System
 *   **Status**: Pending Review / Todo 📋
-*   **Goal**: Implement interactive administration/moderator capabilities within live rooms.
+*   **Goal**: Implement robust, dual-layered administration and moderator capabilities across live rooms and main dashboards.
+*   **Key Tasks & Specifications**:
+    *   **Verified Admin Identification**: Ensure the administrative red desk/badge is visible only to a verified top admin account. Currently, this top admin is mapped to the user email `rogershep101@gmail.com`.
+    *   **Admin Access Protection & Credentials (Secret Code)**: Implement a secondary, secure sign-in framework down the line where admins must provide both their verified email address and a secret authorization code to gain administrative privileges.
+    *   **Moderator Promotion & Blue Badges**: Introduce dedicated "Moderator" roles working directly under the Admin. When a moderator logs in, they should see a customized, distinct **blue moderator badge** instead of the red administrator badge.
+    *   **Moderator Dashboard Entrance**: This blue badge will lead directly to a specialized Moderator Dashboard tailored with features to manage live rooms, view flags, mute users, and operate platform bouncer channels.
 *   **Reference Research**: (See detailed research below on how room admins gain access and operate on Bigo Live).
+
+### 3. [UPCOMING] Family Creation Criteria & Per-Region Refinement
+*   **Status**: Pending Review / Todo 📋
+*   **Goal**: Refine and localize the criteria for starting a new Family in our application.
+*   **Key Tasks**:
+    *   **Per-Region Rules**: Make sure family creation eligibility (user level, monthly USD recharge, gift diamond volume, etc.) can be checked and enforced selectively based on the user's region (Africa, Europe, North America, Caribbean).
+    *   **BIGO Reference Refinement**: Remove/replace any mislabeled references (such as auto-transcribed typos like "big toe") to clearly refer to official **BIGO ID / BIGO Live Official ID** parameters (e.g., Africa Official BIGO ID: 80015).
+    *   **Dynamic Requirements Engine**: Hook up the criteria page dynamically with Firestore/Auth state so users are only allowed to finalize family registration once their real-time levels and wallets meet regional thresholds.
+
+### 4. [UPCOMING] Billboard Ads Relocation (AdPlayer Campaign Portal)
+*   **Status**: Pending Review / Todo 📋
+*   **Goal**: Find a more appropriate placement for the Live AdPlayer campaign billboard.
+*   **Key Tasks**:
+    *   **Remove from Stream**: Successfully removed the live billboard banner overlay from the room's direct visual stream to prevent clutter.
+    *   **New Native Integration**: Relocate sponsor-related promotional slots (Google Cloud, NVIDIA Stream, Vesper Racing, etc.) into native, less-intrusive zones like the profile, info modals, or custom sidebar tabs where users expect to interact with promotional portals.
+
+### 5. [UPCOMING] Creator Dashboard Category & Talent Tag Integration
+*   **Status**: Completed UI & Core Popups, Pending Dashboard Connection 📋
+*   **Goal**: Connect Category Tags (e.g. Singing, Dancing, Certified Broadcaster) directly to user schema structures and streamer dashboards.
+*   **Key Tasks & Database Mapping**:
+    *   **Creator Profile Center Settings**: Implement a "Talent Certification Registry" tab inside `/src/pages/CreatorCenterPage.tsx` where broadcasters can review verification rules, select tags, and track progress towards obtaining labels.
+    *   **Automated Verification Audit**: Build backend conditions based on minimum live talent hours or verified streamer-agency records inside Firestore.
+    *   **Firestore Mapping**: Bind chosen verified labels directly to the `users` database schema under a new field parameter: `verifiedCategoryTags: string[]` (e.g. `['singing', 'dancing']`).
+    *   **Dynamic UI Rendering**: Update `UserDiscoveryPopup.tsx` and `PublicPortfolio.tsx` to read values from `user.verifiedCategoryTags` dynamically, fallback to standard tags if undefined.
+
+### 6. [UPCOMING] Non-Contract Payout Model & Digital Agency Agreements
+*   **Status**: Pending User Research / Todo 📋
+*   **Goal**: Model precise mechanics for creators who stream without active agency contracts, and build an in-app digital signature experience to easily transition casual writers into official hosts.
+*   **Key Tasks & Concept Mapping**:
+    *   **Casual Fallbacks**: Confirm final calculations for non-contract users—given Bigo pays non-contract hosts **$0 base salaries** (meaning casual streamers get no target bonuses and can only rely on direct diamond-to-bean wallet balance cashout conversions at the 210 Peg).
+    *   **In-App Agency Registration**: Map out a seamless, legally styled digital contract template inside the app's Creator Center. Streamers looking to join professional agencies can interactively review and digitally sign agreements, locking in official host status right from their device.
+    *   **Automated Contract Delivery Flow**: Set up step-by-step guidance on how a casual streamer transitions, contract distribution notifications, and automatic update to user roles (signed host statuses and agency bindings) once the agreement is signed on both ends.
+
+### 7. [PENDING DECISION] Multi-Stream PK Chat Merging Mechanics
+*   **Status**: Pending User Confirmation 📋
+*   **Goal**: Track the potential PK battle chat merger capability on the roadmap as requested by the user, waiting for final user decision.
+*   **Exact User Specification**:
+    *   "When you are on PK, there's a possibility that both chats from both places could be merged into one."
+    *   "Messages from followers of both streamers could run into the same chat."
+    *   "I've not decided on that yet. I will try to decide that and then we're going to know later."
+*   **Key Tasks**:
+    *   Await final user approval and green light on merged PK socket structure.
+    *   Prepare live mutual message sync pools for dual live feed streaming.
+
+### 8. [PENDING DECISION] Custom Star Goal Targets & Gift Conversion Mechanics
+*   **Status**: Pending User Information & Target Business Logic 📋
+*   **Goal**: Track and refine how Star Goal phases, challenge bars, and progress are calculated based on streamer-defined targets.
+*   **Exact User Specification**:
+    *   The current calculations are example placeholders; the actual system is based on custom targets.
+    *   Streamers set their own targets. When a target is completed, they can go ahead and set another one (e.g. daily/hourly targets).
+    *   Rough exchange rate rule under consideration: Roughly **50 diamonds or 50 beans** amounts to 1 Star/point increments in the progression.
+    *   Example: A streamer sets a target of 200, and when accumulated, they complete stars (such as achieving 4 out of 4 stars).
+*   **Key Tasks & Research Needed**:
+    *   Keep track of user's business rules on how stars, diamonds, and progress bars increment.
+    *   Confirm whether 50 diamonds/beans equals 1 Star, and how target levels scale progression.
+    *   Create a setup flow where hosts can customize/reset their live room goals.
+
+### 9. [COMPLETED] Live Room Follow Sequence & Contribution Mechanics
+*   **Status**: Done ✅
+*   **Changes**: Fully implemented:
+    *   **Follow Button Morph**: Clicking the `+` follow button transitions with a green pulse checkmark (✔️) and details a heart badge.
+    *   **Side Contribution Card**: Added a sliding floating card on the right-middle zone showing: `[User Name] Followed the anchor` and `🔥 +160`.
+    *   **Interactive Chat Logs**: Added custom-styled message widgets for both contribution `Following the anchor contributed 🔥 +160` and clickable fan group link `💗 You followed the host! Click to join the fan group to gain more attention! >` which opens the Fan Club join drawer interactively when clicked.
+
+### 10. [PENDING] Interactive Stream Heat & Daily Midnight Reset Mechanics
+*   **Status**: Pending Implementation 📋
+*   **Goal**: Integrate dynamic heat scoring from chat interactions, passive viewing duration, and implement the automatic global midnight reset sequence.
+*   **Aesthetics & Scoring Mechanics**:
+    *   **First Text Daily Heat**: When a viewer sends their very first message in a streamer's room for the day, a custom popularity/heat score bonus is unlocked and added instantly to the stream's active heat/popularity pool.
+    *   **Passive Viewing Heat**: Watching a stream for sustained intervals (e.g. every 5 or 10 minutes of active staying power) injects progressive heat increments to incentivize attendance.
+    *   **Midnight Reset Clock (11:50 PM - 12:00 AM)**: 
+        *   At **11:50 PM heading into midnight** local timezone, all active daily targets and live room diamond progress bars are hard-reset back to zero.
+        *   The reset happens automatically regardless of whether the streamer reached their daily target or not.
+        *   **On-Screen Target Wipe**: The active daily target progression count on the live stream screen and outer room lobby listings gets wiped completely clean to 0.
+        *   **Permanent Wallet Accumulation**: Despite the visible daily targets hitting 0 on the streaming screen and outer lists, the actual host wallet (Beans/Diamonds profile balance) remains untouched and continually accumulates everything earned yesterday and previously. The wallet always accurately displays the true total of what they made so far.
+        *   **Backend Settlement**: Yesterday's earnings are safely aggregated, settled, and deposited securely into the host's permanent profile wallets/beans before the clock resets.
+        *   The next cycle immediately begins from empty progression bars and 0 diamonds, allowing clean daily target grinds.
+
 
 ---
 

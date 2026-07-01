@@ -5,8 +5,11 @@ import { UserProfile } from './types';
  * Handles private call requests and status.
  */
 
-export const PRIVATE_CALL_FEE_AUDIO = 100; // Diamonds per minute for audio
-export const PRIVATE_CALL_FEE_VIDEO = 250; // Diamonds per minute for video
+// 210 diamonds or 210 beans equals 1.00 USD.
+// Half a dollar ($0.50) per minute for video calls = 105 diamonds/beans per minute.
+// A quarter of a dollar ($0.25) per minute for audio calls = 52.5 (rounded to 52) diamonds/beans per minute.
+export const PRIVATE_CALL_FEE_AUDIO = 52; // Diamonds per minute for audio
+export const PRIVATE_CALL_FEE_VIDEO = 105; // Diamonds per minute for video
 
 export const calculatePrivateCallCost = (durationInMinutes: number, type: 'audio' | 'video' = 'audio') => {
   const fee = type === 'video' ? PRIVATE_CALL_FEE_VIDEO : PRIVATE_CALL_FEE_AUDIO;

@@ -553,7 +553,7 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
               )}
             </div>
           )}
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-black/10 pointer-events-none" />
         </div>
         
         {isPK && (
@@ -563,7 +563,7 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-black/10 pointer-events-none" />
           </div>
         )}
         {renderDiagnosticOverlays()}
@@ -611,7 +611,7 @@ export const VideoStream = React.memo(({ isHost, roomId, hostUid, pkStatus, oppo
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-black/10 pointer-events-none" />
         </div>
       )}
 

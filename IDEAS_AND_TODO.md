@@ -285,14 +285,20 @@ This file serves as the central repository for brainstorming ideas, feature requ
     *   Ensure the reward (Beans/Diamonds) is accurately reflected in the user's balance immediately upon collection.
 
 ## 🛡️ 21. Dual-Layer Moderation System
-*   **Global Moderators (Staff):**
-    *   Appointed exclusively by the Admin.
-    *   **Role:** The "Judges" of the platform. They handle the central **Report Queue**.
+*   **Global Moderators (Staff & Appointed Mods):**
+    *   Appointed exclusively by the Admin (e.g., matching verified emails working under the admin).
+    *   **Visual Identity**: They wear a custom **Blue Moderator Badge** instead of the red administrator badge. Upon logging into the system, they see this blue badge which acts as a portal leading directly to a dedicated **Moderator Dashboard** tailored to their restricted enforcement tasks.
+    *   **Role:** The "Judges" of the platform. They handle the central **Report Queue**, assist the top admin, and keep streamer communities positive.
     *   **Powers:** 
         *   **Banning:** Can ban both streamers and users for specific durations: **Hours, Days, Weeks, Months, or Permanently**.
         *   **Unbanning:** Exclusive power to lift bans and restore account access.
         *   **Account Suspension:** Can temporarily or permanently disable accounts based on report severity.
+        *   **Restricted Controls**: Access to the specialized Moderator Dashboard with streamlined room auditing and user moderation features.
     *   **Authority:** They review reports filed by both users and Room Moderators. Only Global Mods (and Admins) have the power to ban/unban.
+*   **Top Administrator (Owner Level):**
+    *   Verified exclusively by the user email account (e.g. `rogershep101@gmail.com`).
+    *   **Visual Identity**: Displays a distinguished **Red Admin Badge** leading to the comprehensive Admin Control Room / Desk.
+    *   **Access Protection**: Possesses a future dual-verification pathway incorporating email identification plus a dedicated **Secret Code Credentials verification flow** to enforce maximum sandbox protection.
 *   **Room Moderators (Bouncers):**
     *   Appointed by the Host for their specific room.
     *   **Role:** Local enforcement. Their only job is to keep the chat clean and protect the streamer.
@@ -300,8 +306,9 @@ This file serves as the central repository for brainstorming ideas, feature requ
 *   **The Reporting Pipeline:**
     *   **User -> Global Mod:** Users can report streamers or other viewers for violations.
     *   **Room Mod -> Global Mod:** Bouncers can escalate local abuse to the staff for platform-wide action.
-*   **Visual Identity:**
-    *   **Staff Badge:** High-authority badge for Global Mods.
+*   **Visual Identity Summary:**
+    *   **Admin Badge:** Red high-authority badge for the verified Top-Owner.
+    *   **Staff/Moderator Badge:** Blue-authority badge for appointed Global Moderators/Bouncers working under the owner, leading to the moderator panel.
     *   **Bouncer Badge:** Smaller "Mod" icon for room-specific moderators.
 
 ## 🔒 22. Privacy & Content Protection
