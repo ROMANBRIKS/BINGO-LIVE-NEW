@@ -35,6 +35,7 @@ import { ShieldTier } from '../types';
 import { getDeviceType } from '../lib/device';
 import { getAudioConfig, saveAudioConfig, getBrowserAudioConstraints, AudioConfigSettings } from '../lib/audioConfig';
 import { RealtimeAudioVisualizer } from '../components/RealtimeAudioVisualizer';
+import { StreamHealthToggle } from '../components/StreamHealthToggle';
 
 const CATEGORIES = [
   { id: 'chat', label: 'Chat', icon: MessageCircle, color: '#22c55e' },
@@ -2256,6 +2257,11 @@ export default function GoLivePage() {
               </div>
               <span className="text-[10px] font-bold text-white">HNM 🦋🌹</span>
             </div>
+
+            {/* Stream Health Monitor */}
+            {status === 'live' && (
+              <StreamHealthToggle mediaStream={stream} />
+            )}
 
             {/* Folded Media Tools */}
             {status === 'live' && (
