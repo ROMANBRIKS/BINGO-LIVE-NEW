@@ -62,6 +62,8 @@ const AppContent = () => {
   const { user, profile, loading, logout } = useAuth();
   const { theme } = useTheme();
   const location = useLocation();
+  const [showStreamChat, setShowStreamChat] = React.useState(false);
+  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live' || location.pathname.startsWith('/talent/') || location.pathname.startsWith('/u/');
 
   if (loading) return <LoadingFallback />;
 
@@ -203,9 +205,6 @@ const AppContent = () => {
       </Suspense>
     );
   }
-
-  const [showStreamChat, setShowStreamChat] = React.useState(false);
-  const isStreamPage = location.pathname.startsWith('/room/') || location.pathname === '/go-live' || location.pathname.startsWith('/talent/') || location.pathname.startsWith('/u/');
 
   return (
     <div className={cn(

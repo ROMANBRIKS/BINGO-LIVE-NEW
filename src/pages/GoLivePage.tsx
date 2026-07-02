@@ -403,6 +403,36 @@ export default function GoLivePage() {
   const [roomData, setRoomData] = useState<any>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showStreamerTasks, setShowStreamerTasks] = useState(false);
+  const [showEndSummary, setShowEndSummary] = useState(false);
+  const [generatedClipsCount, setGeneratedClipsCount] = useState(0);
+  const [taskCenterDefaultTab, setTaskCenterDefaultTab] = useState<'Daily' | 'Weekly' | 'Milestones' | 'Clips'>('Daily');
+
+  const checkSessionClips = async (): Promise<number> => {
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open('ClipDB', 1);
+        request.onsuccess = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('clips')) {
+            resolve(0);
+            return;
+          }
+          const tx = db.transaction('clips', 'readonly');
+          const store = tx.objectStore('clips');
+          const getAllRequest = store.getAll();
+          getAllRequest.onsuccess = () => {
+            const allClips = getAllRequest.result || [];
+            const filtered = allClips.filter((c: any) => c.streamerId === profile?.uid);
+            resolve(filtered.length);
+          };
+          getAllRequest.onerror = () => resolve(0);
+        };
+        request.onerror = () => resolve(0);
+      } catch (e) {
+        resolve(0);
+      }
+    });
+  };
 
   const handleEndBroadcast = async () => {
     if (!profile) return;
@@ -412,6 +442,11 @@ export default function GoLivePage() {
         status: 'ended',
         endedAt: serverTimestamp()
       });
+      
+      // Check for clips in DB
+      const clipsCount = await checkSessionClips();
+      setGeneratedClipsCount(clipsCount);
+      setShowEndSummary(true);
       
       // Stop Agora stream
       await streamingService.leave();
@@ -2363,7 +2398,10 @@ export default function GoLivePage() {
                   <Sparkles size={18} />
                 </button>
                 <button 
-                  onClick={() => setShowStreamerTasks(true)} 
+                  onClick={() => {
+                    setTaskCenterDefaultTab('Daily');
+                    setShowStreamerTasks(true);
+                  }} 
                   className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-90 transition-transform"
                 >
                   <Menu size={18} className="text-white" />
@@ -2410,7 +2448,77 @@ export default function GoLivePage() {
             beansEarned={streamStats.giftCount * 10}
             pkBattlesPlayed={isPkActive ? 1 : 0}
             chatMessageCount={messages.length}
+            defaultTab={taskCenterDefaultTab}
           />
+        )}
+        {showEndSummary && (
+          <div className="fixed inset-0 z-[260] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              onClick={() => setShowEndSummary(false)} 
+              className="absolute inset-0 bg-black/95 backdrop-blur-md" 
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.9, opacity: 0, y: 20 }} 
+              className="relative w-full max-w-md bg-[#0c0c0d] border border-white/10 p-8 rounded-[2.5rem] shadow-2xl text-center overflow-hidden"
+            >
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-cyan-400 via-indigo-500 to-cyan-400" />
+              
+              <div className="w-16 h-16 rounded-[1.5rem] bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mx-auto mb-5 shadow-inner">
+                <Sparkles size={32} className="text-cyan-400" />
+              </div>
+
+              <h3 className="text-2xl font-black uppercase italic tracking-tight text-white mb-2">
+                Live Broadcast Ended
+              </h3>
+              <p className="text-xs text-zinc-400 font-medium leading-relaxed mb-6 font-sans">
+                Your stream has finished. Here is a summary of the moments captured from your broadcast:
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 mb-6 text-left">
+                <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1">Duration</span>
+                  <span className="text-sm font-black text-white">{Math.floor(streamStats.duration / 60)}m {streamStats.duration % 60}s</span>
+                </div>
+                <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+                  <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest block mb-1">Generated Clips</span>
+                  <span className="text-sm font-black text-[#00E5FF]">{generatedClipsCount} Captured</span>
+                </div>
+              </div>
+
+              {generatedClipsCount > 0 && (
+                <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl text-left">
+                  <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-widest block mb-1">⚠️ Temporary Storage warning</span>
+                  <p className="text-[10px] text-zinc-400 font-medium leading-normal">
+                    These clips are stored in your temporary browser cache. If you start a new stream without saving them, they may be cleared!
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <button 
+                  onClick={() => {
+                    setTaskCenterDefaultTab('Clips');
+                    setShowStreamerTasks(true);
+                    setShowEndSummary(false);
+                  }}
+                  className="w-full py-4 bg-[#00E5FF] hover:bg-cyan-400 text-black font-black uppercase tracking-widest rounded-2xl text-xs transition-all shadow-lg shadow-cyan-400/20 cursor-pointer"
+                >
+                  Review & Save Clips
+                </button>
+                <button 
+                  onClick={() => setShowEndSummary(false)}
+                  className="w-full py-4 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-2xl text-xs font-black uppercase tracking-widest border border-white/5 transition-all cursor-pointer"
+                >
+                  Close Summary
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
         {showEndConfirm && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">

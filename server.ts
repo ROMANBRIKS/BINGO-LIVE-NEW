@@ -7,6 +7,7 @@ import sharp from "sharp";
 import fs from "fs";
 import Redis from "ioredis";
 import pkg from "agora-access-token";
+import multer from "multer";
 
 const { RtcTokenBuilder, RtcRole } = pkg;
 
@@ -40,6 +41,27 @@ async function startServer() {
 
   // JSON Body Parser for API
   app.use(express.json());
+
+  // Initialize multer to save files inside 'clips' folder
+  const storageDir = path.join(process.cwd(), "clips");
+  if (!fs.existsSync(storageDir)) {
+    fs.mkdirSync(storageDir, { recursive: true });
+  }
+
+  const diskStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, storageDir);
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".webm";
+      cb(null, `clip_${Date.now()}_${Math.random().toString(36).substring(2, 9)}${ext}`);
+    }
+  });
+
+  const upload = multer({ storage: diskStorage });
+
+  // Serve 'clips' folder statically
+  app.use("/clips", express.static(storageDir));
 
   // --- LIVE CRAWLER & SEARCH ENGINE AUDIT TRAIL DATA ---
   const crawlerLogs: any[] = [
@@ -259,6 +281,72 @@ async function startServer() {
       }
     }
     res.json({ success: true, activeCount: redisClient ? null : inMemorySdkUserCount });
+  });
+
+  // --- CLIP CAPTURE API ---
+  app.post("/api/save-clip", upload.single("clip"), async (req, res) => {
+    try {
+      const { streamerId, timestamp } = req.body;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ error: "No clip file provided" });
+      }
+
+      // Local file path/URL
+      const clipUrl = `/clips/${file.filename}`;
+
+      // Load existing metadata
+      const metadataPath = path.join(storageDir, "metadata.json");
+      let metadata: any[] = [];
+      if (fs.existsSync(metadataPath)) {
+        try {
+          metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+        } catch (e) {
+          metadata = [];
+        }
+      }
+
+      const newHighlight = {
+        id: `highlight_${Date.now()}`,
+        streamerId,
+        url: clipUrl,
+        timestamp: parseInt(timestamp) || Date.now(),
+        savedAt: new Date().toISOString()
+      };
+
+      metadata.push(newHighlight);
+      fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), "utf8");
+
+      res.json({ success: true, url: clipUrl });
+    } catch (error) {
+      console.error("Error saving clip:", error);
+      res.status(500).json({ error: "Failed to save clip" });
+    }
+  });
+
+  app.get("/api/highlights/:streamerId", async (req, res) => {
+    try {
+      const { streamerId } = req.params;
+      const metadataPath = path.join(storageDir, "metadata.json");
+      let metadata: any[] = [];
+      if (fs.existsSync(metadataPath)) {
+        try {
+          metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+        } catch (e) {
+          metadata = [];
+        }
+      }
+
+      const filtered = metadata
+        .filter((item: any) => item.streamerId === streamerId)
+        .sort((a: any, b: any) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime());
+
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error fetching highlights:", error);
+      res.status(500).json({ error: "Failed to fetch highlights" });
+    }
   });
 
   // --- GEMINI PROXY API ---

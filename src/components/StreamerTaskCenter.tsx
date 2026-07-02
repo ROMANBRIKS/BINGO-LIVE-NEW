@@ -10,6 +10,8 @@ import { useToast } from '../context/ToastContext';
 import { db } from '../firebase';
 import { doc, updateDoc, increment } from 'firebase/firestore';
 import { cn } from '../lib/utils';
+import { ClipRecorder } from './ClipRecorder';
+import { HighlightsGallery } from './HighlightsGallery';
 
 interface StreamerTaskCenterProps {
   onClose: () => void;
@@ -17,6 +19,7 @@ interface StreamerTaskCenterProps {
   beansEarned?: number;     // Beans earned during current session
   pkBattlesPlayed?: number; // Count of PK battles played during session
   chatMessageCount?: number; // Host's sent messages count
+  defaultTab?: 'Daily' | 'Weekly' | 'Milestones' | 'Clips';
 }
 
 interface Task {
@@ -36,11 +39,12 @@ export function StreamerTaskCenter({
   streamDuration = 320, // default dummy values if not provided
   beansEarned = 150,
   pkBattlesPlayed = 1,
-  chatMessageCount = 2
+  chatMessageCount = 2,
+  defaultTab = 'Daily'
 }: StreamerTaskCenterProps) {
   const { profile } = useAuth();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'Daily' | 'Weekly' | 'Milestones'>('Daily');
+  const [activeTab, setActiveTab] = useState<'Daily' | 'Weekly' | 'Milestones' | 'Clips'>(defaultTab);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [beansClaimedCount, setBeansClaimedCount] = useState(0);
 
@@ -222,18 +226,18 @@ export function StreamerTaskCenter({
         {/* Tab Selection Navigation */}
         <div className="px-6 mt-4 shrink-0">
           <div className="bg-[#141a24] p-1 rounded-xl flex gap-1">
-            {(['Daily', 'Weekly', 'Milestones'] as const).map(tab => (
+            {(['Daily', 'Weekly', 'Milestones', 'Clips'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "flex-1 py-2 text-[10px] uppercase font-bold tracking-wider rounded-lg transition-all",
+                "flex-1 py-2 text-[10px] uppercase font-bold tracking-wider rounded-lg transition-all",
                   activeTab === tab 
                     ? "bg-[#00E5FF] text-black shadow-sm font-extrabold" 
                     : "text-slate-400 hover:text-white bg-transparent"
                 )}
               >
-                {tab === 'Daily' ? 'Daily Tasks' : tab === 'Weekly' ? 'Weekly' : 'Milestones'}
+                {tab === 'Daily' ? 'Daily' : tab === 'Weekly' ? 'Weekly' : tab === 'Milestones' ? 'Milestones' : 'Clips'}
               </button>
             ))}
           </div>
@@ -390,6 +394,20 @@ export function StreamerTaskCenter({
                   <span className="text-[8px] text-slate-500 block font-bold uppercase">Status</span>
                   <span className="text-[10px] text-purple-400 font-black uppercase tracking-widest font-sans">In Progress 🛡️</span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Clips' && (
+            <div className="space-y-4">
+              <ClipRecorder 
+                streamerId={profile?.uid || 'default_streamer'} 
+                onClipSaved={(clipId) => {
+                  showToast('Highlight clip successfully saved to server! 🌟', 'success');
+                }}
+              />
+              <div className="mt-4 pt-4 border-t border-white/[0.05]">
+                <HighlightsGallery streamerId={profile?.uid || 'default_streamer'} />
               </div>
             </div>
           )}

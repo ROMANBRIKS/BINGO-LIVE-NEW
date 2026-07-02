@@ -1,0 +1,41 @@
+.highlights-gallery {
+  padding: 16px;
+  background: #1a1a2e;
+  border-radius: 12px;
+  color: #e0e0e0;
+}
+
+.highlights-gallery h3 {
+  margin-bottom: 16px;
+}
+
+.highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.highlight-item {
+  background: #0f0f1a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.highlight-video {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.highlight-time {
+  display: block;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.empty {
+  text-align: center;
+  color: #666;
+  padding: 30px;
+}
