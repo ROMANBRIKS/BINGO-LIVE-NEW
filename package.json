@@ -27,6 +27,7 @@
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "firebase": "^12.11.0",
+    "firebase-admin": "^14.1.0",
     "ioredis": "^5.11.0",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.475.0",

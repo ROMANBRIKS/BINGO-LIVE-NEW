@@ -13,6 +13,8 @@ import { cn } from './lib/utils';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { ChatBox } from './components/ChatBox';
+import { NotificationPrompt } from './components/NotificationPrompt';
+import { NotificationListener } from './components/NotificationListener';
 
 // Lazy load pages for better performance
 import HomePage from './pages/HomePage';
@@ -218,6 +220,11 @@ const AppContent = () => {
           theme === 'dark' ? "bg-[#121212]" : "bg-white",
           !isStreamPage && (theme === 'dark' ? "sm:border-x border-white/5" : "sm:border-x border-black/5")
         )}>
+          {!isStreamPage && (
+            <div className="p-4 border-b border-white/[0.05] bg-[#0c0d14]/30">
+              <NotificationPrompt userId={user.uid} />
+            </div>
+          )}
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/" element={<HomePage />} />
@@ -310,6 +317,9 @@ const AppContent = () => {
           {showStreamChat ? <X size={20} /> : <MessageSquare size={22} />}
         </button>
       </div>
+
+      {/* Background FCM Foreground Listener */}
+      <NotificationListener />
     </div>
   );
 };

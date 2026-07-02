@@ -8,6 +8,9 @@ import fs from "fs";
 import Redis from "ioredis";
 import pkg from "agora-access-token";
 import multer from "multer";
+import * as firebaseAdmin from "firebase-admin";
+
+const admin = firebaseAdmin as any;
 
 const { RtcTokenBuilder, RtcRole } = pkg;
 
@@ -38,6 +41,25 @@ try {
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Initialize Firebase Admin with dynamic projectId or standard ADC
+  try {
+    if (admin.apps.length === 0) {
+      const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+        admin.initializeApp({
+          projectId: config.projectId
+        });
+        console.log("Firebase Admin initialized successfully for project:", config.projectId);
+      } else {
+        admin.initializeApp();
+        console.log("Firebase Admin initialized using default credentials.");
+      }
+    }
+  } catch (err: any) {
+    console.warn("⚠️ Firebase Admin initialization warning (safe to proceed):", err.message);
+  }
 
   // JSON Body Parser for API
   app.use(express.json());
@@ -346,6 +368,132 @@ async function startServer() {
     } catch (error) {
       console.error("Error fetching highlights:", error);
       res.status(500).json({ error: "Failed to fetch highlights" });
+    }
+  });
+
+  // --- PUSH NOTIFICATION SYSTEM (FCM) API ---
+  app.post("/api/register-device", async (req, res) => {
+    try {
+      const { userId, fcmToken } = req.body;
+      if (!userId || !fcmToken) {
+        return res.status(400).json({ error: "Missing userId or fcmToken" });
+      }
+
+      if (admin.apps.length === 0) {
+        return res.status(503).json({ error: "Firebase Admin is not configured on this environment" });
+      }
+
+      await admin.firestore().collection("users").doc(userId).set({
+        fcmToken,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      console.log(`Device registered successfully for User ID: ${userId}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error registering device token:", error);
+      res.status(500).json({ error: error.message || "Failed to register device" });
+    }
+  });
+
+  app.post("/api/send-notification", async (req, res) => {
+    try {
+      const { userId, title, body, type, data } = req.body;
+      if (!userId || !title || !body) {
+        return res.status(400).json({ error: "Missing userId, title, or body" });
+      }
+
+      if (admin.apps.length === 0) {
+        return res.status(503).json({ error: "Firebase Admin is not configured on this environment" });
+      }
+
+      const userDoc = await admin.firestore().collection("users").doc(userId).get();
+      const fcmToken = userDoc.data()?.fcmToken;
+
+      if (!fcmToken) {
+        return res.status(404).json({ error: "User has no registered device token for push notifications" });
+      }
+
+      const message = {
+        token: fcmToken,
+        notification: { title, body },
+        data: { type: type || "general", ...data },
+        webpush: {
+          fcmOptions: {
+            link: data?.url || "/"
+          }
+        }
+      };
+
+      await admin.messaging().send(message);
+      console.log(`Notification successfully dispatched to user: ${userId}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error sending push notification:", error);
+      res.status(500).json({ error: error.message || "Failed to send notification" });
+    }
+  });
+
+  app.post("/api/notify-live", async (req, res) => {
+    try {
+      const { streamerId, streamerName, streamUrl } = req.body;
+      if (!streamerId || !streamerName) {
+        return res.status(400).json({ error: "Missing streamerId or streamerName" });
+      }
+
+      if (admin.apps.length === 0) {
+        return res.status(503).json({ error: "Firebase Admin is not configured on this environment" });
+      }
+
+      const followersSnapshot = await admin.firestore()
+        .collection("follows")
+        .where("streamerId", "==", streamerId)
+        .get();
+
+      const tokens: string[] = [];
+      const followerIds: string[] = [];
+
+      for (const doc of followersSnapshot.docs) {
+        const followerId = doc.data().followerId;
+        if (followerId) {
+          followerIds.push(followerId);
+          const userDoc = await admin.firestore().collection("users").doc(followerId).get();
+          const token = userDoc.data()?.fcmToken;
+          if (token) {
+            tokens.push(token);
+          }
+        }
+      }
+
+      if (tokens.length > 0) {
+        const message = {
+          notification: {
+            title: `🔴 ${streamerName} is now live!`,
+            body: "Tap to join the stream and chat."
+          },
+          data: { type: "live", streamUrl: streamUrl || "/" },
+          webpush: {
+            fcmOptions: { link: streamUrl || "/" }
+          }
+        };
+
+        for (let i = 0; i < tokens.length; i += 500) {
+          const batch = tokens.slice(i, i + 500);
+          await admin.messaging().sendEachForMulticast({
+            ...message,
+            tokens: batch
+          });
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        notifiedCount: tokens.length, 
+        followersCount: followerIds.length 
+      });
+    } catch (error: any) {
+      console.error("Error sending multicast live notifications:", error);
+      res.status(500).json({ error: error.message || "Failed to send live notifications" });
     }
   });
 

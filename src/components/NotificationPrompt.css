@@ -1,0 +1,60 @@
+.notification-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #10141e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.notification-prompt.granted {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+
+.notification-prompt.denied {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+
+.notification-prompt .prompt-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.notification-prompt .enable-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #00E5FF;
+  color: #000;
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notification-prompt .enable-btn:hover:not(:disabled) {
+  background: #33f0ff;
+  transform: translateY(-1px);
+}
+
+.notification-prompt .enable-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.notification-prompt .enable-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

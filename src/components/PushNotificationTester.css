@@ -1,0 +1,87 @@
+.notification-tester {
+  background: #10141e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.notification-tester .tester-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notification-tester .tester-header .icon {
+  font-size: 1.25rem;
+}
+
+.notification-tester h4 {
+  margin: 0;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.notification-tester .tester-description {
+  margin: 0 0 4px 0;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.notification-tester .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-tester .tester-input {
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.notification-tester .tester-input:focus {
+  outline: none;
+  border-color: #00E5FF;
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.15);
+}
+
+.notification-tester .tester-btn {
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  background: #00E5FF;
+  color: #000;
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notification-tester .tester-btn:hover:not(:disabled) {
+  background: #33f0ff;
+  transform: translateY(-1px);
+}
+
+.notification-tester .tester-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.notification-tester .tester-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

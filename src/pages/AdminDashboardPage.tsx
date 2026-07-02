@@ -59,6 +59,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { PushNotificationTester } from "../components/PushNotificationTester";
 
 export default function AdminDashboardPage() {
   const { profile, user } = useAuth();
@@ -2044,6 +2045,15 @@ export default function AdminDashboardPage() {
                     Save Split & Salary Rules
                   </button>
                 </div>
+              </motion.div>
+
+              {/* Developer FCM Push Notification Control Block */}
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6"
+              >
+                <PushNotificationTester />
               </motion.div>
             </div>
           )}
