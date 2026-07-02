@@ -7,6 +7,7 @@ import { mediaPipeService, ARSettings } from '../services/MediaPipeService';
 import { streamingService } from '../services/streamingService';
 import { cn } from '../lib/utils';
 import { AILiveAssistant, StreamStats } from '../components/AILiveAssistant';
+import { StreamerTaskCenter } from '../components/StreamerTaskCenter';
 import { MiniGameCenter, MiniGame } from '../components/MiniGameCenter';
 import { X, Camera, FlipHorizontal, Sparkles, Wand2, Maximize2, ChevronDown, Edit2, MessageCircle, Menu, Link2, Gift, StopCircle, Smile, SendHorizontal, Crown, Glasses, Gamepad2, UserCircle, Mic, Youtube, Music, Mic2, RotateCw, Columns2, Heart, Star, Layout, Palette, User, Waves, Settings as SettingsIcon, Megaphone, Plus, Shield, Lock, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -401,6 +402,7 @@ export default function GoLivePage() {
   const [youtubeId, setYoutubeId] = useState('');
   const [roomData, setRoomData] = useState<any>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showStreamerTasks, setShowStreamerTasks] = useState(false);
 
   const handleEndBroadcast = async () => {
     if (!profile) return;
@@ -2360,7 +2362,10 @@ export default function GoLivePage() {
                 >
                   <Sparkles size={18} />
                 </button>
-                <button className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center">
+                <button 
+                  onClick={() => setShowStreamerTasks(true)} 
+                  className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-90 transition-transform"
+                >
                   <Menu size={18} className="text-white" />
                 </button>
               </div>
@@ -2398,6 +2403,15 @@ export default function GoLivePage() {
 
       {/* MODALS & OVERLAYS */}
       <AnimatePresence>
+        {showStreamerTasks && (
+          <StreamerTaskCenter 
+            onClose={() => setShowStreamerTasks(false)} 
+            streamDuration={streamStats.duration}
+            beansEarned={streamStats.giftCount * 10}
+            pkBattlesPlayed={isPkActive ? 1 : 0}
+            chatMessageCount={messages.length}
+          />
+        )}
         {showEndConfirm && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
             <motion.div 

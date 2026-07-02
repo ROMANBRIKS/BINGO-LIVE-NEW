@@ -48,6 +48,7 @@ import { LevelBadge } from '../components/LevelBadge';
 import { VideoStream } from '../components/VideoStream';
 import { GiftingModal } from '../components/GiftingModal';
 import { RoomToolsModal } from '../components/RoomToolsModal';
+import { StreamerTaskCenter } from '../components/StreamerTaskCenter';
 import { PKShieldOverlay } from '../components/PKShieldOverlay';
 import { FanClubWelcome } from '../components/FanClubWelcome';
 import { RoomFanClubDrawer } from '../components/RoomFanClubDrawer';
@@ -695,6 +696,7 @@ export default function RoomPage() {
   const [localSentMessages, setLocalSentMessages] = useState<any[]>([]);
   const [showGifts, setShowGifts] = useState(false);
   const [showTools, setShowTools] = useState(false);
+  const [showStreamerTasks, setShowStreamerTasks] = useState(false);
   const [showGames, setShowGames] = useState(false);
   const [showAICoach, setShowAICoach] = useState(false);
   const [streamStats, setStreamStats] = useState<StreamStats>({
@@ -2137,6 +2139,7 @@ export default function RoomPage() {
         showToast('Link copied to clipboard! 🔗', 'success');
         break;
       case 'Clean Mode': setIsCleanMode(!isCleanMode); break;
+      case 'Task Center': setShowStreamerTasks(true); break;
       case 'Minimize': setIsMinimized(!isMinimized); break;
       case 'Quality': setQuality(prev => prev === 'HD' ? 'SD' : 'HD'); break;
       case 'Watching Optimization': setIsLowLatency(!isLowLatency); break;
@@ -3066,6 +3069,15 @@ export default function RoomPage() {
           </div>
         )}
         {showTools && <RoomToolsModal onClose={() => setShowTools(false)} isHost={isHost} onAction={handleToolAction} currentQuality={quality} isCleanMode={isCleanMode} isRecording={isRecording} isLowLatency={isLowLatency} />}
+        {showStreamerTasks && (
+          <StreamerTaskCenter 
+            onClose={() => setShowStreamerTasks(false)} 
+            streamDuration={streamStats.duration}
+            beansEarned={streamStats.giftCount * 10}
+            pkBattlesPlayed={1}
+            chatMessageCount={localSentMessages.length}
+          />
+        )}
         {showGifts && <GiftingModal room={room} seats={seats} onClose={() => setShowGifts(false)} onGiftSent={handleLocalGift} />}
         {showFanClubDrawer && room && hostProfile && profile && (
           <RoomFanClubDrawer 

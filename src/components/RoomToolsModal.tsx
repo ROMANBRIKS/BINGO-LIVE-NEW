@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   X, Camera, Sparkles, Smile, Columns2, RotateCw, ZoomIn, 
   Zap, Key, Mic2, Youtube, MonitorUp, Megaphone, Music,
-  Video, Newspaper, UserPlus, Gift, Gamepad2, Phone, Dog,
+  Video, Newspaper, UserPlus, Gift, Gamepad2, Phone, Dog, Trophy,
   CalendarHeart, Heart, Ticket, Share2, Minimize2, Wrench,
   Siren, Ban, Trash2, Monitor, Share, Video as RecorderIcon, 
   Settings, Flag, ShieldAlert, Ghost, Wrench as OptimizationIcon
@@ -39,6 +39,7 @@ export const RoomToolsModal: React.FC<RoomToolsModalProps> = ({
 }) => {
   // Viewer Tools Grid - EXACT REPLICATION OF THE IMAGE
   const viewerTools: { icon: any, label: string, color?: string, subLabel?: string, badge?: number }[] = [
+    ...(isHost ? [{ icon: Trophy, label: 'Task Center', color: 'text-amber-500' }] : []),
     { icon: Share, label: 'Share' },
     { icon: RecorderIcon, label: isRecording ? 'Stop Rec' : 'Recorder', color: isRecording ? 'text-red-500' : '' },
     { icon: Minimize2, label: 'Minimize' },
